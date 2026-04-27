@@ -17,13 +17,14 @@ import { PainelCompromissos } from "@/components/dashboard/painel-compromissos"
 import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  mockFinanceiro,
-  mockGraficoDiario,
-  mockGraficoMensal,
-} from "@/app/(dashboard)/data/mock"
-import type { ResumoFinanceiroHoje } from "@/lib/foneninja"
+import { backendService } from "@/lib/services/backend-service"
 import type { TarefaDB } from "@/types/tarefas"
+
+export interface ResumoFinanceiroHoje {
+  faturamentoDia: number
+  lucroBrutoDia: number
+  margemBrutaDia: number
+}
 
 const GraficoFinanceiro = dynamic(
   () => import("@/components/dashboard/grafico-financeiro").then((m) => m.GraficoFinanceiro),
@@ -59,6 +60,8 @@ interface DashboardAdminProps {
   tarefasPendentes: TarefaDB[]
   faturamentoMes?: number
   resumoHoje?: ResumoFinanceiroHoje
+  despesasMes?: number
+  lucroLiquidoMes?: number
 }
 
 export function DashboardAdmin({
@@ -66,24 +69,22 @@ export function DashboardAdmin({
   tarefasPendentes,
   faturamentoMes,
   resumoHoje,
+  despesasMes,
+  lucroLiquidoMes,
 }: DashboardAdminProps) {
-  const f = mockFinanceiro
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
-  const faturamentoDiaValor = resumoHoje ? brl(resumoHoje.faturamentoDia) : "Indisponível"
-  const faturamentoDiaDescricao = resumoHoje ? "Hoje (real)" : "Erro ao carregar dados reais"
-  const lucroBrutoValor = resumoHoje ? brl(resumoHoje.lucroBrutoDia) : "Indisponível"
-  const lucroBrutoDescricao = resumoHoje
-    ? `Margem bruta ${resumoHoje.margemBrutaDia.toFixed(2)}%`
-    : "Erro ao carregar dados reais"
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
 
+  const faturamentoDiaValor = resumoHoje ? brl(resumoHoje.faturamentoDia) : "—"
+  const faturamentoDiaDescricao = resumoHoje ? "Hoje (real)" : "Aguardando dados"
+  const lucroBrutoValor = resumoHoje ? brl(resumoHoje.lucroBrutoDia) : "—"
+  const lucroBrutoDescricao = resumoHoje
+    ? `Margem bruta ${resumoHoje.margemBrutaDia.toFixed(2)}%`
+    : "Aguardando dados"
+
   const concluirTarefa = useCallback(async (id: string) => {
-    const res = await fetch(`/api/tarefas/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "CONCLUIDA" }),
-    })
-    if (res.ok) {
+    try {
+      await backendService.updateTask(id, { status: "CONCLUIDA" })
       setRiscados((prev) => new Set(prev).add(id))
       setTimeout(() => {
         setConcluidos((prev) => new Set(prev).add(id))
@@ -93,8 +94,10 @@ export function DashboardAdmin({
           return next
         })
       }, 700)
+      return true
+    } catch {
+      return false
     }
-    return res.ok
   }, [])
 
   const pendentesVisiveis = useMemo(
@@ -125,8 +128,8 @@ export function DashboardAdmin({
         />
         <KpiCard
           titulo="Faturamento do Mês"
-          valor={brl(faturamentoMes ?? f.faturamentoMes)}
-          descricao={faturamentoMes !== undefined ? "Este mês (real)" : `${f.percentualMeta}% da meta`}
+          valor={faturamentoMes !== undefined ? brl(faturamentoMes) : "—"}
+          descricao={faturamentoMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
           icone={Target}
           tendencia="up"
         />
@@ -138,8 +141,8 @@ export function DashboardAdmin({
         />
         <KpiCard
           titulo="Lucro Líquido"
-          valor={brl(f.lucroLiquido)}
-          descricao={`Margem ${f.margemLiquida}%`}
+          valor={lucroLiquidoMes !== undefined ? brl(lucroLiquidoMes) : "—"}
+          descricao={lucroLiquidoMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
           icone={TrendingUp}
           tendencia="up"
           destaque
@@ -147,46 +150,24 @@ export function DashboardAdmin({
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard
-          titulo="A Pagar"
-          valor={brl(f.contasPagarMes)}
-          descricao="Este mês"
-          icone={ArrowDownLeft}
-          tendencia="down"
-        />
-        <KpiCard
-          titulo="A Receber"
-          valor={brl(f.contasReceberMes)}
-          descricao="Este mês"
-          icone={ArrowUpRight}
-          tendencia="up"
-        />
+        {/* TODO: API não fornece aPagar — aguardar implementação no backend */}
+        <KpiCard titulo="A Pagar" valor="—" descricao="Não disponível na API" icone={ArrowDownLeft} tendencia="down" />
+        {/* TODO: API não fornece aReceber — aguardar implementação no backend */}
+        <KpiCard titulo="A Receber" valor="—" descricao="Não disponível na API" icone={ArrowUpRight} tendencia="up" />
         <KpiCard
           titulo="Total Despesas"
-          valor={brl(f.totalDespesas)}
-          descricao={`Fixas ${brl(f.despesasFixas)}`}
+          valor={despesasMes !== undefined ? brl(despesasMes) : "—"}
+          descricao={despesasMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
           icone={Receipt}
           tendencia="down"
         />
-        <KpiCard
-          titulo="Saldo em Caixa"
-          valor={brl(f.saldoCaixa)}
-          descricao="Posição atual"
-          icone={Wallet}
-          tendencia="neutral"
-          destaque
-        />
+        {/* TODO: API não fornece saldo — aguardar implementação no backend */}
+        <KpiCard titulo="Saldo em Caixa" valor="—" descricao="Não disponível na API" icone={Wallet} tendencia="neutral" destaque />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <GraficoFinanceiro
-          dados={mockGraficoMensal}
-          titulo="Evolução Mensal (6 meses)"
-        />
-        <GraficoFinanceiro
-          dados={mockGraficoDiario}
-          titulo="Evolução Semanal (dias)"
-        />
+        <GraficoFinanceiro dados={[]} titulo="Evolução Mensal (6 meses)" />
+        <GraficoFinanceiro dados={[]} titulo="Evolução Semanal (dias)" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

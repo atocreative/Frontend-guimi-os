@@ -15,6 +15,9 @@ const roboto = Roboto({
 export const metadata: Metadata = {
   title: "Guimicell OS",
   description: "Painel operacional interno",
+  icons: {
+    icon: "/logo.webp",
+  },
 };
 
 export default function RootLayout({
@@ -30,7 +33,12 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans">
         <Providers>
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipProvider>
+            <div className="flex flex-1 flex-col">{children}</div>
+          </TooltipProvider>
+          <footer className="shrink-0 border-t border-zinc-800 bg-zinc-950 py-3 text-center text-xs text-zinc-500">
+            Todos os direitos reservados à ATO.
+          </footer>
         </Providers>
       </body>
     </html>

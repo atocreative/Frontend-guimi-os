@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { z } from "zod"
@@ -55,13 +56,23 @@ export default function LoginPage() {
       <div className="w-full max-w-sm px-6">
 
         {/* Logo / Marca */}
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-white">
-            Guimicell <span className="text-zinc-400">OS</span>
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Painel operacional interno
-          </p>
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <Image
+            src="/logo.webp"
+            alt="Guimicell"
+            width={80}
+            height={80}
+            className="rounded-xl"
+            priority
+          />
+          <div className="text-center">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
+              Guimicell <span className="text-zinc-400">OS</span>
+            </h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              Painel operacional interno
+            </p>
+          </div>
         </div>
 
         {/* Card de login */}

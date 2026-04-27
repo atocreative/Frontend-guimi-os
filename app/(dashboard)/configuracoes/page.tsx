@@ -1,17 +1,19 @@
+import { redirect } from "next/navigation"
 import { Plug, Settings2, Users } from "lucide-react"
 import { auth } from "@/auth"
-import { IntegracaoCard } from "@/components/configuracoes/integracao-card"
 import { SistemaCard } from "@/components/configuracoes/sistema-card"
 import { UsuariosSection } from "@/components/configuracoes/usuarios-section"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  mockIntegracoes,
-  mockSistema,
-} from "./data/mock"
 
 export default async function ConfiguracoesPage() {
   const session = await auth()
-  const canManageUsers = session?.user?.role === "ADMIN"
+  const role = session?.user?.role
+
+  if (role === "COLABORADOR") {
+    redirect("/")
+  }
+
+  const canManageUsers = role === "ADMIN"
 
   return (
     <div className="space-y-6">
@@ -43,27 +45,14 @@ export default async function ConfiguracoesPage() {
         </TabsContent>
 
         <TabsContent value="integracoes" className="space-y-4 outline-none">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-medium">Conectores e APIs</h3>
-              <p className="text-sm text-muted-foreground">
-                Integrações ativas e configuradas no sistema.
-              </p>
-            </div>
-            <span className="text-sm text-muted-foreground bg-muted px-2 py-1 rounded-md">
-              {mockIntegracoes.filter((integracao) => integracao.status === "CONECTADO").length}/
-              {mockIntegracoes.length} conectadas
-            </span>
+          <div>
+            <h3 className="text-lg font-medium">Conectores e APIs</h3>
+            <p className="text-sm text-muted-foreground">
+              Integrações ativas e configuradas no sistema.
+            </p>
           </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {mockIntegracoes.map((integracao) => (
-              <IntegracaoCard key={integracao.id} integracao={integracao} />
-            ))}
-          </div>
-
-          <p className="text-xs text-muted-foreground mt-4">
-            As integrações seguem mockadas nesta fase enquanto as APIs externas são validadas.
+          <p className="text-sm text-muted-foreground">
+            Nenhuma integração configurada ainda.
           </p>
         </TabsContent>
 
@@ -75,7 +64,7 @@ export default async function ConfiguracoesPage() {
             </p>
           </div>
           <div className="max-w-md">
-            <SistemaCard sistema={mockSistema} />
+            <SistemaCard sistema={[]} />
           </div>
         </TabsContent>
       </Tabs>
