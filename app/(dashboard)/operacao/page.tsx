@@ -25,6 +25,15 @@ export default function OperacaoPage() {
         </p>
       </div>
 
+      {/* Aviso: Dados mockados aguardando integração */}
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="font-medium">⚠️ Dados de referência</p>
+        <p className="mt-1 text-xs">
+          Esta seção exibe dados mockados para fins de layout e design.
+          A integração com dados reais do backend será implementada após configuração das APIs operacionais.
+        </p>
+      </div>
+
       {/* Resumo */}
       <ResumoOperacao resumo={mockResumoOperacao} />
 

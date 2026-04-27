@@ -43,6 +43,15 @@ export default function FinanceiroPage() {
         </p>
       </div>
 
+      {/* Aviso: Dados mockados aguardando integração */}
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p className="font-medium">⚠️ Dados de referência</p>
+        <p className="mt-1 text-xs">
+          Esta seção exibe dados mockados para fins de layout e design.
+          A integração com dados reais do backend será implementada após configuração das APIs financeiras.
+        </p>
+      </div>
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <KpiCard
           titulo="Faturamento do Mês"
