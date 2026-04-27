@@ -1,4 +1,46 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Segurança e Ambiente
+.env
+.env.local
+*.key
+
+# Pastas de Orquestração de IA e Config Local (Não devem ir para o GitHub)
+.planning/
+.paperclip/
+.serena/
+.claude-code-router/
+.agent/
+.agents/
+.claude/
+.openclaude/
+.opencode/
+.aru/
+.swc/
+squads/
+test-results/
+OPENCODE.md
+INSTALL.md
+USAGE.md
+CLAUDE.md
+aru.mcp.json
+
+# Documentos de Análise e Planejamento (Não devem subir)
+AGENTS.md
+ANALISE-PROFISSIONAL-COMPLETA.md
+PROXIMAS-ACOES.txt
+RESUMO-EXECUTIVO.txt
+tests/DIAGNOSTICO-CONCLUSOES.md
+tests/HOW-TO-GET-COOKIE.md
+tests/INTEGRATION-STATUS.md
+tests/INDEX.md
+tests/MANUAL-TESTING.md
+# Dependências de Código Padrão
+node_modules/
+dist/
+build/
+__pycache__/
+
+package.json
+bun.lock
 
 # dependencies
 /node_modules
@@ -12,6 +54,12 @@
 
 # testing
 /coverage
+/playwright/.auth/
+/playwright-report/
+/test-results/
+/playwright/.auth/
+/playwright-report/
+/test-results/
 
 # next.js
 /.next/
@@ -30,8 +78,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+.env
+.env.local
+.env*.local
 
 # vercel
 .vercel
@@ -53,6 +103,12 @@ next-env.d.ts
 
 # testing
 /coverage
+/playwright/.auth/
+/playwright-report/
+/test-results/
+/playwright/.auth/
+/playwright-report/
+/test-results/
 
 # next.js
 /.next/
