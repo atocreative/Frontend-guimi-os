@@ -40,7 +40,7 @@ test.describe("Colaboradores (Team Members)", () => {
 
   test("should have a button to add new collaborator", async ({ page }) => {
     // Look for add/new collaborator button
-    const addButton = page.locator('button:has-text(/Novo|Adicionar|Criar|\\+|Convidar/i)')
+    const addButton = page.locator('button:has-text(/Novo|Adicionar|Criar|Convidar/i)')
 
     const count = await addButton.count()
     expect(typeof count).toBe("number")

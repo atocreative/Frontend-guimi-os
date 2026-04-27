@@ -44,7 +44,7 @@ test.describe("Dashboard", () => {
 
   test("should display financial metrics when available", async ({ page }) => {
     // Look for financial-related text
-    const faturamento = page.locator('text=/Faturamento|—/')
+    const faturamento = page.locator('text=/Faturamento/')
 
     // Just verify that dashboard loads without errors
     const isVisible = await faturamento.isVisible().catch(() => false)
