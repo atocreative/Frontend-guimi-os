@@ -1,6 +1,7 @@
 import { backendRepository, ApiError } from "@/lib/repositories/backend-repository"
 import type { TarefaDB } from "@/types/tarefas"
 import type { UsuarioDB } from "@/types/usuarios"
+import type { DashboardResponse } from "@/types/dashboard"
 
 export class BackendServiceError extends Error {
   constructor(
@@ -121,7 +122,7 @@ export const backendService = {
   },
 
   // Dashboard
-  async getDashboard(): Promise<any> {
+  async getDashboard(): Promise<DashboardResponse> {
     try {
       return await backendRepository.getDashboard()
     } catch (error) {
