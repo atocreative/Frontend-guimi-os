@@ -9,7 +9,10 @@ export interface UsuarioSistema {
   jobTitle: string | null
   active: boolean
   createdAt: string
+  updatedAt?: string
 }
+
+export type UsuarioDB = UsuarioSistema
 
 export interface NovoUsuarioPayload {
   name: string

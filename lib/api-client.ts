@@ -1,16 +1,28 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001"
+import {
+  backendFetch,
+  backendLogin,
+  backendVerifyMfa,
+  extractChecklistItemPayload,
+  extractChecklistsPayload,
+  extractTaskPayload,
+  extractTasksPayload,
+  extractUserPayload,
+  extractUsersPayload,
+} from "@/lib/backend-api"
+
+const TOKEN_ENDPOINT = "/api/auth/token"
 
 type AuthMode = "required" | "none"
 
 interface FetchOptions extends RequestInit {
-  params?: Record<string, any>
+  params?: Record<string, unknown>
   auth?: AuthMode
 }
 
 export class ApiError extends Error {
   constructor(
     public status: number,
-    public data: any,
+    public data: unknown,
     message?: string,
     public code?: string
   ) {
@@ -18,12 +30,12 @@ export class ApiError extends Error {
   }
 }
 
-let _cachedToken: string | null = null
-let _tokenExpiry = 0
+let cachedToken: string | null = null
+let tokenExpiry = 0
 
 function clearAuthTokenCache() {
-  _cachedToken = null
-  _tokenExpiry = 0
+  cachedToken = null
+  tokenExpiry = 0
 }
 
 async function parseResponse(res: Response) {
@@ -40,7 +52,7 @@ async function parseResponse(res: Response) {
   }
 }
 
-function getApiErrorMessage(status: number, data: any) {
+function getApiErrorMessage(status: number, data: unknown) {
   if (data && typeof data === "object") {
     return data.message || data.error || `API Error ${status}`
   }
@@ -59,14 +71,14 @@ async function getAuthToken(): Promise<string> {
   }
 
   const now = Date.now()
-  if (_cachedToken && now < _tokenExpiry) {
-    return _cachedToken
+  if (cachedToken && now < tokenExpiry) {
+    return cachedToken
   }
 
-  let data: any = null
+  let data: unknown = null
 
   try {
-    const res = await fetch("/api/auth/token", { cache: "no-store" })
+    const res = await fetch(TOKEN_ENDPOINT, { cache: "no-store" })
     data = await parseResponse(res)
 
     if (res.status === 401) {
@@ -99,9 +111,9 @@ async function getAuthToken(): Promise<string> {
       )
     }
 
-    _cachedToken = data.token
-    _tokenExpiry = now + 50 * 60 * 1000
-    return _cachedToken
+    cachedToken = data.token
+    tokenExpiry = now + 50 * 60 * 1000
+    return cachedToken
   } catch (error) {
     if (error instanceof ApiError) {
       throw error
@@ -118,46 +130,38 @@ async function getAuthToken(): Promise<string> {
 }
 
 async function executeRequest(
-  url: string,
+  path: string,
   fetchOptions: RequestInit,
   auth: AuthMode,
-  retryUnauthorized: boolean
+  retryUnauthorized: boolean,
+  params?: Record<string, unknown>
 ) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(fetchOptions.headers as Record<string, string>),
-  }
+  const token = auth === "required" ? await getAuthToken() : undefined
 
-  if (auth === "required") {
-    const token = await getAuthToken()
-    headers.Authorization = `Bearer ${token}`
-  }
-
-  const res = await fetch(url, {
+  const { response, data } = await backendFetch(path, {
     ...fetchOptions,
-    headers,
+    params,
+    token,
   })
 
-  const data = await parseResponse(res)
-
-  if (res.status === 401 && auth === "required" && retryUnauthorized) {
+  if (response.status === 401 && auth === "required" && retryUnauthorized) {
     clearAuthTokenCache()
     await getAuthToken()
-    return executeRequest(url, fetchOptions, auth, false)
+    return executeRequest(path, fetchOptions, auth, false, params)
   }
 
-  if (!res.ok) {
-    if (res.status === 401 && auth === "required") {
+  if (!response.ok) {
+    if (response.status === 401 && auth === "required") {
       clearAuthTokenCache()
       throw new ApiError(
         401,
         data,
-        getApiErrorMessage(res.status, data),
+        getApiErrorMessage(response.status, data),
         "BACKEND_TOKEN_REJECTED"
       )
     }
 
-    throw new ApiError(res.status, data, getApiErrorMessage(res.status, data))
+    throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), data?.code)
   }
 
   return data
@@ -165,27 +169,40 @@ async function executeRequest(
 
 async function apiCall(path: string, options: FetchOptions = {}) {
   const { params, auth = "required", ...fetchOptions } = options
-
-  let url = `${API_BASE}${path}`
-
-  if (params) {
-    const query = new URLSearchParams()
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        query.append(key, String(value))
-      }
-    })
-    if (query.toString()) {
-      url += `?${query.toString()}`
-    }
-  }
-
-  return executeRequest(url, fetchOptions, auth, auth === "required")
+  return executeRequest(path, fetchOptions, auth, auth === "required", params)
 }
 
 export const api = {
-  async getTasks(filters?: { assigneeId?: string; status?: string }) {
-    return apiCall("/api/tasks", { params: filters })
+  clearAuthTokenCache,
+
+  async login(payload: { email: string; password: string }) {
+    const { response, data } = await backendLogin(payload)
+
+    if (!response.ok) {
+      throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), data?.code)
+    }
+
+    return data
+  },
+
+  async verifyMfa(payload: { challengeToken: string; code: string }) {
+    const { response, data } = await backendVerifyMfa(payload)
+
+    if (!response.ok) {
+      throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), data?.code)
+    }
+
+    return data
+  },
+
+  async getTasks(filters?: { assigneeId?: string; status?: string; orderBy?: string; sort?: string; limit?: number }) {
+    const data = await apiCall("/api/tasks", { params: filters })
+    return extractTasksPayload(data)
+  },
+
+  async getTaskById(id: string) {
+    const data = await apiCall(`/api/tasks/${id}`)
+    return extractTaskPayload(data)
   },
 
   async createTask(payload: {
@@ -196,10 +213,11 @@ export const api = {
     horario?: string | null
     assigneeId?: string | null
   }) {
-    return apiCall("/api/tasks", {
+    const data = await apiCall("/api/tasks", {
       method: "POST",
       body: JSON.stringify(payload),
     })
+    return extractTaskPayload(data)
   },
 
   async updateTask(
@@ -214,28 +232,21 @@ export const api = {
       assigneeId: string | null
     }>
   ) {
-    return apiCall(`/api/tasks/${id}`, {
+    const data = await apiCall(`/api/tasks/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     })
+    return extractTaskPayload(data)
   },
 
   async deleteTask(id: string) {
-    return apiCall(`/api/tasks/${id}`, { method: "DELETE" })
+    await apiCall(`/api/tasks/${id}`, { method: "DELETE" })
+    return null
   },
 
-  async getUsers(filters?: { active?: boolean }) {
+  async getUsers(filters?: { active?: boolean; orderBy?: string }) {
     const data = await apiCall("/api/users", { params: filters })
-    const users = Array.isArray(data?.users)
-      ? data.users
-      : Array.isArray(data?.usuarios)
-        ? data.usuarios
-        : []
-
-    return {
-      ...(data && typeof data === "object" ? data : {}),
-      users,
-    }
+    return extractUsersPayload(data)
   },
 
   async createUser(payload: {
@@ -245,22 +256,40 @@ export const api = {
     jobTitle: string
     role: "COLABORADOR" | "GESTOR"
   }) {
-    return apiCall("/api/users", {
+    const data = await apiCall("/api/users", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })
+    return extractUserPayload(data)
+  },
+
+  async getChecklists(tipo?: "ABERTURA" | "FECHAMENTO") {
+    const data = await apiCall("/api/checklists", { params: tipo ? { tipo } : undefined })
+    return { checklists: extractChecklistsPayload(data) }
+  },
+
+  async getChecklistById(id: string) {
+    const data = await apiCall(`/api/checklists/${id}`)
+    return extractChecklistItemPayload(data)
+  },
+
+  async createChecklist(payload: { title: string; description?: string | null; tipo: "ABERTURA" | "FECHAMENTO" }) {
+    return apiCall("/api/checklists", {
       method: "POST",
       body: JSON.stringify(payload),
     })
   },
 
-  async getChecklists(tipo?: "ABERTURA" | "FECHAMENTO") {
-    return apiCall("/api/checklists", { params: tipo ? { tipo } : undefined })
-  },
-
-  async toggleChecklist(id: string) {
-    return apiCall(`/api/checklists/${id}`, { method: "PATCH" })
+  async updateChecklist(id: string, payload: { completed: boolean }) {
+    const data = await apiCall(`/api/checklists/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    })
+    return extractChecklistItemPayload(data)
   },
 
   async getDashboard() {
-    return apiCall("/dashboard", { auth: "required" })
+    return apiCall("/dashboard")
   },
 
   async getHealth() {

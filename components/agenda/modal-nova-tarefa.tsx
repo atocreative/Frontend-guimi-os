@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { taskCreateSchema, taskUpdateSchema } from "@/lib/schemas"
 import type { TarefaDB, UsuarioSimples } from "@/types/tarefas"
 
 interface ModalNovaTarefaProps {
@@ -99,11 +100,6 @@ export function ModalNovaTarefa({
   }, [open, tarefaParaEditar, currentUserId])
 
   async function salvar() {
-    if (!titulo.trim()) {
-      setErro("Título é obrigatório")
-      return
-    }
-
     setSalvando(true)
     setErro("")
 
@@ -117,15 +113,22 @@ export function ModalNovaTarefa({
         assigneeId: podeEscolherResponsavel ? responsavelId : undefined,
       }
 
+      const parsed = (modoEdicao ? taskUpdateSchema : taskCreateSchema).safeParse(payload)
+      if (!parsed.success) {
+        setErro(parsed.error.issues[0]?.message ?? "Dados inválidos.")
+        return
+      }
+
       if (modoEdicao && tarefaParaEditar) {
         const res = await fetch(`/api/tarefas/${tarefaParaEditar.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(parsed.data),
         })
 
         if (!res.ok) {
-          setErro("Erro ao salvar. Tente novamente.")
+          const data = await res.json().catch(() => null)
+          setErro(typeof data?.error === "string" ? data.error : "Erro ao salvar. Tente novamente.")
           return
         }
 
@@ -135,17 +138,20 @@ export function ModalNovaTarefa({
         return
       }
 
+      const createPayload = {
+        ...parsed.data,
+        assigneeId: podeEscolherResponsavel ? responsavelId : currentUserId,
+      }
+
       const res = await fetch("/api/tarefas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...payload,
-          assigneeId: podeEscolherResponsavel ? responsavelId : currentUserId,
-        }),
+        body: JSON.stringify(createPayload),
       })
 
       if (!res.ok) {
-        setErro("Erro ao criar tarefa. Tente novamente.")
+        const data = await res.json().catch(() => null)
+        setErro(typeof data?.error === "string" ? data.error : "Erro ao criar tarefa. Tente novamente.")
         return
       }
 

@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { userCreateSchema } from "@/lib/schemas"
 import type { NovoUsuarioPayload, UsuarioSistema } from "@/types/usuarios"
 
 interface NovoColaboradorModalProps {
@@ -61,34 +62,32 @@ export function NovoColaboradorModal({
   }
 
   async function salvar() {
-    if (!form.name.trim() || !form.email.trim() || !form.jobTitle.trim()) {
-      setErro("Preencha nome, email e cargo.")
-      return
-    }
-
-    if (form.password.length < 8) {
-      setErro("A senha deve ter no mínimo 8 caracteres.")
-      return
-    }
-
     setSalvando(true)
     setErro("")
 
     try {
+      const payload = {
+        ...form,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        jobTitle: form.jobTitle.trim(),
+      }
+
+      const parsed = userCreateSchema.safeParse(payload)
+      if (!parsed.success) {
+        setErro(parsed.error.issues[0]?.message ?? "Dados inválidos.")
+        return
+      }
+
       const res = await fetch("/api/usuarios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          name: form.name.trim(),
-          email: form.email.trim().toLowerCase(),
-          jobTitle: form.jobTitle.trim(),
-        }),
+        body: JSON.stringify(parsed.data),
       })
 
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        setErro(data?.error ?? "Erro ao cadastrar colaborador.")
+        setErro(typeof data?.error === "string" ? data.error : "Erro ao cadastrar colaborador.")
         return
       }
 

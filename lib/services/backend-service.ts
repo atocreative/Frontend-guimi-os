@@ -1,5 +1,5 @@
 import { backendRepository, ApiError } from "@/lib/repositories/backend-repository"
-import type { TarefaDB } from "@/types/tarefas"
+import type { ChecklistDB, NovaChecklist, TarefaDB } from "@/types/tarefas"
 import type { UsuarioDB } from "@/types/usuarios"
 import type { DashboardResponse } from "@/types/dashboard"
 
@@ -76,7 +76,7 @@ export const backendService = {
   },
 
   // Checklists
-  async getChecklists(): Promise<any> {
+  async getChecklists(): Promise<{ checklists: ChecklistDB[] }> {
     try {
       return await backendRepository.getChecklists()
     } catch (error) {
@@ -87,7 +87,7 @@ export const backendService = {
     }
   },
 
-  async createChecklist(data: any): Promise<any> {
+  async createChecklist(data: NovaChecklist): Promise<unknown> {
     try {
       return await backendRepository.createChecklist(data)
     } catch (error) {
@@ -98,7 +98,7 @@ export const backendService = {
     }
   },
 
-  async updateChecklist(id: string, data: any): Promise<any> {
+  async updateChecklist(id: string, data: { completed: boolean }): Promise<unknown> {
     try {
       return await backendRepository.updateChecklist(id, data)
     } catch (error) {

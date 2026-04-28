@@ -1,27 +1,42 @@
 import { NextRequest } from "next/server"
 import { getSession } from "@/lib/auth-session"
-import { prisma } from "@/lib/prisma"
+import { backendFetch, extractChecklistItemPayload, getSessionAccessToken } from "@/lib/backend-api"
+import { z } from "zod"
+
+const toggleSchema = z.object({
+  completed: z.boolean(),
+})
 
 export async function PATCH(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession()
-  if (!session?.user) {
+  const token = getSessionAccessToken(session)
+
+  if (!session?.user || !token) {
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { id } = await ctx.params
-
-  const item = await prisma.checklistItem.findUnique({ where: { id } })
-  if (!item) {
-    return Response.json({ error: "Not found" }, { status: 404 })
+  const body = await req.json()
+  const parsed = toggleSchema.safeParse(body)
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const updated = await prisma.checklistItem.update({
-    where: { id },
-    data: { concluido: !item.concluido },
+  const { id } = await ctx.params
+  const result = await backendFetch(`/api/checklists/${id}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(parsed.data),
   })
 
-  return Response.json({ item: updated })
+  if (!result.response.ok) {
+    return Response.json(
+      { error: result.data?.message || result.data?.error || "Erro ao atualizar checklist." },
+      { status: result.response.status }
+    )
+  }
+
+  return Response.json({ item: extractChecklistItemPayload(result.data) })
 }

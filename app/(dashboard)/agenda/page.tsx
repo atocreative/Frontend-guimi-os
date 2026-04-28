@@ -63,6 +63,9 @@ export default function AgendaPage() {
   }, [carregarTarefas])
 
   const toggleChecklist = useCallback(async (id: string) => {
+    const itemAtual = [...checklistAbertura, ...checklistFechamento].find((item) => item.id === id)
+    const completed = itemAtual ? !itemAtual.concluido : true
+
     setChecklistAbertura((prev) =>
       prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
     )
@@ -70,7 +73,11 @@ export default function AgendaPage() {
       prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
     )
 
-    const res = await fetch(`/api/checklist/${id}`, { method: "PATCH" })
+    const res = await fetch(`/api/checklist/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completed }),
+    })
     if (!res.ok) {
       setChecklistAbertura((prev) =>
         prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
@@ -79,7 +86,7 @@ export default function AgendaPage() {
         prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
       )
     }
-  }, [])
+  }, [checklistAbertura, checklistFechamento])
 
   const handleToggle = useCallback(async (id: string) => {
     const tarefa = tarefas.find((t) => t.id === id)

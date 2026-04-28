@@ -1,14 +1,13 @@
+import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth-session"
 import { DashboardAdmin } from "@/components/dashboard/dashboard-admin"
 import { DashboardColaborador } from "@/components/dashboard/dashboard-colaborador"
-import { prisma } from "@/lib/prisma"
 import { getFaturamentoMes, getResumoFinanceiroHoje } from "@/lib/foneninja"
+import { backendFetch, extractTasksPayload, getSessionAccessToken } from "@/lib/backend-api"
 import {
   isTaskDueToday,
-  serializeTarefa,
   sortTarefasByPriority,
 } from "@/lib/tarefas"
-import type { TarefaDB } from "@/types/tarefas"
 
 function getMonthBounds() {
   const now = new Date()
@@ -20,42 +19,31 @@ function getMonthBounds() {
 
 export default async function DashboardPage() {
   const session = await getSession()
-  const role = session?.user?.role
-  const userId = session?.user?.id
+
+  if (!session?.user) {
+    redirect("/login")
+  }
+
+  const accessToken = getSessionAccessToken(session)
+  if (!accessToken) {
+    redirect("/login")
+  }
+
+  const role = session.user.role
   const isColaborador = role === "COLABORADOR"
 
-  const tarefasRaw = await prisma.task.findMany({
-    where: {
-      ...(isColaborador && userId ? { assigneeId: userId } : {}),
-    },
-    include: {
-      assignee: {
-        select: {
-          id: true,
-          name: true,
-          avatarUrl: true,
-          role: true,
-          jobTitle: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
+  const { response, data } = await backendFetch("/api/tasks", {
+    token: accessToken,
   })
 
-  const tarefas: TarefaDB[] = tarefasRaw.map((tarefa) =>
-    serializeTarefa({
-      ...tarefa,
-      status: tarefa.status as TarefaDB["status"],
-      priority: (tarefa.priority as TarefaDB["priority"]) ?? null,
-      assignee: tarefa.assignee
-        ? {
-            ...tarefa.assignee,
-            role: String(tarefa.assignee.role),
-            jobTitle: tarefa.assignee.jobTitle,
-          }
-        : null,
-    })
-  )
+  if (!response.ok) {
+    throw new Error("Falha ao carregar tarefas do dashboard.")
+  }
+
+  const { tasks } = extractTasksPayload(data)
+  const tarefas = isColaborador
+    ? tasks.filter((tarefa) => tarefa.assigneeId === session.user.id)
+    : tasks
 
   const tarefasPendentes = sortTarefasByPriority(
     tarefas.filter(
@@ -88,13 +76,15 @@ export default async function DashboardPage() {
   }
 
   const { start, end } = getMonthBounds()
-  const concluidasMes = await prisma.task.count({
-    where: {
-      ...(userId ? { assigneeId: userId } : {}),
-      status: "CONCLUIDA",
-      completedAt: { gte: start, lt: end },
-    },
-  })
+  const concluidasMes = tarefas.filter((tarefa) => {
+    if (tarefa.status !== "CONCLUIDA" || !tarefa.completedAt) {
+      return false
+    }
+
+    const completedAt = new Date(tarefa.completedAt)
+    return completedAt >= start && completedAt < end
+  }).length
+
   const pendentes = tarefas.filter(
     (tarefa) => tarefa.status === "PENDENTE" || tarefa.status === "EM_ANDAMENTO"
   ).length
@@ -103,7 +93,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardColaborador
-      userName={session?.user?.name ?? "Colaborador"}
+      userName={session.user.name ?? "Colaborador"}
       tarefasHoje={tarefasHoje}
       tarefasPendentes={tarefasPendentes}
       concluidasMes={concluidasMes}

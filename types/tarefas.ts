@@ -21,6 +21,34 @@ export interface TarefaDB {
   assignee: UsuarioSimples | null
   createdAt: string
   updatedAt: string
+  completedAt?: string | null
+  createdBy?: string | null
+}
+
+export interface ChecklistItemDB {
+  id: string
+  title: string
+  description?: string | null
+  completed: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ChecklistDB {
+  id: string
+  title: string
+  description?: string | null
+  tipo: "ABERTURA" | "FECHAMENTO"
+  color?: string | null
+  items: ChecklistItemDB[]
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface NovaChecklist {
+  title: string
+  description?: string | null
+  tipo: "ABERTURA" | "FECHAMENTO"
 }
 
 export interface ResumoPainel {

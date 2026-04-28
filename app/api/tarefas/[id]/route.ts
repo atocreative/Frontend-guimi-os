@@ -1,80 +1,72 @@
 import { NextRequest } from "next/server"
-import { z } from "zod"
 import { getSession } from "@/lib/auth-session"
-import { prisma } from "@/lib/prisma"
-import { serializeTarefa } from "@/lib/tarefas"
+import { backendFetch, extractTaskPayload, getSessionAccessToken } from "@/lib/backend-api"
+import { taskUpdateSchema } from "@/lib/schemas"
 
-const assigneeSelect = {
-  id: true,
-  name: true,
-  avatarUrl: true,
-  role: true,
-  jobTitle: true,
-} as const
+function toErrorResponse(status: number, data: unknown) {
+  const message =
+    status === 404 || status === 403
+      ? "Recurso não encontrado ou você não tem permissão para acessá-lo."
+      : data?.message || data?.error || "Não foi possível processar a solicitação."
 
-const horarioSchema = z
-  .string()
-  .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Horário inválido")
-
-function parseDateLocal(dateStr: string): Date {
-  return new Date(dateStr + "T12:00:00.000Z")
+  return Response.json({ error: message }, { status })
 }
 
-const atualizarSchema = z.object({
-  title: z.string().min(1).optional(),
-  description: z.string().nullable().optional(),
-  status: z.enum(["PENDENTE", "EM_ANDAMENTO", "CONCLUIDA", "CANCELADA"]).optional(),
-  priority: z.enum(["ALTA", "MEDIA", "BAIXA"]).nullable().optional(),
-  dueAt: z.string().nullable().optional(),
-  horario: horarioSchema.nullable().optional(),
-  assigneeId: z.string().nullable().optional(),
-})
+export async function GET(
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession()
+  const token = getSessionAccessToken(session)
+
+  if (!session?.user || !token) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { id } = await ctx.params
+  const result = await backendFetch(`/api/tasks/${id}`, { token })
+
+  if (!result.response.ok) {
+    return toErrorResponse(result.response.status, result.data)
+  }
+
+  return Response.json({ tarefa: extractTaskPayload(result.data) })
+}
 
 export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession()
-  if (!session?.user) {
+  const token = getSessionAccessToken(session)
+
+  if (!session?.user || !token) {
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { id } = await ctx.params
-
-  if (session.user.role === "COLABORADOR") {
-    const existing = await prisma.task.findUnique({ where: { id } })
-    if (!existing || existing.assigneeId !== session.user.id) {
-      return Response.json({ error: "Forbidden" }, { status: 403 })
-    }
-  }
-
   const body = await req.json()
-  const parsed = atualizarSchema.safeParse(body)
+  const parsed = taskUpdateSchema.safeParse(body)
   if (!parsed.success) {
     return Response.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { status, dueAt, horario, ...rest } = parsed.data
+  const payload = { ...parsed.data }
+  if (session.user.role === "COLABORADOR") {
+    delete payload.assigneeId
+  }
 
-  const tarefa = await prisma.task.update({
-    where: { id },
-    data: {
-      ...rest,
-      ...(status !== undefined && { status }),
-      ...(status === "CONCLUIDA"
-        ? { completedAt: new Date() }
-        : status !== undefined
-          ? { completedAt: null }
-          : {}),
-      ...(dueAt !== undefined && {
-        dueAt: dueAt ? parseDateLocal(dueAt) : null,
-      }),
-      ...(horario !== undefined && { horario }),
-    },
-    include: { assignee: { select: assigneeSelect } },
+  const { id } = await ctx.params
+  const result = await backendFetch(`/api/tasks/${id}`, {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(payload),
   })
 
-  return Response.json({ tarefa: serializeTarefa(tarefa) })
+  if (!result.response.ok) {
+    return toErrorResponse(result.response.status, result.data)
+  }
+
+  return Response.json({ tarefa: extractTaskPayload(result.data) })
 }
 
 export async function DELETE(
@@ -82,20 +74,21 @@ export async function DELETE(
   ctx: { params: Promise<{ id: string }> }
 ) {
   const session = await getSession()
-  if (!session?.user) {
+  const token = getSessionAccessToken(session)
+
+  if (!session?.user || !token) {
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const { id } = await ctx.params
+  const result = await backendFetch(`/api/tasks/${id}`, {
+    method: "DELETE",
+    token,
+  })
 
-  if (session.user.role === "COLABORADOR") {
-    const existing = await prisma.task.findUnique({ where: { id } })
-    if (!existing || existing.assigneeId !== session.user.id) {
-      return Response.json({ error: "Forbidden" }, { status: 403 })
-    }
+  if (!result.response.ok) {
+    return toErrorResponse(result.response.status, result.data)
   }
-
-  await prisma.task.delete({ where: { id } })
 
   return new Response(null, { status: 204 })
 }
