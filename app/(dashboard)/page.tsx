@@ -37,7 +37,11 @@ export default async function DashboardPage() {
   })
 
   if (!response.ok) {
-    throw new Error("Falha ao carregar tarefas do dashboard.")
+    const errorMsg = data && typeof data === "object" && "message" in data
+      ? (data as { message?: string }).message
+      : "Desconhecido"
+    console.error(`[Dashboard] Falha ao carregar tarefas: ${response.status} - ${errorMsg}`)
+    throw new Error(`Falha ao carregar tarefas do dashboard. Status: ${response.status}. ${errorMsg !== "Desconhecido" ? `Detalhes: ${errorMsg}` : ""}`)
   }
 
   const { tasks } = extractTasksPayload(data)
