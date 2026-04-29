@@ -20,6 +20,7 @@ export function getPriorityValue(priority?: string): number {
     case "HIGH":
       return 1
     case "MÉDIA":
+    case "MEDIA":
     case "MEDIUM":
       return 2
     case "BAIXA":

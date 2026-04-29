@@ -70,5 +70,5 @@ export const supportEmailSchema = z.object({
   name: z.string().trim().min(1, "Nome é obrigatório").max(255),
   email: z.string().trim().email("Email inválido"),
   subject: z.string().trim().min(1, "Assunto é obrigatório").max(255),
-  message: z.string().trim().min(10, "Mensagem deve ter pelo menos 10 caracteres").max(5000),
+  message: z.string().trim().min(10, "Mensagem deve ter pelo menos 10 caracteres").max(5000, "Mensagem não pode exceder 5000 caracteres"),
 })
