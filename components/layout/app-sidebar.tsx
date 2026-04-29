@@ -13,7 +13,7 @@ import {
   BarChart3,
   BookOpen,
   Wrench,
-  Moon,
+  LifeBuoy,
   Sun,
   type LucideIcon,
 } from "lucide-react"
@@ -31,7 +31,6 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { cn } from "@/lib/utils"
 
 interface NavItem {
   title: string
@@ -68,6 +67,12 @@ const navItems: NavGroup[] = [
       { title: "Colaboradores", href: "/colaboradores", icon: Users },
       { title: "Indicadores", href: "/indicadores", icon: BarChart3 },
       { title: "Configurações", href: "/configuracoes", icon: Settings },
+    ],
+  },
+  {
+    label: "Ajuda",
+    items: [
+      { title: "Suporte", href: "/suporte", icon: LifeBuoy },
     ],
   },
 ]

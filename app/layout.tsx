@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 import "./globals.css";
+import { Footer } from "@/components/layout/footer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Providers } from "./providers";
 
@@ -31,14 +32,14 @@ export default function RootLayout({
       className={`${roboto.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col font-sans">
+      <body className="min-h-screen flex flex-col font-sans">
         <Providers>
           <TooltipProvider>
-            <div className="flex flex-1 flex-col">{children}</div>
+            <div className="flex min-h-screen flex-1 flex-col">
+              <div className="flex-1 min-h-0">{children}</div>
+              <Footer />
+            </div>
           </TooltipProvider>
-          <footer className="shrink-0 border-t border-zinc-800 bg-zinc-950 py-3 text-center text-xs text-zinc-500">
-            Todos os direitos reservados à ATO.
-          </footer>
         </Providers>
       </body>
     </html>

@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
-import { LogOut, User } from "lucide-react"
+import { LogOut } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,7 @@ const pageTitles: Record<string, string> = {
   "/colaboradores": "Colaboradores",
   "/indicadores": "Indicadores",
   "/configuracoes": "Configurações",
+  "/suporte": "Área de Suporte",
 }
 
 const roleLabels: Record<string, string> = {
