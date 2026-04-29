@@ -15,6 +15,8 @@ import {
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { PainelCompromissos } from "@/components/dashboard/painel-compromissos"
 import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
+import { Leaderboard } from "@/components/gamificacao/leaderboard"
+import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
 import { backendService } from "@/lib/services/backend-service"
@@ -26,22 +28,16 @@ export interface ResumoFinanceiroHoje {
   margemBrutaDia: number
 }
 
+interface DashboardAdminUser {
+  id: string
+}
+
 const GraficoFinanceiro = dynamic(
   () => import("@/components/dashboard/grafico-financeiro").then((m) => m.GraficoFinanceiro),
   {
     ssr: false,
     loading: () => (
       <Card><CardContent className="p-6"><Skeleton className="h-[240px] rounded-lg" /></CardContent></Card>
-    ),
-  }
-)
-
-const PodioDashboard = dynamic(
-  () => import("@/components/dashboard/podio-dashboard").then((m) => m.PodioDashboard),
-  {
-    ssr: false,
-    loading: () => (
-      <Card><CardContent className="p-6"><Skeleton className="h-[160px] rounded-lg" /></CardContent></Card>
     ),
   }
 )
@@ -62,6 +58,7 @@ interface DashboardAdminProps {
   resumoHoje?: ResumoFinanceiroHoje
   despesasMes?: number
   lucroLiquidoMes?: number
+  currentUser?: DashboardAdminUser
 }
 
 export function DashboardAdmin({
@@ -71,9 +68,11 @@ export function DashboardAdmin({
   resumoHoje,
   despesasMes,
   lucroLiquidoMes,
+  currentUser,
 }: DashboardAdminProps) {
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
+  const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
 
   const faturamentoDiaValor = resumoHoje ? brl(resumoHoje.faturamentoDia) : "—"
   const faturamentoDiaDescricao = resumoHoje ? "Hoje (real)" : "Aguardando dados"
@@ -83,8 +82,11 @@ export function DashboardAdmin({
     : "Aguardando dados"
 
   const concluirTarefa = useCallback(async (id: string) => {
+    const tarefa = [...tarefasHoje, ...tarefasPendentes].find((item) => item.id === id)
+
     try {
       await backendService.updateTask(id, { status: "CONCLUIDA" })
+      notifyTaskCompleted({ taskTitle: tarefa?.title })
       setRiscados((prev) => new Set(prev).add(id))
       setTimeout(() => {
         setConcluidos((prev) => new Set(prev).add(id))
@@ -96,9 +98,10 @@ export function DashboardAdmin({
       }, 700)
       return true
     } catch {
+      notifyTaskCompletionError()
       return false
     }
-  }, [])
+  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasHoje, tarefasPendentes])
 
   const pendentesVisiveis = useMemo(
     () => tarefasPendentes.filter((t) => !concluidos.has(t.id)),
@@ -171,7 +174,7 @@ export function DashboardAdmin({
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <PodioDashboard />
+        <Leaderboard currentUserId={currentUser?.id} compact />
         <PainelTarefas tarefas={pendentesVisiveis} onConcluir={concluirTarefa} riscados={riscados} />
         <PainelCompromissos tarefas={hojeVisiveis} onConcluir={concluirTarefa} riscados={riscados} />
       </div>

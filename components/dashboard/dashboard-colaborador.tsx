@@ -6,9 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { PainelCompromissos } from "@/components/dashboard/painel-compromissos"
 import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
+import { Leaderboard } from "@/components/gamificacao/leaderboard"
+import { UserStats } from "@/components/gamificacao/user-stats"
+import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
 import type { TarefaDB } from "@/types/tarefas"
 
 interface DashboardColaboradorProps {
+  userId: string
   userName: string
   tarefasHoje: TarefaDB[]
   tarefasPendentes: TarefaDB[]
@@ -18,6 +22,7 @@ interface DashboardColaboradorProps {
 }
 
 export function DashboardColaborador({
+  userId,
   userName,
   tarefasHoje,
   tarefasPendentes,
@@ -34,14 +39,19 @@ export function DashboardColaborador({
 
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
+  const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
 
   const concluirTarefa = useCallback(async (id: string) => {
+    const tarefa = [...tarefasHoje, ...tarefasPendentes].find((item) => item.id === id)
+
     const res = await fetch(`/api/tarefas/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "CONCLUIDA" }),
     })
+
     if (res.ok) {
+      notifyTaskCompleted({ taskTitle: tarefa?.title })
       setRiscados((prev) => new Set(prev).add(id))
       setTimeout(() => {
         setConcluidos((prev) => new Set(prev).add(id))
@@ -51,9 +61,12 @@ export function DashboardColaborador({
           return next
         })
       }, 700)
+    } else {
+      notifyTaskCompletionError()
     }
+
     return res.ok
-  }, [])
+  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasHoje, tarefasPendentes])
 
   const pendentesVisiveis = useMemo(
     () => tarefasPendentes.filter((t) => !concluidos.has(t.id)),
@@ -112,7 +125,8 @@ export function DashboardColaborador({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <UserStats userId={userId} />
         <PainelCompromissos tarefas={hojeVisiveis} onConcluir={concluirTarefa} riscados={riscados} />
         <PainelTarefas
           tarefas={pendentesVisiveis}
@@ -122,6 +136,8 @@ export function DashboardColaborador({
           emptyMessage="Nenhuma tarefa pendente."
         />
       </div>
+
+      <Leaderboard currentUserId={userId} compact />
     </div>
   )
 }

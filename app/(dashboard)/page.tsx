@@ -71,6 +71,7 @@ export default async function DashboardPage() {
         tarefasPendentes={tarefasPendentes}
         faturamentoMes={faturamentoMes}
         resumoHoje={resumoHoje}
+        currentUser={{ id: session.user.id }}
       />
     )
   }
@@ -93,6 +94,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardColaborador
+      userId={session.user.id}
       userName={session.user.name ?? "Colaborador"}
       tarefasHoje={tarefasHoje}
       tarefasPendentes={tarefasPendentes}

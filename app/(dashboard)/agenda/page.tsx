@@ -13,6 +13,7 @@ import { ColunaPessoa } from "@/components/agenda/coluna-pessoa"
 import { TarefaCard } from "@/components/agenda/tarefa-card"
 import { ChecklistCard } from "@/components/operacao/checklist-card"
 import type { ItemChecklist } from "@/components/operacao/checklist-card"
+import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
 import { sortTarefasByPriority } from "@/lib/tarefas"
 import type { TarefaDB, UsuarioSimples, ResumoPainel } from "@/types/tarefas"
 
@@ -34,6 +35,7 @@ export default function AgendaPage() {
 
   const [checklistAbertura, setChecklistAbertura] = useState<ItemChecklist[]>([])
   const [checklistFechamento, setChecklistFechamento] = useState<ItemChecklist[]>([])
+  const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
 
   const isColaborador = role === "COLABORADOR"
 
@@ -106,11 +108,16 @@ export default function AgendaPage() {
 
     if (!res.ok) {
       setTarefas((prev) => prev.map((t) => (t.id === id ? tarefa : t)))
+      notifyTaskCompletionError()
     } else {
       const data = await res.json()
       setTarefas((prev) => prev.map((t) => (t.id === id ? data.tarefa : t)))
+
+      if (novoStatus === "CONCLUIDA") {
+        notifyTaskCompleted({ taskTitle: tarefa.title })
+      }
     }
-  }, [tarefas])
+  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefas])
 
   const handleDelete = useCallback(async (id: string) => {
     const tarefaAnterior = tarefas.find((t) => t.id === id)
