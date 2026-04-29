@@ -152,6 +152,7 @@ export default function LoginPage() {
               height={80}
               className="rounded-xl"
               loading="lazy"
+              unoptimized
             />
             <div className="text-center">
               <h1 className="text-2xl font-bold tracking-tight text-white">

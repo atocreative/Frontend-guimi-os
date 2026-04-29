@@ -1,0 +1,124 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e7]:
+        - list [ref=e9]:
+          - listitem [ref=e10]:
+            - link "GuimiCell OS v0.1.0" [ref=e11] [cursor=pointer]:
+              - /url: /
+              - img [ref=e13]
+              - generic [ref=e18]:
+                - generic [ref=e19]: GuimiCell OS
+                - generic [ref=e20]: v0.1.0
+        - generic [ref=e21]:
+          - generic [ref=e22]:
+            - generic [ref=e23]: Principal
+            - list [ref=e25]:
+              - listitem [ref=e26]:
+                - link "Dashboard" [ref=e27] [cursor=pointer]:
+                  - /url: /
+                  - img [ref=e28]
+                  - generic [ref=e33]: Dashboard
+              - listitem [ref=e34]:
+                - link "Comercial" [ref=e35] [cursor=pointer]:
+                  - /url: /comercial
+                  - img [ref=e36]
+                  - generic [ref=e39]: Comercial
+              - listitem [ref=e40]:
+                - link "Financeiro" [ref=e41] [cursor=pointer]:
+                  - /url: /financeiro
+                  - img [ref=e42]
+                  - generic [ref=e44]: Financeiro
+          - generic [ref=e45]:
+            - generic [ref=e46]: Operação
+            - list [ref=e48]:
+              - listitem [ref=e49]:
+                - link "Agenda e Tarefas" [ref=e50] [cursor=pointer]:
+                  - /url: /agenda
+                  - img [ref=e51]
+                  - generic [ref=e54]: Agenda e Tarefas
+              - listitem [ref=e55]:
+                - link "Operação" [ref=e56] [cursor=pointer]:
+                  - /url: /operacao
+                  - img [ref=e57]
+                  - generic [ref=e59]: Operação
+              - listitem [ref=e60]:
+                - button "Processos Em breve" [disabled]:
+                  - img
+                  - generic: Processos
+                  - generic: Em breve
+          - generic [ref=e61]:
+            - generic [ref=e62]: Gestão
+            - list [ref=e64]:
+              - listitem [ref=e65]:
+                - link "Colaboradores" [ref=e66] [cursor=pointer]:
+                  - /url: /colaboradores
+                  - img [ref=e67]
+                  - generic [ref=e72]: Colaboradores
+              - listitem [ref=e73]:
+                - link "Indicadores" [ref=e74] [cursor=pointer]:
+                  - /url: /indicadores
+                  - img [ref=e75]
+                  - generic [ref=e77]: Indicadores
+              - listitem [ref=e78]:
+                - link "Configurações" [ref=e79] [cursor=pointer]:
+                  - /url: /configuracoes
+                  - img [ref=e80]
+                  - generic [ref=e83]: Configurações
+          - generic [ref=e84]:
+            - generic [ref=e85]: Ajuda
+            - list [ref=e87]:
+              - listitem [ref=e88]:
+                - link "Suporte" [ref=e89] [cursor=pointer]:
+                  - /url: /suporte
+                  - img [ref=e90]
+                  - generic [ref=e97]: Suporte
+        - paragraph [ref=e100]: GuimiCell OS · 2026
+        - button "Toggle Sidebar" [ref=e101]
+      - main [ref=e102]:
+        - generic [ref=e103]:
+          - button "Toggle Sidebar" [ref=e104]:
+            - img
+            - generic [ref=e105]: Toggle Sidebar
+          - generic [ref=e106]:
+            - heading "Agenda e Tarefas" [level=1] [ref=e107]
+            - generic [ref=e108]:
+              - button "Toggle theme" [ref=e109]:
+                - img
+                - generic [ref=e110]: Toggle theme
+              - button "A Admin Admin" [ref=e111]:
+                - generic [ref=e113]: A
+                - generic [ref=e114]: Admin
+                - generic [ref=e115]: Admin
+        - main [ref=e116]:
+          - generic [ref=e118]:
+            - generic [ref=e119]:
+              - generic [ref=e120]:
+                - heading "Agenda e Tarefas" [level=2] [ref=e121]
+                - paragraph [ref=e122]: Quadro de tarefas da operação
+              - button "Nova Tarefa" [ref=e123]:
+                - img
+                - text: Nova Tarefa
+            - generic [ref=e128]:
+              - heading "Checklists do Dia" [level=3] [ref=e129]
+              - generic [ref=e130]:
+                - generic [ref=e133]:
+                  - generic [ref=e134]: Abertura da Loja
+                  - generic [ref=e135]: 0/0 — 0%
+                - generic [ref=e139]:
+                  - generic [ref=e140]: Fechamento da Loja
+                  - generic [ref=e141]: 0/0 — 0%
+    - contentinfo [ref=e147]:
+      - generic [ref=e148]:
+        - paragraph [ref=e149]: GuimiCell OS © 2026 · Suporte operacional interno
+        - navigation [ref=e150]:
+          - link "Suporte" [ref=e151] [cursor=pointer]:
+            - /url: /suporte
+          - link "Agenda" [ref=e152] [cursor=pointer]:
+            - /url: /agenda
+          - link "Indicadores" [ref=e153] [cursor=pointer]:
+            - /url: /indicadores
+          - generic [ref=e154]: v0.1.0
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e160] [cursor=pointer]:
+    - img [ref=e161]

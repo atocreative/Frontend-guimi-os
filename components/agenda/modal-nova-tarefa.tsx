@@ -83,7 +83,7 @@ export function ModalNovaTarefa({
         tarefaParaEditar.dueAt ? isoParaInputDate(tarefaParaEditar.dueAt) : ""
       )
       setHorario(tarefaParaEditar.horario ?? "")
-      setResponsavelId(tarefaParaEditar.assigneeId ?? currentUserId)
+      setResponsavelId(tarefaParaEditar.assigneeId ?? usuarios[0]?.id ?? "")
       setErro("")
       return
     }
@@ -94,23 +94,26 @@ export function ModalNovaTarefa({
       setPrioridade("NENHUMA")
       setPrazo("")
       setHorario("")
-      setResponsavelId(currentUserId)
+      setResponsavelId(podeEscolherResponsavel ? (usuarios[0]?.id ?? "") : "")
       setErro("")
     }
-  }, [open, tarefaParaEditar, currentUserId])
+  }, [open, tarefaParaEditar, usuarios, podeEscolherResponsavel])
 
   async function salvar() {
     setSalvando(true)
     setErro("")
 
     try {
+      // Only include assigneeId if we have valid users and responsável is selected
+      const shouldIncludeAssignee = usuarios.length > 0 && podeEscolherResponsavel && responsavelId
+
       const payload = {
         title: titulo.trim(),
         description: descricao.trim() || null,
         priority: selectValueToPriority(prioridade),
         dueAt: prazo || null,
         horario: horario || null,
-        assigneeId: podeEscolherResponsavel ? responsavelId : undefined,
+        assigneeId: shouldIncludeAssignee ? responsavelId : undefined,
       }
 
       const parsed = (modoEdicao ? taskUpdateSchema : taskCreateSchema).safeParse(payload)
@@ -140,7 +143,7 @@ export function ModalNovaTarefa({
 
       const createPayload = {
         ...parsed.data,
-        assigneeId: podeEscolherResponsavel ? responsavelId : currentUserId,
+        assigneeId: podeEscolherResponsavel ? responsavelId : undefined,
       }
 
       const res = await fetch("/api/tarefas", {
