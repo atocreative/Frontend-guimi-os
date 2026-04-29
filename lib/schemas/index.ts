@@ -17,7 +17,12 @@ const optionalNullableUuid = z.union([z.string().uuid("Identificador inválido")
 
 export const loginSchema = z.object({
   email: z.string().trim().email("Email inválido"),
-  password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
+  password: z.string().min(8, "Senha deve ter no mínimo 8 caracteres"),
+})
+
+export const loginCaptchaSchema = z.object({
+  captchaSeed: z.string().min(1, "Desafio inválido"),
+  captchaAnswer: z.string().regex(/^\d{1,2}$/, "Resposta do desafio inválida"),
 })
 
 export const mfaVerifySchema = z.object({

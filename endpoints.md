@@ -42,7 +42,7 @@ Verifica o status da API.
 
 ### POST /api/auth/login
 
-Realiza login do usuário. Retorna um token JWT e um challenge para 2FA (se aplicável).
+Realiza login do usuário com email, senha e um desafio anti-robô simples.
 
 **Autenticação:** Não requerida
 
@@ -50,13 +50,17 @@ Realiza login do usuário. Retorna um token JWT e um challenge para 2FA (se apli
 ```json
 {
   "email": "user@example.com",
-  "password": "senha123456"
+  "password": "senha123456",
+  "captchaSeed": "4:2:+",
+  "captchaAnswer": "6"
 }
 ```
 
 **Validações:**
 - `email`: Email válido
 - `password`: Mínimo 8 caracteres
+- `captchaSeed`: Desafio obrigatório
+- `captchaAnswer`: Resposta numérica do desafio
 
 **Resposta:** 200 OK
 ```json
@@ -68,9 +72,16 @@ Realiza login do usuário. Retorna um token JWT e um challenge para 2FA (se apli
     "role": "COLABORADOR",
     "jobTitle": "Desenvolvedor"
   },
-  "token": "jwt-token-aqui",
-  "mfaRequired": true,
-  "challengeToken": "challenge-token-para-2fa"
+  "token": "jwt-token-aqui"
+}
+```
+
+**Erro:** 400 Bad Request
+```json
+{
+  "error": "AppError",
+  "message": "Captcha inválido",
+  "statusCode": 400
 }
 ```
 
@@ -85,42 +96,7 @@ Realiza login do usuário. Retorna um token JWT e um challenge para 2FA (se apli
 
 ### POST /api/auth/mfa/verify
 
-Verifica o código 2FA (Time-based One-Time Password - TOTP).
-
-**Autenticação:** Não requerida (mas `challengeToken` é necessário)
-
-**Body:**
-```json
-{
-  "challengeToken": "challenge-token-do-login",
-  "code": "123456"
-}
-```
-
-**Validações:**
-- `challengeToken`: Token obrigatório
-- `code`: Código com 6 dígitos numéricos
-
-**Resposta:** 200 OK
-```json
-{
-  "user": {
-    "id": "uuid-do-usuario",
-    "email": "user@example.com",
-    "name": "Nome do Usuário",
-    "role": "ADMIN",
-    "jobTitle": "Administrador"
-  },
-  "token": "jwt-token-autenticado"
-}
-```
-
-**Erro:** 401 Unauthorized
-```json
-{
-  "error": "Código 2FA inválido ou expirado"
-}
-```
+Não utilizado mais na tela de login.
 
 ---
 

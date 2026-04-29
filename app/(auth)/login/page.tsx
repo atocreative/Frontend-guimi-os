@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import Image from "next/image"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { MfaModal } from "@/components/auth/mfa-modal"
 import { api, ApiError } from "@/lib/api-client"
 import { loginSchema } from "@/lib/schemas"
 
@@ -26,11 +25,48 @@ type AuthenticatedUser = {
   jobTitle?: string | null
 }
 
+type CaptchaChallenge = {
+  seed: string
+  question: string
+  answer: string
+}
+
+function createCaptchaChallenge(): CaptchaChallenge {
+  const left = Math.floor(Math.random() * 8) + 2
+  const right = Math.floor(Math.random() * 8) + 1
+  const useAddition = Math.random() >= 0.5
+
+  const normalizedLeft = useAddition ? left : Math.max(left, right)
+  const normalizedRight = useAddition ? right : Math.min(left, right)
+  const operator = useAddition ? "+" : "-"
+  const answer = useAddition
+    ? normalizedLeft + normalizedRight
+    : normalizedLeft - normalizedRight
+
+  return {
+    seed: `${normalizedLeft}:${normalizedRight}:${operator}`,
+    question: `Quanto é ${normalizedLeft} ${operator} ${normalizedRight}?`,
+    answer: String(answer),
+  }
+}
+
+function isCaptchaError(error: ApiError) {
+  const details = JSON.stringify(error.data ?? "").toLowerCase()
+  const message = `${error.message} ${details}`.toLowerCase()
+
+  return error.status === 400 && (message.includes("captcha") || message.includes("desafio"))
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [challengeToken, setChallengeToken] = useState<string | null>(null)
+  const [captchaChallenge, setCaptchaChallenge] = useState<CaptchaChallenge | null>(null)
+  const [captchaValue, setCaptchaValue] = useState("")
+
+  useEffect(() => {
+    setCaptchaChallenge(createCaptchaChallenge())
+  }, [])
 
   const {
     register,
@@ -39,6 +75,11 @@ export default function LoginPage() {
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   })
+
+  const captchaSolved = useMemo(
+    () => captchaChallenge && captchaValue.trim() === captchaChallenge.answer,
+    [captchaChallenge, captchaValue]
+  )
 
   async function finalizeSession(payload: { token: string; user: AuthenticatedUser }) {
     const result = await signIn("credentials", {
@@ -61,18 +102,33 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const result = await api.login(data)
+      if (!captchaSolved) {
+        setError("Resolva o desafio anti-robô para continuar.")
+        return
+      }
 
-      if (result?.mfaRequired && result?.challengeToken) {
-        setChallengeToken(result.challengeToken)
+      const result = await api.login({
+        ...data,
+        captchaSeed: captchaChallenge!.seed,
+        captchaAnswer: captchaValue.trim(),
+      })
+
+      if (result?.mfaRequired) {
+        setError("O backend ainda está exigindo MFA para esta conta. Atualize a configuração da conta admin.")
         return
       }
 
       await finalizeSession({ token: result.token, user: result.user })
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 401) {
+        if (isCaptchaError(err)) {
+          setCaptchaChallenge(createCaptchaChallenge())
+          setCaptchaValue("")
+          setError("Captcha inválido. Resolva o desafio novamente.")
+        } else if (err.status === 401) {
           setError("Email ou senha incorretos.")
+        } else if (err.status === 403 && `${err.message} ${JSON.stringify(err.data ?? {})}`.toLowerCase().includes("mfa")) {
+          setError("O backend ainda está exigindo MFA para esta conta. Atualize a configuração da conta admin.")
         } else {
           setError(err.message || "Não foi possível entrar agora.")
         }
@@ -143,6 +199,49 @@ export default function LoginPage() {
                 )}
               </div>
 
+              <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="captcha-answer" className="text-zinc-300">
+                    Desafio anti-robô
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setCaptchaChallenge(createCaptchaChallenge())
+                      setCaptchaValue("")
+                    }}
+                  >
+                    Novo desafio
+                  </Button>
+                </div>
+                <p data-testid="captcha-question" className="text-sm text-zinc-100">
+                  {captchaChallenge?.question || "Carregando desafio..."}
+                </p>
+                <Input
+                  id="captcha-answer"
+                  data-testid="captcha-input"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={2}
+                  placeholder="Resposta"
+                  value={captchaValue}
+                  className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-zinc-500"
+                  onChange={(event) => {
+                    const next = event.target.value.replace(/\D/g, "").slice(0, 2)
+                    setCaptchaValue(next)
+                    if (error) {
+                      setError("")
+                    }
+                  }}
+                />
+                <p className="text-xs text-zinc-500">
+                  Resolva o desafio para liberar o envio do login.
+                </p>
+              </div>
+
               {error && (
                 <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
                   <p className="text-xs text-red-400">{error}</p>
@@ -151,7 +250,7 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !captchaSolved}
                 className="w-full bg-white font-medium text-zinc-900 hover:bg-zinc-100"
               >
                 {loading ? "Entrando..." : "Entrar"}
@@ -164,15 +263,6 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-
-      {challengeToken && (
-        <MfaModal
-          challengeToken={challengeToken}
-          onSuccess={async ({ token, user }) => {
-            await finalizeSession({ token, user })
-          }}
-        />
-      )}
     </>
   )
 }

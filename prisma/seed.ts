@@ -8,13 +8,33 @@ const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
-  const senhaPadraoHash = await bcrypt.hash("guimicell2026", 10)
+  const adminPasswordHash = await bcrypt.hash("12345678", 10)
+  const defaultPasswordHash = await bcrypt.hash("guimicell2026", 10)
+
+  const admin = await prisma.user.upsert({
+    where: { email: "admin@guimicell.com" },
+    update: {
+      name: "Admin",
+      password: adminPasswordHash,
+      role: "ADMIN",
+      jobTitle: "Administrador",
+      active: true,
+    },
+    create: {
+      name: "Admin",
+      email: "admin@guimicell.com",
+      password: adminPasswordHash,
+      role: "ADMIN",
+      jobTitle: "Administrador",
+      active: true,
+    },
+  })
 
   await prisma.user.upsert({
     where: { email: "joao@guimicell.com.br" },
     update: {
       name: "João",
-      password: senhaPadraoHash,
+      password: defaultPasswordHash,
       role: "COLABORADOR",
       jobTitle: "Consultor Comercial",
       active: true,
@@ -22,7 +42,7 @@ async function main() {
     create: {
       name: "João",
       email: "joao@guimicell.com.br",
-      password: senhaPadraoHash,
+      password: defaultPasswordHash,
       role: "COLABORADOR",
       jobTitle: "Consultor Comercial",
       active: true,
@@ -33,7 +53,7 @@ async function main() {
     where: { email: "pedro@guimicell.com.br" },
     update: {
       name: "Pedro",
-      password: senhaPadraoHash,
+      password: defaultPasswordHash,
       role: "COLABORADOR",
       jobTitle: "Consultor Comercial",
       active: true,
@@ -41,7 +61,7 @@ async function main() {
     create: {
       name: "Pedro",
       email: "pedro@guimicell.com.br",
-      password: senhaPadraoHash,
+      password: defaultPasswordHash,
       role: "COLABORADOR",
       jobTitle: "Consultor Comercial",
       active: true,
@@ -51,13 +71,13 @@ async function main() {
   const gui = await prisma.user.findUnique({
     where: { email: "gui@guimicell.com.br" },
   })
+  const assignee = gui ?? admin
 
   if (!gui) {
-    console.error("Usuário gui@guimicell.com.br não encontrado. Execute o seed de usuários primeiro.")
-    process.exit(1)
+    console.log("Usuário gui@guimicell.com.br não encontrado. Usando o admin como responsável pelas tarefas de seed.")
   }
 
-  console.log(`Criando tarefas para ${gui.name} (${gui.id})...`)
+  console.log(`Criando tarefas para ${assignee.name} (${assignee.id})...`)
 
   await prisma.task.createMany({
     data: [
@@ -68,7 +88,7 @@ async function main() {
         priority: "ALTA",
         dueAt: new Date(),
         horario: "09:30",
-        assigneeId: gui.id,
+        assigneeId: assignee.id,
       },
       {
         title: "Revisar fechamento financeiro de março",
@@ -77,7 +97,7 @@ async function main() {
         priority: "ALTA",
         dueAt: new Date(),
         horario: "11:00",
-        assigneeId: gui.id,
+        assigneeId: assignee.id,
       },
       {
         title: "Publicar conteúdo no Instagram",
@@ -86,14 +106,14 @@ async function main() {
         priority: null,
         dueAt: new Date(),
         horario: "15:30",
-        assigneeId: gui.id,
+        assigneeId: assignee.id,
       },
     ],
     skipDuplicates: true,
   })
 
-  const count = await prisma.task.count({ where: { assigneeId: gui.id } })
-  console.log(`✓ ${count} tarefas no banco para ${gui.name}`)
+  const count = await prisma.task.count({ where: { assigneeId: assignee.id } })
+  console.log(`✓ ${count} tarefas no banco para ${assignee.name}`)
 }
 
 main()

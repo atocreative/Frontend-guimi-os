@@ -174,7 +174,7 @@ export async function backendFetch(path: string, options: BackendFetchOptions = 
   return { response, data }
 }
 
-export async function backendLogin(payload: { email: string; password: string }) {
+export async function backendLogin(payload: { email: string; password: string; captchaSeed?: string; captchaAnswer?: string }) {
   const { response, data } = await backendFetch("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(payload),
