@@ -36,10 +36,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null
         }
 
-        console.log("[Authorize] Credentials parsed successfully:", {
-          tokenLength: parsed.data.token.length,
-          tokenStart: parsed.data.token.substring(0, 50),
-        })
 
         let rawUser: unknown
 
@@ -66,12 +62,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           accessToken: String(parsed.data.token),
         }
 
-        console.log("[Authorize] Returning user with accessToken:", {
-          id: returnedUser.id,
-          email: returnedUser.email,
-          hasAccessToken: !!returnedUser.accessToken,
-          accessTokenLength: returnedUser.accessToken.length,
-        })
 
         return returnedUser
       },

@@ -1,0 +1,42 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img "Guimicell" [ref=e7]
+        - generic [ref=e8]:
+          - heading "Guimicell OS" [level=1] [ref=e9]
+          - paragraph [ref=e10]: Painel operacional interno
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: Email
+          - textbox "Email" [ref=e15]:
+            - /placeholder: gui@guimicell.com.br
+        - generic [ref=e16]:
+          - generic [ref=e17]: Senha
+          - textbox "Senha" [ref=e18]:
+            - /placeholder: ••••••••
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - generic [ref=e21]: Desafio anti-robô
+            - button "Novo desafio" [ref=e22]
+          - paragraph [ref=e23]: Quanto é 3 + 8?
+          - textbox "Desafio anti-robô" [ref=e24]:
+            - /placeholder: Resposta
+          - paragraph [ref=e25]: Resolva o desafio para liberar o envio do login.
+        - button "Entrar" [disabled]
+      - paragraph [ref=e26]: Acesso restrito · GuimiCell © 2026
+    - contentinfo [ref=e27]:
+      - generic [ref=e28]:
+        - paragraph [ref=e29]: GuimiCell OS © 2026 · Suporte operacional interno
+        - navigation [ref=e30]:
+          - link "Suporte" [ref=e31] [cursor=pointer]:
+            - /url: /suporte
+          - link "Agenda" [ref=e32] [cursor=pointer]:
+            - /url: /agenda
+          - link "Indicadores" [ref=e33] [cursor=pointer]:
+            - /url: /indicadores
+          - generic [ref=e34]: v0.1.0
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e40] [cursor=pointer]:
+    - img [ref=e41]
+  - alert [ref=e44]

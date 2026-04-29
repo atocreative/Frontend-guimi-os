@@ -118,11 +118,6 @@ export default function LoginPage() {
         return
       }
 
-      console.log("[Login Debug] Token recebido do backend:", {
-        tokenLength: result.accessToken?.length,
-        tokenPrefix: result.accessToken?.substring(0, 50),
-        user: result.user,
-      })
       await finalizeSession({ token: result.accessToken, user: result.user })
     } catch (err) {
       if (err instanceof ApiError) {

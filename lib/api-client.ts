@@ -182,22 +182,6 @@ export const api = {
   async login(payload: { email: string; password: string; captchaSeed?: string; captchaAnswer?: string }) {
     const { response, data } = await backendLogin(payload)
 
-    if (data && typeof data === "object") {
-      const keys = Object.keys(data as any)
-      console.log("[API Login] Backend response keys:", keys)
-      console.log("[API Login] Full response:", JSON.stringify(data, null, 2))
-      keys.forEach(key => {
-        console.log(`[API Login] data.${key}:`, (data as any)[key])
-      })
-    } else {
-      console.log("[API Login] Backend response:", {
-        status: response.status,
-        ok: response.ok,
-        dataType: typeof data,
-        fullData: data,
-      })
-    }
-
     if (!response.ok) {
       const payloadData = data && typeof data === "object" ? data as { code?: string } : null
       throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), payloadData?.code)
