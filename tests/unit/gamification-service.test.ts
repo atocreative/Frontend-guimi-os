@@ -270,7 +270,7 @@ describe("gamification service", () => {
 
       expect(result.entries).toHaveLength(2)
       expect(result.entries[0].level).toBe("Platina")
-      expect(result.entries[1].level).toBe("Bronze")
+      expect(result.entries[1].level).toBe("Prata")
       expect(result.currentUserRank).toBe(2)
     })
 

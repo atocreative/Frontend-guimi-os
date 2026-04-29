@@ -12,14 +12,14 @@ describe("Task Utils", () => {
   describe("sortTarefasByPriority", () => {
     it("should sort tasks by priority (high -> low)", () => {
       const tasks: TarefaDB[] = [
-        { id: "1", title: "Low", prioridade: "BAIXA", status: "PENDENTE" } as any,
-        { id: "2", title: "High", prioridade: "ALTA", status: "PENDENTE" } as any,
-        { id: "3", title: "Medium", prioridade: "MÉDIA", status: "PENDENTE" } as any,
+        { id: "1", title: "Low", priority: "BAIXA", status: "PENDENTE" } as any,
+        { id: "2", title: "High", priority: "ALTA", status: "PENDENTE" } as any,
+        { id: "3", title: "Medium", priority: "MEDIA", status: "PENDENTE" } as any,
       ]
 
       const sorted = sortTarefasByPriority(tasks)
       expect(sorted[0].id).toBe("2") // ALTA
-      expect(sorted[1].id).toBe("3") // MÉDIA
+      expect(sorted[1].id).toBe("3") // MEDIA
       expect(sorted[2].id).toBe("1") // BAIXA
     })
 
@@ -28,8 +28,8 @@ describe("Task Utils", () => {
       const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
 
       const tasks: TarefaDB[] = [
-        { id: "1", title: "Tomorrow", prioridade: "ALTA", status: "PENDENTE", dueAt: tomorrow } as any,
-        { id: "2", title: "Today", prioridade: "ALTA", status: "PENDENTE", dueAt: today } as any,
+        { id: "1", title: "Tomorrow", priority: "ALTA", status: "PENDENTE", dueAt: tomorrow } as any,
+        { id: "2", title: "Today", priority: "ALTA", status: "PENDENTE", dueAt: today } as any,
       ]
 
       const sorted = sortTarefasByPriority(tasks)
