@@ -160,7 +160,16 @@ export async function backendFetch(path: string, options: BackendFetchOptions = 
   }
 
   if (token) {
+    console.log("[backendFetch] Token info:", {
+      path,
+      tokenLength: token.length,
+      tokenStart: token.substring(0, 50),
+      tokenEnd: token.substring(Math.max(0, token.length - 20)),
+      headerValue: `Bearer ${token.substring(0, 30)}...`,
+    })
     requestHeaders.set("Authorization", `Bearer ${token}`)
+  } else {
+    console.warn("[backendFetch] No token provided for", path)
   }
 
   const response = await fetch(url, {
