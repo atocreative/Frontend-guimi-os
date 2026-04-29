@@ -283,7 +283,8 @@ function auditArchitecture(): ComplianceReport {
 }
 
 // Export for testing
-export { auditArchitecture, ComplianceReport }
+export { auditArchitecture }
+export type { ComplianceReport }
 
 // Run if executed directly
 if (require.main === module) {

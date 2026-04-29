@@ -15,7 +15,7 @@ const TOKEN_ENDPOINT = "/api/auth/token"
 type AuthMode = "required" | "none"
 
 interface FetchOptions extends RequestInit {
-  params?: Record<string, unknown>
+  params?: Record<string, string | number | boolean | null | undefined>
   auth?: AuthMode
 }
 
@@ -54,7 +54,8 @@ async function parseResponse(res: Response) {
 
 function getApiErrorMessage(status: number, data: unknown) {
   if (data && typeof data === "object") {
-    return data.message || data.error || `API Error ${status}`
+    const payload = data as { message?: string; error?: string }
+    return payload.message || payload.error || `API Error ${status}`
   }
 
   return `API Error ${status}`
@@ -101,7 +102,9 @@ async function getAuthToken(): Promise<string> {
       )
     }
 
-    if (!data?.token) {
+    const tokenPayload = data && typeof data === "object" ? data as { token?: string } : null
+
+    if (!tokenPayload?.token) {
       clearAuthTokenCache()
       throw new ApiError(
         500,
@@ -111,7 +114,7 @@ async function getAuthToken(): Promise<string> {
       )
     }
 
-    cachedToken = data.token
+    cachedToken = tokenPayload.token
     tokenExpiry = now + 50 * 60 * 1000
     return cachedToken
   } catch (error) {
@@ -134,7 +137,7 @@ async function executeRequest(
   fetchOptions: RequestInit,
   auth: AuthMode,
   retryUnauthorized: boolean,
-  params?: Record<string, unknown>
+  params?: Record<string, string | number | boolean | null | undefined>
 ) {
   const token = auth === "required" ? await getAuthToken() : undefined
 
@@ -161,7 +164,8 @@ async function executeRequest(
       )
     }
 
-    throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), data?.code)
+    const payload = data && typeof data === "object" ? data as { code?: string } : null
+    throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), payload?.code)
   }
 
   return data
@@ -179,7 +183,8 @@ export const api = {
     const { response, data } = await backendLogin(payload)
 
     if (!response.ok) {
-      throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), data?.code)
+      const payloadData = data && typeof data === "object" ? data as { code?: string } : null
+      throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), payloadData?.code)
     }
 
     return data
@@ -189,7 +194,8 @@ export const api = {
     const { response, data } = await backendVerifyMfa(payload)
 
     if (!response.ok) {
-      throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), data?.code)
+      const payloadData = data && typeof data === "object" ? data as { code?: string } : null
+      throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), payloadData?.code)
     }
 
     return data

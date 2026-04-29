@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { SistemaCard } from "@/components/configuracoes/sistema-card"
 import { UsuariosSection } from "@/components/configuracoes/usuarios-section"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { mockSistema } from "@/app/(dashboard)/configuracoes/data/mock"
 
 export default async function ConfiguracoesPage() {
   const session = await auth()
@@ -64,7 +65,7 @@ export default async function ConfiguracoesPage() {
             </p>
           </div>
           <div className="max-w-md">
-            <SistemaCard sistema={[]} />
+            <SistemaCard sistema={mockSistema} />
           </div>
         </TabsContent>
       </Tabs>

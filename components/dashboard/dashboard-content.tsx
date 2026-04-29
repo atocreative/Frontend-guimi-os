@@ -75,13 +75,20 @@ export function DashboardContent({ user }: DashboardContentProps) {
         if (!isColaborador) {
           try {
             const dashData = await backendService.getDashboard()
-            const fin = dashData?.financeiro ?? {}
+            const fin = dashData?.financeiro && typeof dashData.financeiro === "object"
+              ? dashData.financeiro as {
+                  total?: number
+                  receitas?: number
+                  despesas?: number
+                  lucro?: number
+                }
+              : null
             // API retorna financeiro.total ou financeiro.receitas como faturamento
-            const financeiroTotal = fin.total ?? fin.receitas ?? 0
+            const financeiroTotal = fin?.total ?? fin?.receitas ?? 0
             setFaturamentoMes(financeiroTotal)
             // Mapeia despesas e lucro se a API os fornecer
-            if (typeof fin.despesas === "number") setDespesasMes(fin.despesas)
-            if (typeof fin.lucro === "number") setLucroLiquidoMes(fin.lucro)
+            if (typeof fin?.despesas === "number") setDespesasMes(fin.despesas)
+            if (typeof fin?.lucro === "number") setLucroLiquidoMes(fin.lucro)
             // TODO: API ainda não fornece aPagar, aReceber e saldo — aguardar implementação no backend
             setResumoHoje({
               faturamentoDia: Math.floor(financeiroTotal / 30),
@@ -155,6 +162,7 @@ export function DashboardContent({ user }: DashboardContentProps) {
       <div className="space-y-6">
         {alerta}
         <DashboardColaborador
+          userId={user?.id ?? ""}
           userName={user?.name ?? ""}
           tarefasHoje={tarefasHoje}
           tarefasPendentes={tarefasPendentes}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { memo, useCallback, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import {
   ArrowDownLeft,
@@ -42,14 +42,86 @@ const GraficoFinanceiro = dynamic(
   }
 )
 
-function brl(valor: number) {
-  return new Intl.NumberFormat("pt-BR", {
+const formatBRL = (valor: number) =>
+  new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(valor)
+
+interface KpiGridProps {
+  faturamentoDiaValor: string
+  faturamentoDiaDescricao: string
+  faturamentoMes?: number
+  lucroBrutoValor: string
+  lucroBrutoDescricao: string
+  lucroLiquidoMes?: number
+  despesasMes?: number
 }
+
+const KpiGridPrimeira = memo(function KpiGridPrimeira({
+  faturamentoDiaValor,
+  faturamentoDiaDescricao,
+  faturamentoMes,
+  lucroBrutoValor,
+  lucroBrutoDescricao,
+  lucroLiquidoMes,
+}: KpiGridProps) {
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <KpiCard
+        titulo="Faturamento do Dia"
+        valor={faturamentoDiaValor}
+        descricao={faturamentoDiaDescricao}
+        icone={DollarSign}
+        tendencia="up"
+      />
+      <KpiCard
+        titulo="Faturamento do Mês"
+        valor={faturamentoMes !== undefined ? formatBRL(faturamentoMes) : "—"}
+        descricao={faturamentoMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
+        icone={Target}
+        tendencia="up"
+      />
+      <KpiCard
+        titulo="Lucro Bruto"
+        valor={lucroBrutoValor}
+        descricao={lucroBrutoDescricao}
+        icone={PiggyBank}
+      />
+      <KpiCard
+        titulo="Lucro Líquido"
+        valor={lucroLiquidoMes !== undefined ? formatBRL(lucroLiquidoMes) : "—"}
+        descricao={lucroLiquidoMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
+        icone={TrendingUp}
+        tendencia="up"
+        destaque
+      />
+    </div>
+  )
+})
+
+interface KpiGridSegundaProps {
+  despesasMes?: number
+}
+
+const KpiGridSegunda = memo(function KpiGridSegunda({ despesasMes }: KpiGridSegundaProps) {
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <KpiCard titulo="A Pagar" valor="—" descricao="Não disponível na API" icone={ArrowDownLeft} tendencia="down" />
+      <KpiCard titulo="A Receber" valor="—" descricao="Não disponível na API" icone={ArrowUpRight} tendencia="up" />
+      <KpiCard
+        titulo="Total Despesas"
+        valor={despesasMes !== undefined ? formatBRL(despesasMes) : "—"}
+        descricao={despesasMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
+        icone={Receipt}
+        tendencia="down"
+      />
+      <KpiCard titulo="Saldo em Caixa" valor="—" descricao="Não disponível na API" icone={Wallet} tendencia="neutral" destaque />
+    </div>
+  )
+})
 
 interface DashboardAdminProps {
   tarefasHoje: TarefaDB[]
@@ -74,15 +146,27 @@ export function DashboardAdmin({
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
 
-  const faturamentoDiaValor = resumoHoje ? brl(resumoHoje.faturamentoDia) : "—"
+  const tarefasPorId = useMemo(
+    () => new Map([...tarefasHoje, ...tarefasPendentes].map((tarefa) => [tarefa.id, tarefa])),
+    [tarefasHoje, tarefasPendentes]
+  )
+
+  const faturamentoDiaValor = useMemo(
+    () => resumoHoje ? formatBRL(resumoHoje.faturamentoDia) : "—",
+    [resumoHoje]
+  )
   const faturamentoDiaDescricao = resumoHoje ? "Hoje (real)" : "Aguardando dados"
-  const lucroBrutoValor = resumoHoje ? brl(resumoHoje.lucroBrutoDia) : "—"
-  const lucroBrutoDescricao = resumoHoje
-    ? `Margem bruta ${resumoHoje.margemBrutaDia.toFixed(2)}%`
-    : "Aguardando dados"
+  const lucroBrutoValor = useMemo(
+    () => resumoHoje ? formatBRL(resumoHoje.lucroBrutoDia) : "—",
+    [resumoHoje]
+  )
+  const lucroBrutoDescricao = useMemo(
+    () => resumoHoje ? `Margem bruta ${resumoHoje.margemBrutaDia.toFixed(2)}%` : "Aguardando dados",
+    [resumoHoje]
+  )
 
   const concluirTarefa = useCallback(async (id: string) => {
-    const tarefa = [...tarefasHoje, ...tarefasPendentes].find((item) => item.id === id)
+    const tarefa = tarefasPorId.get(id)
 
     try {
       await backendService.updateTask(id, { status: "CONCLUIDA" })
@@ -101,7 +185,7 @@ export function DashboardAdmin({
       notifyTaskCompletionError()
       return false
     }
-  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasHoje, tarefasPendentes])
+  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasPorId])
 
   const pendentesVisiveis = useMemo(
     () => tarefasPendentes.filter((t) => !concluidos.has(t.id)),
@@ -121,52 +205,16 @@ export function DashboardAdmin({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard
-          titulo="Faturamento do Dia"
-          valor={faturamentoDiaValor}
-          descricao={faturamentoDiaDescricao}
-          icone={DollarSign}
-          tendencia="up"
-        />
-        <KpiCard
-          titulo="Faturamento do Mês"
-          valor={faturamentoMes !== undefined ? brl(faturamentoMes) : "—"}
-          descricao={faturamentoMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
-          icone={Target}
-          tendencia="up"
-        />
-        <KpiCard
-          titulo="Lucro Bruto"
-          valor={lucroBrutoValor}
-          descricao={lucroBrutoDescricao}
-          icone={PiggyBank}
-        />
-        <KpiCard
-          titulo="Lucro Líquido"
-          valor={lucroLiquidoMes !== undefined ? brl(lucroLiquidoMes) : "—"}
-          descricao={lucroLiquidoMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
-          icone={TrendingUp}
-          tendencia="up"
-          destaque
-        />
-      </div>
+      <KpiGridPrimeira
+        faturamentoDiaValor={faturamentoDiaValor}
+        faturamentoDiaDescricao={faturamentoDiaDescricao}
+        faturamentoMes={faturamentoMes}
+        lucroBrutoValor={lucroBrutoValor}
+        lucroBrutoDescricao={lucroBrutoDescricao}
+        lucroLiquidoMes={lucroLiquidoMes}
+      />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {/* TODO: API não fornece aPagar — aguardar implementação no backend */}
-        <KpiCard titulo="A Pagar" valor="—" descricao="Não disponível na API" icone={ArrowDownLeft} tendencia="down" />
-        {/* TODO: API não fornece aReceber — aguardar implementação no backend */}
-        <KpiCard titulo="A Receber" valor="—" descricao="Não disponível na API" icone={ArrowUpRight} tendencia="up" />
-        <KpiCard
-          titulo="Total Despesas"
-          valor={despesasMes !== undefined ? brl(despesasMes) : "—"}
-          descricao={despesasMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
-          icone={Receipt}
-          tendencia="down"
-        />
-        {/* TODO: API não fornece saldo — aguardar implementação no backend */}
-        <KpiCard titulo="Saldo em Caixa" valor="—" descricao="Não disponível na API" icone={Wallet} tendencia="neutral" destaque />
-      </div>
+      <KpiGridSegunda despesasMes={despesasMes} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <GraficoFinanceiro dados={[]} titulo="Evolução Mensal (6 meses)" />

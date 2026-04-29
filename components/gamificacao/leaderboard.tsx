@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { Trophy } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +22,104 @@ function getInitials(name: string) {
     .toUpperCase()
 }
 
+function isSameLeaderboardData(
+  previous: GamificationLeaderboardData | null,
+  next: GamificationLeaderboardData
+) {
+  if (!previous) return false
+  if (
+    previous.available !== next.available ||
+    previous.scope !== next.scope ||
+    previous.updatedAt !== next.updatedAt ||
+    previous.currentUserRank !== next.currentUserRank ||
+    previous.message !== next.message ||
+    previous.entries.length !== next.entries.length
+  ) {
+    return false
+  }
+
+  return previous.entries.every((entry, index) => {
+    const nextEntry = next.entries[index]
+
+    return (
+      entry.userId === nextEntry.userId &&
+      entry.rank === nextEntry.rank &&
+      entry.points === nextEntry.points &&
+      entry.level === nextEntry.level &&
+      entry.name === nextEntry.name &&
+      entry.avatarUrl === nextEntry.avatarUrl &&
+      entry.jobTitle === nextEntry.jobTitle &&
+      entry.badges.length === nextEntry.badges.length &&
+      entry.badges.every((badge, badgeIndex) => badge.id === nextEntry.badges[badgeIndex]?.id)
+    )
+  })
+}
+
+interface LeaderboardRowProps {
+  entry: GamificationLeaderboardData["entries"][number]
+  index: number
+  isCurrentUser: boolean
+}
+
+const LeaderboardRow = memo(function LeaderboardRow({
+  entry,
+  index,
+  isCurrentUser,
+}: LeaderboardRowProps) {
+  const displayRank = index < 3 ? medalhas[index] : `#${entry.rank}`
+  const visibleBadges = entry.badges.slice(0, 2)
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
+        isCurrentUser && "border-primary/40 bg-primary/5"
+      )}
+    >
+      <div className="w-6 text-center text-sm font-semibold text-muted-foreground">
+        {displayRank}
+      </div>
+      <Avatar>
+        {entry.avatarUrl ? <AvatarImage src={entry.avatarUrl} alt={entry.name} /> : null}
+        <AvatarFallback className="bg-zinc-900 text-xs font-bold text-white">
+          {getInitials(entry.name)}
+        </AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{entry.name}</p>
+        <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+          <span>{entry.jobTitle ?? entry.role}</span>
+          {visibleBadges.map((badge) => (
+            <span key={badge.id} aria-label={badge.title}>{badge.emoji}</span>
+          ))}
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-bold">{entry.points}</p>
+        <div className="flex items-center justify-end gap-1">
+          <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+            {entry.level}
+          </Badge>
+        </div>
+      </div>
+    </div>
+  )
+}, (prevProps, nextProps) => {
+  // Custom comparison for memoization
+  return (
+    prevProps.entry.userId === nextProps.entry.userId &&
+    prevProps.entry.rank === nextProps.entry.rank &&
+    prevProps.entry.points === nextProps.entry.points &&
+    prevProps.entry.level === nextProps.entry.level &&
+    prevProps.entry.name === nextProps.entry.name &&
+    prevProps.entry.avatarUrl === nextProps.entry.avatarUrl &&
+    prevProps.entry.jobTitle === nextProps.entry.jobTitle &&
+    prevProps.entry.badges.length === nextProps.entry.badges.length &&
+    prevProps.index === nextProps.index &&
+    prevProps.isCurrentUser === nextProps.isCurrentUser
+  )
+})
+
 interface LeaderboardProps {
   currentUserId?: string
   compact?: boolean
@@ -31,7 +129,7 @@ interface LeaderboardProps {
 export function Leaderboard({
   currentUserId,
   compact = false,
-  pollMs = 5000,
+  pollMs = 10000,
 }: LeaderboardProps) {
   const [scope, setScope] = useState<GamificationScope>("month")
   const [data, setData] = useState<GamificationLeaderboardData | null>(null)
@@ -41,10 +139,17 @@ export function Leaderboard({
     let active = true
 
     async function load() {
+      if (document.visibilityState === "hidden") {
+        return
+      }
+
       const nextData = await gamificationService.getLeaderboard(scope, currentUserId)
 
       if (!active) return
-      setData(nextData)
+
+      setData((previous) =>
+        isSameLeaderboardData(previous, nextData) ? previous : nextData
+      )
       setLoading(false)
     }
 
@@ -61,6 +166,10 @@ export function Leaderboard({
   }, [currentUserId, pollMs, scope])
 
   const entries = useMemo(() => data?.entries ?? [], [data])
+  const visibleEntries = useMemo(
+    () => entries.slice(0, compact ? 3 : 10),
+    [compact, entries]
+  )
 
   return (
     <Card>
@@ -102,46 +211,14 @@ export function Leaderboard({
         ) : (
           <>
             <div className="space-y-2">
-              {entries.slice(0, compact ? 3 : 10).map((entry, index) => {
-                const isCurrentUser = entry.userId === currentUserId
-
-                return (
-                  <div
-                    key={`${entry.userId}-${entry.rank}`}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
-                      isCurrentUser && "border-primary/40 bg-primary/5"
-                    )}
-                  >
-                    <div className="w-6 text-center text-sm font-semibold text-muted-foreground">
-                      {index < 3 ? medalhas[index] : `#${entry.rank}`}
-                    </div>
-                    <Avatar>
-                      {entry.avatarUrl ? <AvatarImage src={entry.avatarUrl} alt={entry.name} /> : null}
-                      <AvatarFallback className="bg-zinc-900 text-xs font-bold text-white">
-                        {getInitials(entry.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{entry.name}</p>
-                      <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
-                        <span>{entry.jobTitle ?? entry.role}</span>
-                        {entry.badges.slice(0, 2).map((badge) => (
-                          <span key={badge.id} aria-label={badge.title}>{badge.emoji}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold">{entry.points}</p>
-                      <div className="flex items-center justify-end gap-1">
-                        <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                          {entry.level}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+              {visibleEntries.map((entry, index) => (
+                <LeaderboardRow
+                  key={`${entry.userId}-${entry.rank}`}
+                  entry={entry}
+                  index={index}
+                  isCurrentUser={entry.userId === currentUserId}
+                />
+              ))}
             </div>
 
             {data.currentUserRank ? (

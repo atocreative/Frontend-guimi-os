@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { memo, useState, useEffect, useCallback, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { Plus } from "lucide-react"
 import { useSession } from "next-auth/react"
@@ -22,6 +22,86 @@ const ModalNovaTarefa = dynamic(
   { ssr: false }
 )
 
+interface ChecklistsGridProps {
+  checklistAbertura: ItemChecklist[]
+  checklistFechamento: ItemChecklist[]
+  onToggle: (id: string) => Promise<void>
+}
+
+const ChecklistsGrid = memo(function ChecklistsGrid({
+  checklistAbertura,
+  checklistFechamento,
+  onToggle,
+}: ChecklistsGridProps) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold mb-3">Checklists do Dia</h3>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <ChecklistCard
+          titulo="Abertura da Loja"
+          itens={checklistAbertura}
+          tipo="abertura"
+          onToggle={onToggle}
+        />
+        <ChecklistCard
+          titulo="Fechamento da Loja"
+          itens={checklistFechamento}
+          tipo="fechamento"
+          onToggle={onToggle}
+        />
+      </div>
+    </div>
+  )
+})
+
+interface TarefasGridProps {
+  usuarios: UsuarioSimples[]
+  usuariosFiltrados: UsuarioSimples[]
+  tarefasPorUsuario: Map<string, TarefaDB[]>
+  onToggle: (id: string) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+  onEdit: (tarefa: TarefaDB) => void
+}
+
+const TarefasGrid = memo(function TarefasGrid({
+  usuarios,
+  usuariosFiltrados,
+  tarefasPorUsuario,
+  onToggle,
+  onDelete,
+  onEdit,
+}: TarefasGridProps) {
+  if (usuarios.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed p-12 text-center">
+        <p className="text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className={
+        usuariosFiltrados.length === 1
+          ? "max-w-lg"
+          : "grid grid-cols-1 gap-4 md:grid-cols-3"
+      }
+    >
+      {usuariosFiltrados.map((usuario) => (
+        <ColunaPessoa
+          key={usuario.id}
+          nome={usuario.name}
+          avatarUrl={usuario.avatarUrl}
+          tarefas={tarefasPorUsuario.get(usuario.id) ?? []}
+          onToggle={onToggle}
+          onDelete={onDelete}
+          onEdit={onEdit}
+        />
+      ))}
+    </div>
+  )
+})
+
 export default function AgendaPage() {
   const { data: session } = useSession()
   const role = session?.user?.role
@@ -38,6 +118,15 @@ export default function AgendaPage() {
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
 
   const isColaborador = role === "COLABORADOR"
+
+  const tarefasPorId = useMemo(
+    () => new Map(tarefas.map((tarefa) => [tarefa.id, tarefa])),
+    [tarefas]
+  )
+  const checklistPorId = useMemo(
+    () => new Map([...checklistAbertura, ...checklistFechamento].map((item) => [item.id, item])),
+    [checklistAbertura, checklistFechamento]
+  )
 
   const carregarTarefas = useCallback(async () => {
     try {
@@ -65,7 +154,7 @@ export default function AgendaPage() {
   }, [carregarTarefas])
 
   const toggleChecklist = useCallback(async (id: string) => {
-    const itemAtual = [...checklistAbertura, ...checklistFechamento].find((item) => item.id === id)
+    const itemAtual = checklistPorId.get(id)
     const completed = itemAtual ? !itemAtual.concluido : true
 
     setChecklistAbertura((prev) =>
@@ -88,10 +177,10 @@ export default function AgendaPage() {
         prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
       )
     }
-  }, [checklistAbertura, checklistFechamento])
+  }, [checklistPorId])
 
   const handleToggle = useCallback(async (id: string) => {
-    const tarefa = tarefas.find((t) => t.id === id)
+    const tarefa = tarefasPorId.get(id)
     if (!tarefa) return
 
     const novoStatus = tarefa.status === "CONCLUIDA" ? "PENDENTE" : "CONCLUIDA"
@@ -117,16 +206,16 @@ export default function AgendaPage() {
         notifyTaskCompleted({ taskTitle: tarefa.title })
       }
     }
-  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefas])
+  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasPorId])
 
   const handleDelete = useCallback(async (id: string) => {
-    const tarefaAnterior = tarefas.find((t) => t.id === id)
+    const tarefaAnterior = tarefasPorId.get(id)
     setTarefas((prev) => prev.filter((t) => t.id !== id))
     const res = await fetch(`/api/tarefas/${id}`, { method: "DELETE" })
     if (!res.ok && tarefaAnterior) {
       setTarefas((prev) => [...prev, tarefaAnterior])
     }
-  }, [tarefas])
+  }, [tarefasPorId])
 
   const handleEdit = useCallback((tarefa: TarefaDB) => {
     setTarefaEditando(tarefa)
@@ -173,11 +262,19 @@ export default function AgendaPage() {
 
   const tarefasPorUsuario = useMemo(() => {
     const map = new Map<string, TarefaDB[]>()
-    for (const u of usuariosFiltrados) {
-      map.set(u.id, tarefas.filter((t) => t.assigneeId === u.id))
+    const usuariosIds = new Set(usuariosFiltrados.map((usuario) => usuario.id))
+
+    for (const usuario of usuariosFiltrados) {
+      map.set(usuario.id, [])
     }
+
+    for (const tarefa of tarefasOrdenadas) {
+      if (!tarefa.assigneeId || !usuariosIds.has(tarefa.assigneeId)) continue
+      map.get(tarefa.assigneeId)?.push(tarefa)
+    }
+
     return map
-  }, [tarefas, usuariosFiltrados])
+  }, [tarefasOrdenadas, usuariosFiltrados])
 
   return (
     <div className="space-y-6">
@@ -217,23 +314,11 @@ export default function AgendaPage() {
         </div>
       )}
 
-      <div>
-        <h3 className="text-sm font-semibold mb-3">Checklists do Dia</h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <ChecklistCard
-            titulo="Abertura da Loja"
-            itens={checklistAbertura}
-            tipo="abertura"
-            onToggle={toggleChecklist}
-          />
-          <ChecklistCard
-            titulo="Fechamento da Loja"
-            itens={checklistFechamento}
-            tipo="fechamento"
-            onToggle={toggleChecklist}
-          />
-        </div>
-      </div>
+      <ChecklistsGrid
+        checklistAbertura={checklistAbertura}
+        checklistFechamento={checklistFechamento}
+        onToggle={toggleChecklist}
+      />
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -263,30 +348,15 @@ export default function AgendaPage() {
             )}
           </CardContent>
         </Card>
-      ) : usuarios.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <p className="text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
-        </div>
       ) : (
-        <div
-          className={
-            usuariosFiltrados.length === 1
-              ? "max-w-lg"
-              : "grid grid-cols-1 gap-4 md:grid-cols-3"
-          }
-        >
-          {usuariosFiltrados.map((usuario) => (
-            <ColunaPessoa
-              key={usuario.id}
-              nome={usuario.name}
-              avatarUrl={usuario.avatarUrl}
-              tarefas={tarefasPorUsuario.get(usuario.id) ?? []}
-              onToggle={handleToggle}
-              onDelete={handleDelete}
-              onEdit={handleEdit}
-            />
-          ))}
-        </div>
+        <TarefasGrid
+          usuarios={usuarios}
+          usuariosFiltrados={usuariosFiltrados}
+          tarefasPorUsuario={tarefasPorUsuario}
+          onToggle={handleToggle}
+          onDelete={handleDelete}
+          onEdit={handleEdit}
+        />
       )}
 
       {session?.user && (

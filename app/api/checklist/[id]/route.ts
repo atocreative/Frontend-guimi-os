@@ -32,8 +32,12 @@ export async function PATCH(
   })
 
   if (!result.response.ok) {
+    const payload = result.data && typeof result.data === "object"
+      ? result.data as { message?: string; error?: string }
+      : null
+
     return Response.json(
-      { error: result.data?.message || result.data?.error || "Erro ao atualizar checklist." },
+      { error: payload?.message || payload?.error || "Erro ao atualizar checklist." },
       { status: result.response.status }
     )
   }

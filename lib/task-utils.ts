@@ -32,8 +32,8 @@ export function getPriorityValue(priority?: string): number {
 
 export function sortTarefasByPriority(tarefas: TarefaDB[]): TarefaDB[] {
   return [...tarefas].sort((a, b) => {
-    const priorityA = getPriorityValue(a.prioridade)
-    const priorityB = getPriorityValue(b.prioridade)
+    const priorityA = getPriorityValue(a.priority ?? undefined)
+    const priorityB = getPriorityValue(b.priority ?? undefined)
 
     if (priorityA !== priorityB) {
       return priorityA - priorityB

@@ -23,8 +23,12 @@ export async function GET() {
   const result = await backendFetch("/api/checklists", { token })
 
   if (!result.response.ok) {
+    const payload = result.data && typeof result.data === "object"
+      ? result.data as { message?: string; error?: string }
+      : null
+
     return Response.json(
-      { error: result.data?.message || result.data?.error || "Erro ao carregar checklists." },
+      { error: payload?.message || payload?.error || "Erro ao carregar checklists." },
       { status: result.response.status }
     )
   }

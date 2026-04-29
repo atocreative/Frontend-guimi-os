@@ -10,10 +10,12 @@ import {
 import { taskCreateSchema, taskFiltersSchema } from "@/lib/schemas"
 
 function toErrorResponse(status: number, data: unknown) {
+  const payload = data && typeof data === "object" ? data as { message?: string; error?: string } : null
+
   return Response.json(
     {
       error:
-        data?.message || data?.error || "Não foi possível processar a solicitação.",
+        payload?.message || payload?.error || "Não foi possível processar a solicitação.",
     },
     { status }
   )

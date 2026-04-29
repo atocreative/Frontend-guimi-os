@@ -4,10 +4,11 @@ import { backendFetch, extractTaskPayload, getSessionAccessToken } from "@/lib/b
 import { taskUpdateSchema } from "@/lib/schemas"
 
 function toErrorResponse(status: number, data: unknown) {
+  const payload = data && typeof data === "object" ? data as { message?: string; error?: string } : null
   const message =
     status === 404 || status === 403
       ? "Recurso não encontrado ou você não tem permissão para acessá-lo."
-      : data?.message || data?.error || "Não foi possível processar a solicitação."
+      : payload?.message || payload?.error || "Não foi possível processar a solicitação."
 
   return Response.json({ error: message }, { status })
 }

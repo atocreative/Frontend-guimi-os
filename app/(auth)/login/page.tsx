@@ -95,7 +95,7 @@ export default function LoginPage() {
               width={80}
               height={80}
               className="rounded-xl"
-              priority
+              loading="lazy"
             />
             <div className="text-center">
               <h1 className="text-2xl font-bold tracking-tight text-white">

@@ -1,6 +1,7 @@
 import { api, ApiError as ClientApiError } from "@/lib/api-client"
 import type { TarefaDB, NovaChecklist, ChecklistDB, ChecklistItemDB } from "@/types/tarefas"
 import type { UsuarioDB } from "@/types/usuarios"
+import type { DashboardResponse } from "@/types/dashboard"
 
 export class ApiError extends Error {
   constructor(
@@ -133,7 +134,7 @@ export const backendRepository = {
     }
   },
 
-  async getDashboard(): Promise<unknown> {
+  async getDashboard(): Promise<DashboardResponse> {
     try {
       return await api.getDashboard()
     } catch (error) {
@@ -143,7 +144,7 @@ export const backendRepository = {
 
   async health(): Promise<{ status: string }> {
     try {
-      return await api.health()
+      return await api.getHealth()
     } catch (error) {
       throw normalizeError(error, "HEALTH_CHECK_ERROR", "Falha no health check")
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { memo, useCallback, useMemo, useState } from "react"
 import { CheckCircle2, ListTodo, Percent, Sunrise } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { KpiCard } from "@/components/dashboard/kpi-card"
@@ -21,6 +21,64 @@ interface DashboardColaboradorProps {
   taxaConclusao: number
 }
 
+interface GreetingCardProps {
+  userName: string
+  dataAtual: string
+}
+
+const GreetingCard = memo(function GreetingCard({ userName, dataAtual }: GreetingCardProps) {
+  return (
+    <Card className="overflow-hidden border-zinc-200 bg-gradient-to-r from-zinc-950 to-zinc-800 text-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2 text-zinc-300">
+          <Sunrise className="h-4 w-4" />
+          <span className="text-xs uppercase tracking-[0.2em]">Boas-vindas</span>
+        </div>
+        <CardTitle className="text-2xl">Olá, {userName}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-zinc-300">
+          {dataAtual.charAt(0).toUpperCase() + dataAtual.slice(1)}
+        </p>
+      </CardContent>
+    </Card>
+  )
+})
+
+interface KpiGridProps {
+  concluidasMes: number
+  pendentes: number
+  taxaConclusao: number
+}
+
+const KpiGrid = memo(function KpiGrid({ concluidasMes, pendentes, taxaConclusao }: KpiGridProps) {
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <KpiCard
+        titulo="Concluídas no Mês"
+        valor={`${concluidasMes}`}
+        descricao="tarefas finalizadas"
+        icone={CheckCircle2}
+        tendencia="up"
+      />
+      <KpiCard
+        titulo="Pendentes"
+        valor={`${pendentes}`}
+        descricao="em aberto"
+        icone={ListTodo}
+        tendencia={pendentes > 0 ? "neutral" : "up"}
+      />
+      <KpiCard
+        titulo="Taxa de Conclusão"
+        valor={`${taxaConclusao}%`}
+        descricao="base individual"
+        icone={Percent}
+        tendencia={taxaConclusao >= 70 ? "up" : "neutral"}
+      />
+    </div>
+  )
+})
+
 export function DashboardColaborador({
   userId,
   userName,
@@ -30,19 +88,27 @@ export function DashboardColaborador({
   pendentes,
   taxaConclusao,
 }: DashboardColaboradorProps) {
-  const dataAtual = new Intl.DateTimeFormat("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(new Date())
+  const dataAtual = useMemo(
+    () => new Intl.DateTimeFormat("pt-BR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(new Date()),
+    []
+  )
 
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
 
+  const tarefasPorId = useMemo(
+    () => new Map([...tarefasHoje, ...tarefasPendentes].map((tarefa) => [tarefa.id, tarefa])),
+    [tarefasHoje, tarefasPendentes]
+  )
+
   const concluirTarefa = useCallback(async (id: string) => {
-    const tarefa = [...tarefasHoje, ...tarefasPendentes].find((item) => item.id === id)
+    const tarefa = tarefasPorId.get(id)
 
     const res = await fetch(`/api/tarefas/${id}`, {
       method: "PATCH",
@@ -66,7 +132,7 @@ export function DashboardColaborador({
     }
 
     return res.ok
-  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasHoje, tarefasPendentes])
+  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasPorId])
 
   const pendentesVisiveis = useMemo(
     () => tarefasPendentes.filter((t) => !concluidos.has(t.id)),
@@ -86,44 +152,9 @@ export function DashboardColaborador({
         </p>
       </div>
 
-      <Card className="overflow-hidden border-zinc-200 bg-gradient-to-r from-zinc-950 to-zinc-800 text-white">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2 text-zinc-300">
-            <Sunrise className="h-4 w-4" />
-            <span className="text-xs uppercase tracking-[0.2em]">Boas-vindas</span>
-          </div>
-          <CardTitle className="text-2xl">Olá, {userName}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-zinc-300">
-            {dataAtual.charAt(0).toUpperCase() + dataAtual.slice(1)}
-          </p>
-        </CardContent>
-      </Card>
+      <GreetingCard userName={userName} dataAtual={dataAtual} />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <KpiCard
-          titulo="Concluídas no Mês"
-          valor={`${concluidasMes}`}
-          descricao="tarefas finalizadas"
-          icone={CheckCircle2}
-          tendencia="up"
-        />
-        <KpiCard
-          titulo="Pendentes"
-          valor={`${pendentes}`}
-          descricao="em aberto"
-          icone={ListTodo}
-          tendencia={pendentes > 0 ? "neutral" : "up"}
-        />
-        <KpiCard
-          titulo="Taxa de Conclusão"
-          valor={`${taxaConclusao}%`}
-          descricao="base individual"
-          icone={Percent}
-          tendencia={taxaConclusao >= 70 ? "up" : "neutral"}
-        />
-      </div>
+      <KpiGrid concluidasMes={concluidasMes} pendentes={pendentes} taxaConclusao={taxaConclusao} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <UserStats userId={userId} />
