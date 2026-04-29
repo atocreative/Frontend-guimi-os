@@ -17,8 +17,8 @@ export const authConfig = {
         token.id = user.id
         token.role = user.role
         token.jobTitle = user.jobTitle ?? null
-        token.accessToken = (user as any).accessToken
-        token.raw_token = (user as any).accessToken
+        token.accessToken = String((user as any).accessToken || "")
+        token.raw_token = String((user as any).accessToken || "")
 
         console.log("[JWT Callback] Token after assignment:", {
           tokenAccessToken: (token as any).accessToken?.substring(0, 50),
@@ -47,7 +47,7 @@ export const authConfig = {
         session.user.id = token.id as string
         session.user.role = token.role as string
         session.user.jobTitle = (token.jobTitle as string | null | undefined) ?? null
-        session.accessToken = (token as any).accessToken as string | undefined
+        session.accessToken = String((token as any).accessToken || "")
 
         console.log("[Session Callback] Session after assignment:", {
           sessionAccessToken: session.accessToken?.substring(0, 50),

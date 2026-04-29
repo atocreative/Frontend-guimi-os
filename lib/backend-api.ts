@@ -160,14 +160,15 @@ export async function backendFetch(path: string, options: BackendFetchOptions = 
   }
 
   if (token) {
+    const tokenStr = String(token)
     console.log("[backendFetch] Token info:", {
       path,
-      tokenLength: token.length,
-      tokenStart: token.substring(0, 50),
-      tokenEnd: token.substring(Math.max(0, token.length - 20)),
-      headerValue: `Bearer ${token.substring(0, 30)}...`,
+      tokenLength: tokenStr.length,
+      tokenStart: tokenStr.substring(0, 50),
+      tokenEnd: tokenStr.substring(Math.max(0, tokenStr.length - 20)),
+      headerValue: `Bearer ${tokenStr.substring(0, 30)}...`,
     })
-    requestHeaders.set("Authorization", `Bearer ${token}`)
+    requestHeaders.set("Authorization", `Bearer ${tokenStr}`)
   } else {
     console.warn("[backendFetch] No token provided for", path)
   }

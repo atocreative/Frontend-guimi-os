@@ -63,7 +63,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.data.email,
           role: user.data.role,
           jobTitle: user.data.jobTitle ?? null,
-          accessToken: parsed.data.token,
+          accessToken: String(parsed.data.token),
         }
 
         console.log("[Authorize] Returning user with accessToken:", {
