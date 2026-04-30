@@ -37,6 +37,7 @@ export default async function IndicadoresPage() {
   // Create evolution data for chart
   const evolucaoFormatada = evolucao.map((item) => ({
     mes: item.data.split('-').slice(1, 3).join('/'),
+    lucro: item.lucro,
     vendas: item.vendas,
     faturamento: item.faturamento,
   }))
@@ -108,6 +109,7 @@ export default async function IndicadoresPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <GraficoEvolucao dados={evolucaoFormatada.length > 0 ? evolucaoFormatada : mockAlertasIndicadores.map((_, idx) => ({
           mes: `${idx}`,
+          lucro: 0,
           vendas: 0,
           faturamento: 0,
         }))} />

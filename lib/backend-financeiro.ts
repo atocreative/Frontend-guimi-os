@@ -5,8 +5,6 @@
  * Base URL: http://localhost:3001
  */
 
-import { apiClient } from './backend-api'
-
 export interface ResumoFinanceiroHoje {
   faturamentoDia: number
   lucroBrutoDia: number

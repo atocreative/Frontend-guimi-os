@@ -154,7 +154,7 @@ export default async function FinanceiroPage() {
         formaPagamento: "—",
         vendedor: "—",
         cliente: "—",
-        data: item.mes,
+        data: item.data,
         foneNinjaId: null,
       }))} />
       <TabelaDespesas despesas={mockDespesas} />

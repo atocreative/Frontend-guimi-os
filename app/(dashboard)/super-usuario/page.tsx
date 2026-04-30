@@ -3,7 +3,6 @@ import { getSession } from "@/lib/auth-session"
 import { FEATURE_FLAGS, FeatureFlag } from "@/lib/feature-flags"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
 import { FeatureFlagToggle } from "@/components/super-usuario/feature-flag-toggle"
 
 export default async function SuperUsuarioPage() {

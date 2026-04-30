@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Switch } from "@/components/ui/switch"
+import { Button } from "@/components/ui/button"
 
 interface FeatureFlagToggleProps {
   flagId: string
@@ -12,9 +12,10 @@ export function FeatureFlagToggle({ flagId, initialEnabled }: FeatureFlagToggleP
   const [enabled, setEnabled] = useState(initialEnabled)
   const [loading, setLoading] = useState(false)
 
-  const handleToggle = async (checked: boolean) => {
+  const handleToggle = async () => {
     setLoading(true)
-    setEnabled(checked)
+    const newState = !enabled
+    setEnabled(newState)
 
     try {
       // In the future, this could call an API endpoint to persist the flag
@@ -22,22 +23,25 @@ export function FeatureFlagToggle({ flagId, initialEnabled }: FeatureFlagToggleP
       // await fetch(`/api/feature-flags/${flagId}`, {
       //   method: 'PATCH',
       //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ enabled: checked }),
+      //   body: JSON.stringify({ enabled: newState }),
       // })
     } catch (error) {
       console.error("Failed to update feature flag:", error)
-      setEnabled(!checked)
+      setEnabled(!newState)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Switch
-      checked={enabled}
-      onCheckedChange={handleToggle}
+    <Button
+      onClick={handleToggle}
       disabled={loading}
-      className="data-[state=checked]:bg-green-600"
-    />
+      variant={enabled ? "default" : "outline"}
+      size="sm"
+      className={enabled ? "bg-green-600 hover:bg-green-700" : ""}
+    >
+      {loading ? "..." : enabled ? "Ativado" : "Desativado"}
+    </Button>
   )
 }

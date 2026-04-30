@@ -3,7 +3,7 @@
  * Fetch employee and team performance indicators from backend or Fone Ninja
  */
 
-import { backendRepository } from './repositories/backend-repository'
+import { api } from './api-client'
 import { getVendasPorVendedor } from './backend-financeiro'
 
 export interface IndicadorColaborador {
@@ -35,7 +35,7 @@ export interface EvolucaoIndicador {
 export async function getIndicadoresTime(): Promise<IndicadorColaborador[]> {
   try {
     // Fetch users from backend
-    const usuarios = await backendRepository.getUsuarios()
+    const { users: usuarios } = await api.getUsers()
 
     if (!usuarios || usuarios.length === 0) {
       return []
