@@ -4,7 +4,7 @@
  */
 
 import { backendRepository } from './repositories/backend-repository'
-import { getVendasPorVendedor } from './foneninja'
+import { getVendasPorVendedor } from './backend-financeiro'
 
 export interface IndicadorColaborador {
   id: string

@@ -17,7 +17,7 @@ import {
   mockFluxoCaixa,
   mockCategoriasDespesa,
 } from "@/app/(dashboard)/data/mock"
-import { getFaturamentoMes, getResumoFinanceiroHoje, getVendasPorVendedor } from "@/lib/foneninja"
+import { getFaturamentoMes, getResumoFinanceiroHoje, getVendasPorVendedor } from "@/lib/backend-financeiro"
 
 function brl(valor: number) {
   return new Intl.NumberFormat("pt-BR", {

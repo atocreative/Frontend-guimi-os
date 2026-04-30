@@ -25,36 +25,17 @@ export default async function ConfiguracoesPage() {
       let ultimaSincronizacao = null
 
       try {
-        // Check Fone Ninja
-        if (integracao.id === "fone-ninja") {
-          const health = await checkIntegrationHealth(
-            process.env.FONENINJA_BASE_URL || "https://api.fone.ninja",
-            3000,
-          )
-          status = health.isHealthy ? "CONECTADO" : "DESCONECTADO"
-          if (health.isHealthy) {
-            ultimaSincronizacao = new Date().toLocaleString("pt-BR")
-          }
-        }
+        // All integrations are checked via backend, not direct external calls
+        // Check backend health which includes Fone Ninja status
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"
+        const health = await checkIntegrationHealth(backendUrl, 3000)
 
-        // Check Kommo CRM (placeholder - configure your Kommo endpoint)
-        if (integracao.id === "kommo") {
-          const kommoUrl = process.env.KOMMO_BASE_URL || "https://kommo.example.com"
-          const health = await checkIntegrationHealth(kommoUrl, 3000)
-          status = health.isHealthy ? "CONECTADO" : "DESCONECTADO"
-          if (health.isHealthy) {
-            ultimaSincronizacao = new Date().toLocaleString("pt-BR")
-          }
-        }
-
-        // Check Meu Assessor (placeholder - configure your endpoint)
-        if (integracao.id === "meu-assessor") {
-          const assessorUrl = process.env.MEU_ASSESSOR_URL || "https://assessor.example.com"
-          const health = await checkIntegrationHealth(assessorUrl, 3000)
-          status = health.isHealthy ? "CONECTADO" : "DESCONECTADO"
-          if (health.isHealthy) {
-            ultimaSincronizacao = new Date().toLocaleString("pt-BR")
-          }
+        if (health.isHealthy) {
+          // Backend is healthy, integrations depend on backend configuration
+          status = "CONECTADO"
+          ultimaSincronizacao = new Date().toLocaleString("pt-BR")
+        } else {
+          status = "DESCONECTADO"
         }
       } catch (error) {
         status = "ERRO"

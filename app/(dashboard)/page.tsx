@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth-session"
 import { DashboardAdmin } from "@/components/dashboard/dashboard-admin"
 import { DashboardColaborador } from "@/components/dashboard/dashboard-colaborador"
-import { getFaturamentoMes, getResumoFinanceiroHoje } from "@/lib/foneninja"
+import { getFaturamentoMes, getResumoFinanceiroHoje } from "@/lib/backend-financeiro"
 import { backendFetch, extractTasksPayload, getSessionAccessToken } from "@/lib/backend-api"
 import {
   isTaskDueToday,
