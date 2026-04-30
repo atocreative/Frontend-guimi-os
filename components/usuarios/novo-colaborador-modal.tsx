@@ -145,7 +145,7 @@ export function NovoColaboradorModal({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="novo-colaborador-cargo">Cargo *</Label>
+            <Label htmlFor="novo-colaborador-cargo">Cargo (Profissão/Função) *</Label>
             <Input
               id="novo-colaborador-cargo"
               value={form.jobTitle}

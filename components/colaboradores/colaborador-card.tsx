@@ -58,7 +58,7 @@ export function ColaboradorCard({ colaborador }: { colaborador: ColaboradorResum
                 {roleLabel[colaborador.role]}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">{colaborador.cargo}</p>
+            <p className="text-xs text-muted-foreground">{colaborador.jobTitle ?? "Cargo não informado"}</p>
             <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
               <span>{colaborador.tempoEmpresa}</span>

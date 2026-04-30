@@ -88,7 +88,7 @@ export function Podio({ colaboradores }: { colaboradores: ColaboradorResumo[] })
                 </div>
                 <div className="space-y-1">
                   <p className="text-base font-semibold">{colaborador.nome}</p>
-                  <p className="text-sm text-muted-foreground">{colaborador.cargo}</p>
+                  <p className="text-sm text-muted-foreground">{colaborador.jobTitle ?? "Cargo não informado"}</p>
                 </div>
                 <div className="mt-4 space-y-2">
                   <p className="text-3xl font-bold">{colaborador.pontosMes}</p>
@@ -142,7 +142,7 @@ export function Podio({ colaboradores }: { colaboradores: ColaboradorResumo[] })
                       </Avatar>
                       <div>
                         <p className="text-sm font-medium">{colaborador.nome}</p>
-                        <p className="text-xs text-muted-foreground">{colaborador.cargo}</p>
+                        <p className="text-xs text-muted-foreground">{colaborador.jobTitle ?? "Cargo não informado"}</p>
                       </div>
                     </div>
                   </TableCell>

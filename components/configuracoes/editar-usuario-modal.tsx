@@ -140,7 +140,7 @@ export function EditarUsuarioModal({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="edit-usuario-cargo">Cargo</Label>
+            <Label htmlFor="edit-usuario-cargo">Cargo (Profissão/Função) *</Label>
             <Input
               id="edit-usuario-cargo"
               value={form.jobTitle}
