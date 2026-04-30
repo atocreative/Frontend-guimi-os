@@ -1,3 +1,5 @@
+import { Clock } from "lucide-react"
+
 export default function ComercialPage() {
   return (
     <div className="space-y-6">
@@ -11,7 +13,10 @@ export default function ComercialPage() {
 
       {/* Aguardando integração com backend */}
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <p className="font-medium">⏳ Aguardando dados</p>
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4" />
+          <p className="font-medium">Aguardando dados</p>
+        </div>
         <p className="mt-1 text-xs">
           A integração com o CRM Kommo será disponibilizada após configuração no backend.
           No momento, esta tela mostra dados mockados apenas para referência de layout.

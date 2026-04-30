@@ -5,15 +5,37 @@ async function loginAndNavigate(page: any) {
   // Go to login page
   await page.goto("/login", { waitUntil: "domcontentloaded" })
 
-  // Fill in credentials (test user - adjust if needed)
+  // Fill in credentials (test user)
   await page.fill('input[type="email"]', "admin@guimicell.com")
-  await page.fill('input[type="password"]', "123456")
+  await page.fill('input[type="password"]', "atoadm2026")
+
+  // Wait for CAPTCHA question to load
+  await page.waitForSelector('[data-testid="captcha-question"]', { timeout: 5000 })
+
+  // Get CAPTCHA question and calculate answer
+  const questionText = await page.getAttribute('[data-testid="captcha-question"]', 'textContent')
+  const match = questionText?.match(/(\d+)\s*([\+\-])\s*(\d+)/)
+  if (match) {
+    const left = parseInt(match[1])
+    const operator = match[2]
+    const right = parseInt(match[3])
+    const answer = operator === '+' ? left + right : left - right
+    
+    // Fill in CAPTCHA answer
+    await page.fill('[data-testid="captcha-input"]', String(answer))
+  }
+
+  // Wait for button to be enabled
+  await page.waitForFunction(
+    () => !document.querySelector('button:has-text("Entrar")')?.hasAttribute('disabled'),
+    { timeout: 5000 }
+  )
 
   // Click login button
   await page.click('button:has-text("Entrar")')
 
   // Wait for redirect to dashboard
-  await page.waitForURL("/", { timeout: 5000 })
+  await page.waitForURL("/", { timeout: 10000 })
 
   // Now navigate to agenda
   await page.goto("/agenda", { waitUntil: "domcontentloaded" })

@@ -1,0 +1,191 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import type { RoleUsuario, UsuarioSistema } from "@/types/usuarios"
+
+interface EditarUsuarioModalProps {
+  open: boolean
+  usuario?: UsuarioSistema
+  onClose: () => void
+  onSaved: (usuario: UsuarioSistema) => void
+  currentUserRole?: string
+}
+
+const allRoles: { value: RoleUsuario; label: string }[] = [
+  { value: "COLABORADOR", label: "Colaborador" },
+  { value: "GESTOR", label: "Gerente" },
+  { value: "ADMIN", label: "Admin" },
+  { value: "SUPER_USER", label: "Super Admin" },
+]
+
+function getAvailableRoles(currentUserRole?: string): { value: RoleUsuario; label: string }[] {
+  // Only SUPER_USER can assign ADMIN or SUPER_USER roles
+  if (currentUserRole === "SUPER_USER") {
+    return allRoles
+  }
+  // ADMIN can only assign GESTOR or COLABORADOR
+  return allRoles.filter((role) => role.value === "COLABORADOR" || role.value === "GESTOR")
+}
+
+export function EditarUsuarioModal({
+  open,
+  usuario,
+  onClose,
+  onSaved,
+  currentUserRole,
+}: EditarUsuarioModalProps) {
+  const availableRoles = getAvailableRoles(currentUserRole)
+  const [form, setForm] = useState({
+    name: "",
+    jobTitle: "",
+    role: "COLABORADOR" as RoleUsuario,
+    active: true,
+  })
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState("")
+
+  useEffect(() => {
+    if (!open || !usuario) return
+    setForm({
+      name: usuario.name,
+      jobTitle: usuario.jobTitle ?? "",
+      role: usuario.role,
+      active: usuario.active,
+    })
+    setErro("")
+  }, [open, usuario])
+
+  function updateField<K extends keyof typeof form>(field: K, value: any) {
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  async function salvar() {
+    if (!usuario) return
+    setSalvando(true)
+    setErro("")
+
+    try {
+      const res = await fetch(`/api/usuarios/${usuario.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          jobTitle: form.jobTitle.trim(),
+          role: form.role,
+          active: form.active,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        setErro(typeof data?.error === "string" ? data.error : "Erro ao atualizar usuário.")
+        return
+      }
+
+      const data = await res.json()
+      onSaved(data.usuario)
+      onClose()
+    } catch {
+      setErro("Erro de conexão. Tente novamente.")
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={(value) => !value && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>Editar Usuário</SheetTitle>
+        </SheetHeader>
+
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            salvar()
+          }}
+          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-2"
+        >
+          {erro && (
+            <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-600">
+              {erro}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-usuario-nome">Nome completo *</Label>
+            <Input
+              id="edit-usuario-nome"
+              value={form.name}
+              onChange={(event) => updateField("name", event.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-usuario-cargo">Cargo</Label>
+            <Input
+              id="edit-usuario-cargo"
+              value={form.jobTitle}
+              onChange={(event) => updateField("jobTitle", event.target.value)}
+              placeholder="Ex: Vendedor, Gerente..."
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-usuario-role">Nível de Acesso *</Label>
+            <Select value={form.role} onValueChange={(value) => updateField("role", value as RoleUsuario)}>
+              <SelectTrigger id="edit-usuario-role">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableRoles.map((role) => (
+                  <SelectItem key={role.value} value={role.value}>
+                    {role.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="edit-usuario-ativo"
+              checked={form.active}
+              onCheckedChange={(checked) => updateField("active", checked)}
+            />
+            <Label htmlFor="edit-usuario-ativo" className="font-normal cursor-pointer">
+              Usuário ativo
+            </Label>
+          </div>
+        </form>
+
+        <SheetFooter className="px-4">
+          <Button variant="outline" onClick={onClose} disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button onClick={salvar} disabled={salvando}>
+            {salvando ? "Salvando..." : "Salvar"}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  )
+}

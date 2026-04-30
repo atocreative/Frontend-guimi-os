@@ -71,7 +71,7 @@ function normalizeUser(input: unknown): UsuarioDB {
     name: typeof user.name === "string" ? user.name : "",
     email: typeof user.email === "string" ? user.email : "",
     role:
-      user.role === "ADMIN" || user.role === "GESTOR" || user.role === "COLABORADOR"
+      user.role === "ADMIN" || user.role === "GESTOR" || user.role === "COLABORADOR" || user.role === "SUPER_USER"
         ? user.role
         : "COLABORADOR",
     avatarUrl: typeof user.avatarUrl === "string" ? user.avatarUrl : null,

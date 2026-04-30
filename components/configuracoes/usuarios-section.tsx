@@ -4,18 +4,22 @@ import { useEffect, useState } from "react"
 import { Plus, Users } from "lucide-react"
 import { UsuarioCard } from "@/components/configuracoes/usuario-card"
 import { NovoColaboradorModal } from "@/components/usuarios/novo-colaborador-modal"
+import { EditarUsuarioModal } from "@/components/configuracoes/editar-usuario-modal"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { UsuarioSistema } from "@/types/usuarios"
 
 interface UsuariosSectionProps {
   canManageUsers: boolean
+  currentUserRole?: string
 }
 
-export function UsuariosSection({ canManageUsers }: UsuariosSectionProps) {
+export function UsuariosSection({ canManageUsers, currentUserRole }: UsuariosSectionProps) {
   const [usuarios, setUsuarios] = useState<UsuarioSistema[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [usuarioEditando, setUsuarioEditando] = useState<UsuarioSistema | undefined>()
 
   useEffect(() => {
     async function carregarUsuarios() {
@@ -36,6 +40,21 @@ export function UsuariosSection({ canManageUsers }: UsuariosSectionProps) {
     setUsuarios((current) =>
       [...current, usuario].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
     )
+  }
+
+  function handleEdit(usuario: UsuarioSistema) {
+    setUsuarioEditando(usuario)
+    setEditModalOpen(true)
+  }
+
+  function handleSaved(usuario: UsuarioSistema) {
+    setUsuarios((current) =>
+      current.map((u) => (u.id === usuario.id ? usuario : u))
+    )
+  }
+
+  function handleDeleted(usuarioId: string) {
+    setUsuarios((current) => current.filter((u) => u.id !== usuarioId))
   }
 
   return (
@@ -67,7 +86,12 @@ export function UsuariosSection({ canManageUsers }: UsuariosSectionProps) {
               <Skeleton key={index} className="h-20 rounded-xl" />
             ))
           : usuarios.map((usuario) => (
-              <UsuarioCard key={usuario.id} usuario={usuario} />
+              <UsuarioCard
+                key={usuario.id}
+                usuario={usuario}
+                onEdit={canManageUsers ? handleEdit : undefined}
+                onDelete={canManageUsers ? handleDeleted : undefined}
+              />
             ))}
       </div>
 
@@ -80,6 +104,19 @@ export function UsuariosSection({ canManageUsers }: UsuariosSectionProps) {
         onClose={() => setModalOpen(false)}
         onCreated={handleCreated}
       />
+
+      {usuarioEditando && (
+        <EditarUsuarioModal
+          open={editModalOpen}
+          usuario={usuarioEditando}
+          onClose={() => {
+            setEditModalOpen(false)
+            setUsuarioEditando(undefined)
+          }}
+          onSaved={handleSaved}
+          currentUserRole={currentUserRole}
+        />
+      )}
     </section>
   )
 }

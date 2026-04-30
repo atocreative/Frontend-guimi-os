@@ -1,3 +1,4 @@
+import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -39,9 +40,21 @@ export function IntegracaoCard({ integracao }: { integracao: IntegracaoConfig })
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-zinc-900 text-white flex items-center justify-center text-sm font-bold shrink-0">
-              {integracao.icone}
-            </div>
+            {integracao.logo ? (
+              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                <Image
+                  src={integracao.logo}
+                  alt={integracao.nome}
+                  width={40}
+                  height={40}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="h-10 w-10 rounded-lg bg-zinc-900 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                {integracao.icone}
+              </div>
+            )}
             <div>
               <p className="text-sm font-semibold">{integracao.nome}</p>
               <p className="text-xs text-muted-foreground">

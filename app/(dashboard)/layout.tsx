@@ -32,7 +32,6 @@ export default async function DashboardLayout({
         <Header
           userName={name}
           userEmail={email}
-          userRole={role}
         />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="flex flex-col gap-4">

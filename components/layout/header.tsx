@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
@@ -31,22 +30,23 @@ const pageTitles: Record<string, string> = {
   "/suporte": "Área de Suporte",
 }
 
-const roleLabels: Record<string, string> = {
-  ADMIN: "Admin",
-  GESTOR: "Gestor",
-  COLABORADOR: "Colaborador",
-}
-
 interface HeaderProps {
   userName: string
   userEmail: string
-  userRole: string
 }
 
-export function Header({ userName, userEmail, userRole }: HeaderProps) {
+export function Header({ userName, userEmail }: HeaderProps) {
   const pathname = usePathname()
   const title = pageTitles[pathname] ?? "Guimicell OS"
-  const initials = userName
+  
+  // Remove role/category from userName if present (e.g., "Gui ADMIN" -> "Gui")
+  const displayName = userName
+    .split(" ")
+    .filter((part) => !["ADMIN", "COLABORADOR", "GERENTE", "GESTOR"].includes(part.toUpperCase()))
+    .join(" ")
+    .trim()
+  
+  const initials = displayName
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -72,17 +72,14 @@ export function Header({ userName, userEmail, userRole }: HeaderProps) {
                 </AvatarFallback>
               </Avatar>
               <span className="text-sm font-medium hidden md:block">
-                {userName}
+                {displayName}
               </span>
-              <Badge className="text-xs hidden md:block bg-secondary text-secondary-foreground">
-                {roleLabels[userRole] ?? userRole}
-              </Badge>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium">{userName}</span>
+                <span className="text-sm font-medium">{displayName}</span>
                 <span className="text-xs text-muted-foreground">{userEmail}</span>
               </div>
             </DropdownMenuLabel>

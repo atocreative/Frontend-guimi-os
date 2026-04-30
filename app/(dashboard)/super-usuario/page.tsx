@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation"
+import { Info } from "lucide-react"
 import { getSession } from "@/lib/auth-session"
 import { FEATURE_FLAGS, FeatureFlag } from "@/lib/feature-flags"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { FeatureFlagToggle } from "@/components/super-usuario/feature-flag-toggle"
+import { MenuItemVisibilityControl } from "@/components/super-usuario/menu-item-visibility-control"
 
 export default async function SuperUsuarioPage() {
   const session = await getSession()
@@ -27,18 +28,22 @@ export default async function SuperUsuarioPage() {
         {Object.values(FEATURE_FLAGS).map((flag) => (
           <Card key={flag.id}>
             <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <CardTitle className="text-base">{flag.name}</CardTitle>
                   <CardDescription className="mt-1">{flag.description}</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3 flex-shrink-0">
                   {flag.requiredRole && (
                     <Badge variant="secondary" className="text-xs">
                       {flag.requiredRole}
                     </Badge>
                   )}
-                  <FeatureFlagToggle flagId={flag.id} initialEnabled={flag.enabled} />
+                  <MenuItemVisibilityControl
+                    itemId={flag.id}
+                    itemName={flag.name}
+                    initialState={flag.enabled ? "enabled" : "disabled"}
+                  />
                 </div>
               </div>
             </CardHeader>
@@ -48,7 +53,10 @@ export default async function SuperUsuarioPage() {
 
       <Card className="bg-muted/50">
         <CardHeader>
-          <CardTitle className="text-base">ℹ️ Informações</CardTitle>
+          <div className="flex items-center gap-2">
+            <Info className="h-5 w-5" />
+            <CardTitle className="text-base">Informações</CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="text-sm space-y-2 text-muted-foreground">
           <p>

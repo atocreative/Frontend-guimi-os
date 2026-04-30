@@ -161,14 +161,12 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center bg-zinc-950">
         <div className="w-full max-w-sm px-6">
           <div className="mb-8 flex flex-col items-center gap-3">
-            <Image
+            <img
               src="/logo.webp"
               alt="Guimicell"
               width={80}
               height={80}
-              className="rounded-xl"
-              loading="lazy"
-              unoptimized
+              className="h-20 w-20 rounded-xl object-cover"
             />
             <div className="text-center">
               <h1 className="text-2xl font-bold tracking-tight text-white">

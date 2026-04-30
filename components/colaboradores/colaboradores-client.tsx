@@ -20,7 +20,10 @@ function getInitials(name: string) {
 }
 
 function buildColaboradores(usuarios: UsuarioSistema[]): ColaboradorResumo[] {
-  return usuarios.map((usuario) => {
+  // Filtrar super users - não devem aparecer na lista de colaboradores
+  const filteredUsuarios = usuarios.filter((usuario) => usuario.role !== "SUPER_USER")
+
+  return filteredUsuarios.map((usuario) => {
     return {
       id: usuario.id,
       nome: usuario.name,

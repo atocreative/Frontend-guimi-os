@@ -275,6 +275,28 @@ export const api = {
     return extractUserPayload(data)
   },
 
+  async updateUser(
+    id: string,
+    payload: Partial<{
+      name: string
+      email: string
+      jobTitle: string
+      role: string
+      active: boolean
+    }>
+  ) {
+    const data = await apiCall(`/api/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    })
+    return extractUserPayload(data)
+  },
+
+  async deleteUser(id: string) {
+    await apiCall(`/api/users/${id}`, { method: "DELETE" })
+    return null
+  },
+
   async getChecklists(tipo?: "ABERTURA" | "FECHAMENTO") {
     const data = await apiCall("/api/checklists", { params: tipo ? { tipo } : undefined })
     return { checklists: extractChecklistsPayload(data) }
@@ -302,6 +324,27 @@ export const api = {
 
   async getDashboard() {
     return apiCall("/dashboard")
+  },
+
+  async syncFoneNinja() {
+    const data = await apiCall("/api/financeiro/sync/feneninja", {
+      method: "POST",
+    })
+    return data
+  },
+
+  async getFinanceiroSnapshot(month: number, year: number) {
+    const data = await apiCall("/api/financeiro/snapshot", {
+      params: { month: month.toString(), year: year.toString() },
+    })
+    return data
+  },
+
+  async getFinanceiroReceitas(month: number, year: number) {
+    const data = await apiCall("/api/financeiro/receitas", {
+      params: { month: month.toString(), year: year.toString() },
+    })
+    return data
   },
 
   async getHealth() {

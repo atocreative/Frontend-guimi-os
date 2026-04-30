@@ -19,6 +19,7 @@ export interface IntegracaoConfig {
   ultimaSincronizacao: string | null
   registrosImportados: number
   icone: string
+  logo?: string
   fonte: string
 }
 
@@ -64,6 +65,7 @@ export const mockIntegracoes: IntegracaoConfig[] = [
     ultimaSincronizacao: null,
     registrosImportados: 0,
     icone: "K",
+    logo: "/kommo.png",
     fonte: "Comercial",
   },
   {
@@ -74,6 +76,7 @@ export const mockIntegracoes: IntegracaoConfig[] = [
     ultimaSincronizacao: null,
     registrosImportados: 0,
     icone: "F",
+    logo: "/fone-ninja.png",
     fonte: "Financeiro",
   },
   {
@@ -84,6 +87,7 @@ export const mockIntegracoes: IntegracaoConfig[] = [
     ultimaSincronizacao: null,
     registrosImportados: 0,
     icone: "M",
+    logo: "/assessor.png",
     fonte: "Financeiro",
   },
 ]

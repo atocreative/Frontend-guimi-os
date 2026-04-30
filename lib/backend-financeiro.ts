@@ -3,7 +3,11 @@
  * Conforme endpoints2.md: frontend consome backend, backend consome FoneNinja
  *
  * Base URL: http://localhost:3001
+ *
+ * IMPORTANTE: Usar api client que passa auth token automaticamente!
  */
+
+import { api } from './api-client'
 
 export interface ResumoFinanceiroHoje {
   faturamentoDia: number
@@ -35,20 +39,9 @@ export interface MetricasComerciais {
  */
 export async function syncFoneNinjaReceitas(): Promise<{ success: boolean; synced?: number; error?: string }> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/financeiro/sync/feneninja`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Auth token será enviado via httpOnly cookie automaticamente
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Sincronização FoneNinja falhou: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return { success: true, synced: data.synced }
+    // Use api client para passar auth token automaticamente
+    const response = await api.syncFoneNinja()
+    return { success: true, synced: response?.synced || 0 }
   } catch (error) {
     console.error('Erro ao sincronizar FoneNinja:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' }
@@ -61,21 +54,8 @@ export async function syncFoneNinjaReceitas(): Promise<{ success: boolean; synce
  */
 export async function getReceitasPeriodo(month: number, year: number): Promise<any[]> {
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/financeiro/receitas?month=${month}&year=${year}`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error(`Falha ao carregar receitas: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return data.data || []
+    const data = await api.getFinanceiroReceitas(month, year)
+    return data?.data || data || []
   } catch (error) {
     console.error('Erro ao carregar receitas:', error)
     return []
@@ -88,21 +68,8 @@ export async function getReceitasPeriodo(month: number, year: number): Promise<a
  */
 export async function getSnapshotFinanceiro(month: number, year: number): Promise<any> {
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/financeiro/snapshot?month=${month}&year=${year}`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error(`Falha ao carregar snapshot: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return data.data || null
+    const data = await api.getFinanceiroSnapshot(month, year)
+    return data?.data || data || null
   } catch (error) {
     console.error('Erro ao carregar snapshot financeiro:', error)
     return null
@@ -115,21 +82,8 @@ export async function getSnapshotFinanceiro(month: number, year: number): Promis
  */
 export async function getDashboardData(): Promise<any> {
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/dashboard`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error(`Falha ao carregar dashboard: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return data.data || null
+    const data = await api.getDashboard()
+    return data?.data || data || null
   } catch (error) {
     console.error('Erro ao carregar dashboard:', error)
     return null

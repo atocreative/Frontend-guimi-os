@@ -12,11 +12,11 @@ export default async function ConfiguracoesPage() {
   const session = await auth()
   const role = session?.user?.role
 
-  if (role === "COLABORADOR") {
+  if (role === "COLABORADOR" || !role) {
     redirect("/")
   }
 
-  const canManageUsers = role === "ADMIN"
+  const canManageUsers = role === "ADMIN" || role === "SUPER_USER"
 
   // Check integration health status
   const integracaoComStatus = await Promise.all(
@@ -75,7 +75,7 @@ export default async function ConfiguracoesPage() {
         </TabsList>
 
         <TabsContent value="usuarios" className="space-y-4 outline-none">
-          <UsuariosSection canManageUsers={canManageUsers} />
+          <UsuariosSection canManageUsers={canManageUsers} currentUserRole={role} />
         </TabsContent>
 
         <TabsContent value="integracoes" className="space-y-4 outline-none">

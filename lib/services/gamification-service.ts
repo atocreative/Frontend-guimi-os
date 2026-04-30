@@ -102,7 +102,10 @@ function buildUnavailableUserStats(userId: string, message?: string): Gamificati
 }
 
 function mapLeaderboard(raw: GamificationLeaderboardResponseRaw, currentUserId?: string): GamificationLeaderboardData {
-  const entries = raw.entries.map((entry) => ({
+  // Filter out SUPER_USER accounts (system maintenance accounts don't participate in gamification)
+  const filteredRawEntries = raw.entries.filter((entry) => entry.role !== "SUPER_USER")
+  
+  const entries = filteredRawEntries.map((entry) => ({
     userId: entry.userId,
     name: entry.name,
     avatarUrl: entry.avatarUrl,

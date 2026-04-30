@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
@@ -156,8 +157,15 @@ export function AppSidebar({ userRole, userEmail }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <LayoutDashboard className="size-4" />
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-muted overflow-hidden">
+                  <Image
+                    src="/logo.webp"
+                    alt="GuimiCell OS"
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                    priority
+                  />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
                   <span className="font-semibold">GuimiCell OS</span>
