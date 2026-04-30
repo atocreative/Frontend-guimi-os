@@ -19,8 +19,8 @@ test.describe("Full Application Audit", () => {
    */
   async function loginAsAdmin(page: any) {
     await page.goto("/login", { waitUntil: "domcontentloaded" })
-    await page.fill('input[type="email"]', "admin@guimicell.com")
-    await page.fill('input[type="password"]', "123456")
+    await page.fill('input[type="email"]', "admin@aguimicell.com")
+    await page.fill('input[type="password"]', "aguimicell123")
     await page.click('button[type="submit"]')
     await page.waitForURL("/", { timeout: 5000 })
   }

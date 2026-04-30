@@ -22,6 +22,7 @@ INSTALL.md
 USAGE.md
 CLAUDE.md
 aru.mcp.json
+.playwright-mcp/
 
 # Documentos de Análise e Planejamento (Não devem subir)
 AGENTS.md

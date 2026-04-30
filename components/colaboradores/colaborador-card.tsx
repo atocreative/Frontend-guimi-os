@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils"
 import type { ColaboradorResumo } from "@/types/colaboradores"
 
 const roleCor: Record<string, string> = {
-  ADMIN: "bg-zinc-900 text-white border-zinc-900",
-  GESTOR: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  COLABORADOR: "bg-zinc-100 text-zinc-700 border-zinc-200",
+  ADMIN: "bg-primary text-primary-foreground border-primary",
+  GESTOR: "bg-secondary/10 text-secondary border-secondary/20",
+  COLABORADOR: "bg-muted text-muted-foreground border-muted",
 }
 
 const roleLabel: Record<string, string> = {
@@ -41,8 +41,8 @@ export function ColaboradorCard({ colaborador }: { colaborador: ColaboradorResum
               className={cn(
                 "text-lg font-bold",
                 colaborador.role === "ADMIN"
-                  ? "bg-zinc-900 text-white"
-                  : "bg-zinc-100 text-zinc-700"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
               )}
             >
               {colaborador.avatar}

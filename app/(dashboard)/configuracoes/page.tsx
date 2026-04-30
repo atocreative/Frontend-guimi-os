@@ -3,8 +3,10 @@ import { Plug, Settings2, Users } from "lucide-react"
 import { auth } from "@/auth"
 import { SistemaCard } from "@/components/configuracoes/sistema-card"
 import { UsuariosSection } from "@/components/configuracoes/usuarios-section"
+import { IntegracaoCard } from "@/components/configuracoes/integracao-card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { mockSistema } from "@/app/(dashboard)/configuracoes/data/mock"
+import { mockSistema, mockIntegracoes } from "@/app/(dashboard)/configuracoes/data/mock"
+import { checkIntegrationHealth } from "@/lib/integration-checker"
 
 export default async function ConfiguracoesPage() {
   const session = await auth()
@@ -15,6 +17,56 @@ export default async function ConfiguracoesPage() {
   }
 
   const canManageUsers = role === "ADMIN"
+
+  // Check integration health status
+  const integracaoComStatus = await Promise.all(
+    mockIntegracoes.map(async (integracao) => {
+      let status: "CONECTADO" | "DESCONECTADO" | "ERRO" | "PENDENTE" = "PENDENTE"
+      let ultimaSincronizacao = null
+
+      try {
+        // Check Fone Ninja
+        if (integracao.id === "fone-ninja") {
+          const health = await checkIntegrationHealth(
+            process.env.FONENINJA_BASE_URL || "https://api.fone.ninja",
+            3000,
+          )
+          status = health.isHealthy ? "CONECTADO" : "DESCONECTADO"
+          if (health.isHealthy) {
+            ultimaSincronizacao = new Date().toLocaleString("pt-BR")
+          }
+        }
+
+        // Check Kommo CRM (placeholder - configure your Kommo endpoint)
+        if (integracao.id === "kommo") {
+          const kommoUrl = process.env.KOMMO_BASE_URL || "https://kommo.example.com"
+          const health = await checkIntegrationHealth(kommoUrl, 3000)
+          status = health.isHealthy ? "CONECTADO" : "DESCONECTADO"
+          if (health.isHealthy) {
+            ultimaSincronizacao = new Date().toLocaleString("pt-BR")
+          }
+        }
+
+        // Check Meu Assessor (placeholder - configure your endpoint)
+        if (integracao.id === "meu-assessor") {
+          const assessorUrl = process.env.MEU_ASSESSOR_URL || "https://assessor.example.com"
+          const health = await checkIntegrationHealth(assessorUrl, 3000)
+          status = health.isHealthy ? "CONECTADO" : "DESCONECTADO"
+          if (health.isHealthy) {
+            ultimaSincronizacao = new Date().toLocaleString("pt-BR")
+          }
+        }
+      } catch (error) {
+        status = "ERRO"
+      }
+
+      return {
+        ...integracao,
+        status,
+        ultimaSincronizacao,
+      }
+    }),
+  )
 
   return (
     <div className="space-y-6">
@@ -49,12 +101,14 @@ export default async function ConfiguracoesPage() {
           <div>
             <h3 className="text-lg font-medium">Conectores e APIs</h3>
             <p className="text-sm text-muted-foreground">
-              Integrações ativas e configuradas no sistema.
+              Status em tempo real das integrações com sistemas externos.
             </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Nenhuma integração configurada ainda.
-          </p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {integracaoComStatus.map((integracao) => (
+              <IntegracaoCard key={integracao.id} integracao={integracao} />
+            ))}
+          </div>
         </TabsContent>
 
         <TabsContent value="sistema" className="space-y-4 outline-none">

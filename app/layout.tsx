@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 import "./globals.css";
-import { Footer } from "@/components/layout/footer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Providers } from "./providers";
 
@@ -35,10 +34,7 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col font-sans">
         <Providers>
           <TooltipProvider>
-            <div className="flex min-h-screen flex-1 flex-col">
-              <div className="flex-1 min-h-0">{children}</div>
-              <Footer />
-            </div>
+            {children}
           </TooltipProvider>
         </Providers>
       </body>

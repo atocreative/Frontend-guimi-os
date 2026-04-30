@@ -36,7 +36,7 @@ export const ColunaPessoa = memo(function ColunaPessoa({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Avatar className="h-7 w-7">
-              <AvatarFallback className="text-xs bg-zinc-900 text-white">
+              <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
                 {avatarUrl ? undefined : inicial}
               </AvatarFallback>
             </Avatar>
@@ -49,7 +49,7 @@ export const ColunaPessoa = memo(function ColunaPessoa({
 
         <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
           <div
-            className="h-full bg-emerald-500 rounded-full transition-all"
+            className="h-full bg-secondary rounded-full transition-all"
             style={{
               width: total > 0 ? `${(concluidas / total) * 100}%` : "0%",
             }}

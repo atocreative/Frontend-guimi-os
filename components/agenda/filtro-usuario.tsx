@@ -33,12 +33,12 @@ export function FiltroUsuario({
           className={cn(
             "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
             selecionado === u.id
-              ? "bg-zinc-900 text-white border-zinc-900"
+              ? "bg-primary text-primary-foreground border-primary"
               : "bg-background hover:bg-muted border-border"
           )}
         >
           <Avatar className="h-5 w-5">
-            <AvatarFallback className="text-xs bg-zinc-200 text-zinc-700">
+            <AvatarFallback className="text-xs bg-secondary text-secondary-foreground font-semibold">
               {u.name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>

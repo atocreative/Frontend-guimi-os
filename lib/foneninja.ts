@@ -244,3 +244,127 @@ export async function getResumoFinanceiroHoje(): Promise<ResumoFinanceiroHoje> {
     margemBrutaDia,
   }
 }
+
+export interface VendedorMetrica {
+  nomeVendedor: string
+  totalVendas: number
+  faturamento: number
+  lucro: number
+  margemLucro: number
+  upgrades: number
+  valorUpgrades: number
+}
+
+export async function getVendasPorVendedor(
+  startDate: string,
+  endDate: string,
+): Promise<VendedorMetrica[]> {
+  const rows = await listVendasByDateRange(startDate, endDate)
+  const vendedorMap = new Map<string, VendedorMetrica>()
+
+  // Process each sale
+  for (const venda of rows) {
+    if (isCanceledSale(venda)) continue
+
+    const vendedor = 'vendedor_nome' in venda
+      ? (venda.vendedor_nome as string | null) || 'Desconhecido'
+      : 'Desconhecido'
+
+    const custos = await getVendaCostCents(venda)
+    const vendaValue = toMoneyCents(venda.valor_total)
+    const lucro = vendaValue - custos
+
+    // Determine if this is an upgrade (would need field from API)
+    const isUpgrade = 'tipo' in venda && venda.tipo === 'upgrade'
+
+    let metrica = vendedorMap.get(vendedor)
+    if (!metrica) {
+      metrica = {
+        nomeVendedor: vendedor,
+        totalVendas: 0,
+        faturamento: 0,
+        lucro: 0,
+        margemLucro: 0,
+        upgrades: 0,
+        valorUpgrades: 0,
+      }
+      vendedorMap.set(vendedor, metrica)
+    }
+
+    metrica.totalVendas += 1
+    metrica.faturamento += vendaValue
+    metrica.lucro += lucro
+
+    if (isUpgrade) {
+      metrica.upgrades += 1
+      metrica.valorUpgrades += vendaValue
+    }
+  }
+
+  // Calculate margins and convert from cents
+  const result = Array.from(vendedorMap.values()).map((metrica) => ({
+    ...metrica,
+    margemLucro:
+      metrica.faturamento === 0
+        ? 0
+        : Number(((metrica.lucro / metrica.faturamento) * 100).toFixed(2)),
+    faturamento: fromMoneyCents(metrica.faturamento),
+    lucro: fromMoneyCents(metrica.lucro),
+    valorUpgrades: fromMoneyCents(metrica.valorUpgrades),
+  }))
+
+  // Sort by faturamento descending
+  return result.sort((a, b) => b.faturamento - a.faturamento)
+}
+
+export async function getVendasDia(): Promise<VendedorMetrica[]> {
+  const hoje = formatApiDate(new Date())
+  return getVendasPorVendedor(hoje, `${hoje}T23:59:59`)
+}
+
+export interface MetricasComerciais {
+  totalLeads: number
+  leadsQualificados: number
+  taxaConversao: number
+  volumePipeline: number
+  ticketMedio: number
+}
+
+export async function getMetricasComercia(): Promise<MetricasComerciais> {
+  try {
+    // Try to fetch from Kommo CRM if available
+    // This is a placeholder - actual implementation depends on Kommo API
+    const metricas = await foneninja<any>('/metricas/comercial', '')
+    return {
+      totalLeads: metricas?.total_leads ?? 0,
+      leadsQualificados: metricas?.leads_qualificados ?? 0,
+      taxaConversao: metricas?.taxa_conversao ?? 0,
+      volumePipeline: metricas?.volume_pipeline ?? 0,
+      ticketMedio: metricas?.ticket_medio ?? 0,
+    }
+  } catch {
+    // If Kommo endpoint doesn't exist, calculate from sales data
+    const { inicio, fim } = mesAtualBounds()
+    const vendas = await listVendasByDateRange(inicio, `${fim}T23:59:59`)
+    const vendasConcluidas = vendas.filter(isCompletedSale)
+
+    const totalFaturamento = vendasConcluidas.reduce(
+      (acc, v) => acc + toMoneyCents(v.valor_total),
+      0,
+    )
+
+    return {
+      totalLeads: vendas.length,
+      leadsQualificados: vendasConcluidas.length,
+      taxaConversao:
+        vendas.length === 0
+          ? 0
+          : Number(((vendasConcluidas.length / vendas.length) * 100).toFixed(2)),
+      volumePipeline: fromMoneyCents(totalFaturamento),
+      ticketMedio:
+        vendasConcluidas.length === 0
+          ? 0
+          : fromMoneyCents(Math.round(totalFaturamento / vendasConcluidas.length)),
+    }
+  }
+}

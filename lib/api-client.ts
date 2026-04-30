@@ -179,7 +179,7 @@ async function apiCall(path: string, options: FetchOptions = {}) {
 export const api = {
   clearAuthTokenCache,
 
-  async login(payload: { email: string; password: string; captchaSeed?: string; captchaAnswer?: string }) {
+  async login(payload: { email: string; password: string; captchaToken?: string; captchaAnswer?: string }) {
     const { response, data } = await backendLogin(payload)
 
     if (!response.ok) {

@@ -67,14 +67,14 @@ export function Header({ userName, userEmail, userRole }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 h-8 px-2">
               <Avatar className="h-6 w-6">
-                <AvatarFallback className="text-xs bg-zinc-900 text-white">
+                <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <span className="text-sm font-medium hidden md:block">
                 {userName}
               </span>
-              <Badge variant="secondary" className="text-xs hidden md:block">
+              <Badge className="text-xs hidden md:block bg-secondary text-secondary-foreground">
                 {roleLabels[userRole] ?? userRole}
               </Badge>
             </Button>

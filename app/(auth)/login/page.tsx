@@ -26,27 +26,36 @@ type AuthenticatedUser = {
 }
 
 type CaptchaChallenge = {
-  seed: string
+  token: string
   question: string
-  answer: string
+  answer?: string // Local only, backend não retorna
 }
 
-function createCaptchaChallenge(): CaptchaChallenge {
-  const left = Math.floor(Math.random() * 8) + 2
-  const right = Math.floor(Math.random() * 8) + 1
-  const useAddition = Math.random() >= 0.5
+async function fetchCaptchaChallenge(): Promise<CaptchaChallenge> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/auth/captcha`)
+    if (!response.ok) {
+      throw new Error("Falha ao carregar desafio anti-robô")
+    }
+    const data = await response.json()
 
-  const normalizedLeft = useAddition ? left : Math.max(left, right)
-  const normalizedRight = useAddition ? right : Math.min(left, right)
-  const operator = useAddition ? "+" : "-"
-  const answer = useAddition
-    ? normalizedLeft + normalizedRight
-    : normalizedLeft - normalizedRight
+    // Parse local para cálculo (cliente faz a matemática mentalmente)
+    const match = data.data.question.match(/(\d+)\s*([\+\-])\s*(\d+)/)
+    let answer = ""
+    if (match) {
+      const left = parseInt(match[1])
+      const operator = match[2]
+      const right = parseInt(match[3])
+      answer = String(operator === "+" ? left + right : left - right)
+    }
 
-  return {
-    seed: `${normalizedLeft}:${normalizedRight}:${operator}`,
-    question: `Quanto é ${normalizedLeft} ${operator} ${normalizedRight}?`,
-    answer: String(answer),
+    return {
+      token: data.data.token,
+      question: data.data.question,
+      answer,
+    }
+  } catch (error) {
+    throw new Error("Erro ao carregar desafio. Tente novamente.")
   }
 }
 
@@ -65,7 +74,12 @@ export default function LoginPage() {
   const [captchaValue, setCaptchaValue] = useState("")
 
   useEffect(() => {
-    setCaptchaChallenge(createCaptchaChallenge())
+    fetchCaptchaChallenge()
+      .then(challenge => setCaptchaChallenge(challenge))
+      .catch(err => {
+        console.error("Erro ao carregar captcha:", err)
+        setError("Falha ao carregar desafio anti-robô")
+      })
   }, [])
 
   const {
@@ -109,7 +123,7 @@ export default function LoginPage() {
 
       const result = await api.login({
         ...data,
-        captchaSeed: captchaChallenge!.seed,
+        captchaToken: captchaChallenge!.token,
         captchaAnswer: captchaValue.trim(),
       })
 
@@ -122,7 +136,9 @@ export default function LoginPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (isCaptchaError(err)) {
-          setCaptchaChallenge(createCaptchaChallenge())
+          fetchCaptchaChallenge()
+            .then(challenge => setCaptchaChallenge(challenge))
+            .catch(() => setError("Falha ao carregar novo desafio"))
           setCaptchaValue("")
           setError("Captcha inválido. Resolva o desafio novamente.")
         } else if (err.status === 401) {
@@ -210,7 +226,9 @@ export default function LoginPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      setCaptchaChallenge(createCaptchaChallenge())
+                      fetchCaptchaChallenge()
+                        .then(challenge => setCaptchaChallenge(challenge))
+                        .catch(() => {})
                       setCaptchaValue("")
                     }}
                   >

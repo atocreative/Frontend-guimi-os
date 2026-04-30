@@ -1,0 +1,188 @@
+/**
+ * Feature Flags System
+ * Manage feature availability across the application
+ */
+
+export type UserRole = 'ADMIN' | 'GESTOR' | 'COLABORADOR' | 'SUPER_USER' | 'DEVELOPER'
+
+export interface FeatureFlag {
+  id: string
+  name: string
+  description: string
+  enabled: boolean
+  requiredRole?: UserRole
+}
+
+export const FEATURE_FLAGS: Record<string, FeatureFlag> = {
+  // Core pages - always enabled
+  DASHBOARD: {
+    id: 'dashboard',
+    name: 'Dashboard',
+    description: 'Main dashboard with KPIs',
+    enabled: true,
+  },
+
+  // Commercial module
+  COMERCIAL: {
+    id: 'comercial',
+    name: 'Comercial',
+    description: 'Sales and leads management (Kommo CRM integration)',
+    enabled: false, // Disabled until Kommo CRM data is properly integrated
+  },
+
+  // Financial module
+  FINANCEIRO: {
+    id: 'financeiro',
+    name: 'Financeiro',
+    description: 'Financial data and reports',
+    enabled: true,
+  },
+
+  // Operations module
+  OPERACAO: {
+    id: 'operacao',
+    name: 'Operação',
+    description: 'Operations and inventory management',
+    enabled: false, // Disabled until inventory API is integrated
+  },
+
+  // Agenda/Tasks module
+  AGENDA: {
+    id: 'agenda',
+    name: 'Agenda e Tarefas',
+    description: 'Tasks and schedule management',
+    enabled: true,
+  },
+
+  // Processes/Workflows module
+  PROCESSOS: {
+    id: 'processos',
+    name: 'Processos',
+    description: 'Workflow and process management',
+    enabled: false, // Coming soon - not implemented
+  },
+
+  // Employees/Collaborators module
+  COLABORADORES: {
+    id: 'colaboradores',
+    name: 'Colaboradores',
+    description: 'Employee management and directory',
+    enabled: true,
+  },
+
+  // Indicators/KPIs module
+  INDICADORES: {
+    id: 'indicadores',
+    name: 'Indicadores',
+    description: 'Performance indicators and analytics',
+    enabled: true,
+  },
+
+  // Support/Help module
+  SUPORTE: {
+    id: 'suporte',
+    name: 'Suporte',
+    description: 'Support and help resources',
+    enabled: true,
+  },
+
+  // Configuration/Settings module
+  CONFIGURACOES: {
+    id: 'configuracoes',
+    name: 'Configurações',
+    description: 'System settings and configuration',
+    enabled: true,
+  },
+
+  // Developer/Super User features
+  SUPER_USER_DASHBOARD: {
+    id: 'super_user_dashboard',
+    name: 'Developer Dashboard',
+    description: 'Feature flag management and developer tools',
+    enabled: true,
+    requiredRole: 'SUPER_USER',
+  },
+}
+
+/**
+ * Check if a feature is enabled for a user
+ */
+export function isFeatureEnabled(
+  featureName: string,
+  userRole?: UserRole,
+): boolean {
+  const flag = FEATURE_FLAGS[featureName]
+  if (!flag) return false
+
+  // Check if feature is enabled in feature flag manager
+  // Import here to avoid circular dependencies
+  try {
+    const { getFlagState } = require("@/lib/feature-flag-manager")
+    if (!getFlagState(flag.id)) return false
+  } catch (e) {
+    // Fallback to hardcoded enabled state if manager not available
+    if (!flag.enabled) return false
+  }
+
+  // If feature requires a specific role, check user has it
+  if (flag.requiredRole && userRole !== flag.requiredRole) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Get all enabled features for a user
+ */
+export function getEnabledFeatures(userRole?: UserRole): FeatureFlag[] {
+  return Object.values(FEATURE_FLAGS).filter((flag) =>
+    isFeatureEnabled(flag.id.toUpperCase(), userRole),
+  )
+}
+
+/**
+ * Get page route based on feature flag
+ */
+export interface PageRoute {
+  href: string
+  title: string
+  enabled: boolean
+  featureId: string
+}
+
+export const PAGE_ROUTES: Record<string, PageRoute> = {
+  DASHBOARD: { href: '/', title: 'Dashboard', enabled: true, featureId: 'DASHBOARD' },
+  COMERCIAL: { href: '/comercial', title: 'Comercial', enabled: true, featureId: 'COMERCIAL' },
+  FINANCEIRO: { href: '/financeiro', title: 'Financeiro', enabled: true, featureId: 'FINANCEIRO' },
+  OPERACAO: { href: '/operacao', title: 'Operação', enabled: true, featureId: 'OPERACAO' },
+  AGENDA: { href: '/agenda', title: 'Agenda e Tarefas', enabled: true, featureId: 'AGENDA' },
+  PROCESSOS: { href: '/processos', title: 'Processos', enabled: true, featureId: 'PROCESSOS' },
+  COLABORADORES: { href: '/colaboradores', title: 'Colaboradores', enabled: true, featureId: 'COLABORADORES' },
+  INDICADORES: { href: '/indicadores', title: 'Indicadores', enabled: true, featureId: 'INDICADORES' },
+  SUPORTE: { href: '/suporte', title: 'Suporte', enabled: true, featureId: 'SUPORTE' },
+  CONFIGURACOES: { href: '/configuracoes', title: 'Configurações', enabled: true, featureId: 'CONFIGURACOES' },
+  SUPER_USER: { href: '/super-usuario', title: 'Developer', enabled: true, featureId: 'SUPER_USER_DASHBOARD' },
+}
+
+/**
+ * Check if user can access a specific page
+ */
+export function canAccessPage(
+  href: string,
+  userRole?: UserRole,
+): boolean {
+  const route = Object.values(PAGE_ROUTES).find((r) => r.href === href)
+  if (!route) return false
+
+  return isFeatureEnabled(route.featureId, userRole)
+}
+
+/**
+ * Get pages available for a user
+ */
+export function getAvailablePages(userRole?: UserRole): PageRoute[] {
+  return Object.values(PAGE_ROUTES).filter((route) =>
+    isFeatureEnabled(route.featureId, userRole),
+  )
+}

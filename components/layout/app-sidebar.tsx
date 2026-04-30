@@ -15,6 +15,7 @@ import {
   Wrench,
   LifeBuoy,
   Sun,
+  Code2,
   type LucideIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -31,12 +32,13 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { FEATURE_FLAGS, isFeatureEnabled } from "@/lib/feature-flags"
 
 interface NavItem {
   title: string
   href: string
   icon: LucideIcon
-  emBreve?: boolean
+  featureId: string
 }
 
 interface NavGroup {
@@ -48,37 +50,42 @@ const navItems: NavGroup[] = [
   {
     label: "Principal",
     items: [
-      { title: "Dashboard", href: "/", icon: LayoutDashboard },
-      { title: "Comercial", href: "/comercial", icon: ShoppingBag },
-      { title: "Financeiro", href: "/financeiro", icon: DollarSign },
+      { title: "Dashboard", href: "/", icon: LayoutDashboard, featureId: "DASHBOARD" },
+      { title: "Comercial", href: "/comercial", icon: ShoppingBag, featureId: "COMERCIAL" },
+      { title: "Financeiro", href: "/financeiro", icon: DollarSign, featureId: "FINANCEIRO" },
     ],
   },
   {
     label: "Operação",
     items: [
-      { title: "Agenda e Tarefas", href: "/agenda", icon: CalendarCheck },
-      { title: "Operação", href: "/operacao", icon: Wrench },
-      { title: "Processos", href: "/processos", icon: BookOpen, emBreve: true },
+      { title: "Agenda e Tarefas", href: "/agenda", icon: CalendarCheck, featureId: "AGENDA" },
+      { title: "Operação", href: "/operacao", icon: Wrench, featureId: "OPERACAO" },
+      { title: "Processos", href: "/processos", icon: BookOpen, featureId: "PROCESSOS" },
     ],
   },
   {
     label: "Gestão",
     items: [
-      { title: "Colaboradores", href: "/colaboradores", icon: Users },
-      { title: "Indicadores", href: "/indicadores", icon: BarChart3 },
-      { title: "Configurações", href: "/configuracoes", icon: Settings },
+      { title: "Colaboradores", href: "/colaboradores", icon: Users, featureId: "COLABORADORES" },
+      { title: "Indicadores", href: "/indicadores", icon: BarChart3, featureId: "INDICADORES" },
+      { title: "Configurações", href: "/configuracoes", icon: Settings, featureId: "CONFIGURACOES" },
     ],
   },
   {
     label: "Ajuda",
     items: [
-      { title: "Suporte", href: "/suporte", icon: LifeBuoy },
+      { title: "Suporte", href: "/suporte", icon: LifeBuoy, featureId: "SUPORTE" },
     ],
   },
 ]
 
+const devNavItems: NavItem[] = [
+  { title: "Developer Dashboard", href: "/super-usuario", icon: Code2, featureId: "SUPER_USER_DASHBOARD" },
+]
+
 interface AppSidebarProps {
   userRole: string
+  userEmail?: string
 }
 
 function ThemeToggle() {
@@ -107,8 +114,9 @@ function ThemeToggle() {
   )
 }
 
-export function AppSidebar({ userRole }: AppSidebarProps) {
+export function AppSidebar({ userRole, userEmail }: AppSidebarProps) {
   const pathname = usePathname()
+  const isDeveloper = userEmail === "admin@guimicell.com"
 
   const filteredNav = React.useMemo(
     () =>
@@ -116,7 +124,12 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
         .map((group) => ({
           ...group,
           items: group.items.filter((item) => {
-            if (item.title === "Configurações" && userRole === "COLABORADOR") {
+            // Check feature flag is enabled
+            if (!isFeatureEnabled(item.featureId, userRole as any)) {
+              return false
+            }
+            // Hide settings from collaborators
+            if (item.featureId === "CONFIGURACOES" && userRole === "COLABORADOR") {
               return false
             }
             return true
@@ -125,6 +138,16 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
         .filter((group) => group.items.length > 0),
     [userRole]
   )
+
+  const finalNav = isDeveloper
+    ? [
+        ...filteredNav,
+        {
+          label: "Desenvolvedor",
+          items: devNavItems,
+        },
+      ]
+    : filteredNav
 
   return (
     <Sidebar collapsible="icon">
@@ -147,7 +170,7 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        {filteredNav.map((group) => (
+        {finalNav.map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -158,7 +181,9 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
                       ? pathname === "/"
                       : pathname.startsWith(item.href)
 
-                  if (item.emBreve) {
+                  const isDisabled = !isFeatureEnabled(item.featureId, userRole as any)
+
+                  if (isDisabled) {
                     return (
                       <SidebarMenuItem key={item.href}>
                         <SidebarMenuButton
