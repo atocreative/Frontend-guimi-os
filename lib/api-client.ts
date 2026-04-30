@@ -32,10 +32,15 @@ export class ApiError extends Error {
 
 let cachedToken: string | null = null
 let tokenExpiry = 0
+let tokenExpirationHandler: (() => void) | null = null
 
 function clearAuthTokenCache() {
   cachedToken = null
   tokenExpiry = 0
+}
+
+export function setTokenExpirationHandler(handler: () => void) {
+  tokenExpirationHandler = handler
 }
 
 async function parseResponse(res: Response) {
@@ -84,6 +89,12 @@ async function getAuthToken(): Promise<string> {
 
     if (res.status === 401) {
       clearAuthTokenCache()
+      // Trigger token expiration modal instead of throwing error
+      if (tokenExpirationHandler) {
+        tokenExpirationHandler()
+        // Return null to prevent further processing
+        return null
+      }
       throw new ApiError(
         401,
         data ?? { code: "FRONTEND_SESSION_MISSING" },
@@ -156,6 +167,12 @@ async function executeRequest(
   if (!response.ok) {
     if (response.status === 401 && auth === "required") {
       clearAuthTokenCache()
+      // Trigger token expiration modal instead of throwing error
+      if (tokenExpirationHandler) {
+        tokenExpirationHandler()
+        // Return null to prevent further processing
+        return null
+      }
       throw new ApiError(
         401,
         data,

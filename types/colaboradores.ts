@@ -4,7 +4,6 @@ export interface ColaboradorResumo {
   id: string
   nome: string
   email: string
-  cargo: string
   avatar: string
   role: RoleUsuario
   ativo: boolean
