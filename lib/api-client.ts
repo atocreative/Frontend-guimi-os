@@ -187,6 +187,12 @@ export const api = {
       throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), payloadData?.code)
     }
 
+    // Backend retorna { data: { accessToken, user, ... } }
+    // Extrair .data se existir
+    if (data && typeof data === 'object' && 'data' in data) {
+      return (data as { data: any }).data
+    }
+
     return data
   },
 
