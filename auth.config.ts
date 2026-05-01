@@ -10,6 +10,7 @@ export const authConfig = {
 
         token.id = user.id
         token.role = user.role
+        token.isSuperUser = Boolean((user as any).isSuperUser)
         token.jobTitle = user.jobTitle ?? null
         token.accessToken = String((user as any).accessToken || "")
         token.raw_token = String((user as any).accessToken || "")
@@ -31,6 +32,7 @@ export const authConfig = {
 
         session.user.id = token.id as string
         session.user.role = token.role as string
+        session.user.isSuperUser = Boolean((token as any).isSuperUser)
         session.user.jobTitle = (token.jobTitle as string | null | undefined) ?? null
         session.accessToken = String((token as any).accessToken || "")
 

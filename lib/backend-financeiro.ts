@@ -7,7 +7,7 @@
  * IMPORTANTE: Usar api client que passa auth token automaticamente!
  */
 
-import { api } from './api-client'
+import { serverApi } from './server-api-client'
 
 export interface ResumoFinanceiroHoje {
   faturamentoDia: number
@@ -33,14 +33,57 @@ export interface MetricasComerciais {
   ticketMedio: number
 }
 
+import { backendFetch, getSessionAccessToken } from './backend-api'
+
+/**
+ * SERVER-SIDE: Obtém snapshot financeiro diretamente do backend
+ */
+export async function getSnapshotFinanceiroServer(
+  month: number,
+  year: number,
+  token?: string | null
+): Promise<any> {
+  try {
+    if (!token) return null
+    
+    const { response, data } = await backendFetch(
+      `/api/financeiro/snapshot?month=${month}&year=${year}`,
+      { token }
+    )
+    
+    if (!response.ok) return null
+    return data?.data || data || null
+  } catch (error) {
+    console.error('Erro ao carregar snapshot financeiro (server):', error)
+    return null
+  }
+}
+
+/**
+ * SERVER-SIDE: Obtém dashboard agregado
+ */
+export async function getDashboardDataServer(token?: string): Promise<any> {
+  try {
+    if (!token) return null
+    
+    const { response, data } = await backendFetch('/api/dashboard', { token })
+    
+    if (!response.ok) return null
+    return data?.data || data || null
+  } catch (error) {
+    console.error('Erro ao carregar dashboard (server):', error)
+    return null
+  }
+}
+
 /**
  * Sincroniza receitas com FoneNinja via backend
  * POST /api/financeiro/sync/feneninja
  */
 export async function syncFoneNinjaReceitas(): Promise<{ success: boolean; synced?: number; error?: string }> {
   try {
-    // Use api client para passar auth token automaticamente
-    const response = await api.syncFoneNinja()
+    // Use server api client para passar auth token do servidor
+    const response = await serverApi.syncFoneNinja()
     return { success: true, synced: response?.synced || 0 }
   } catch (error) {
     console.error('Erro ao sincronizar FoneNinja:', error)
@@ -54,7 +97,7 @@ export async function syncFoneNinjaReceitas(): Promise<{ success: boolean; synce
  */
 export async function getReceitasPeriodo(month: number, year: number): Promise<any[]> {
   try {
-    const data = await api.getFinanceiroReceitas(month, year)
+    const data = await serverApi.getFinanceiroReceitas(month, year)
     return data?.data || data || []
   } catch (error) {
     console.error('Erro ao carregar receitas:', error)
@@ -68,7 +111,7 @@ export async function getReceitasPeriodo(month: number, year: number): Promise<a
  */
 export async function getSnapshotFinanceiro(month: number, year: number): Promise<any> {
   try {
-    const data = await api.getFinanceiroSnapshot(month, year)
+    const data = await serverApi.getFinanceiroSnapshot(month, year)
     return data?.data || data || null
   } catch (error) {
     console.error('Erro ao carregar snapshot financeiro:', error)
@@ -82,7 +125,7 @@ export async function getSnapshotFinanceiro(month: number, year: number): Promis
  */
 export async function getDashboardData(): Promise<any> {
   try {
-    const data = await api.getDashboard()
+    const data = await serverApi.getDashboard()
     return data?.data || data || null
   } catch (error) {
     console.error('Erro ao carregar dashboard:', error)

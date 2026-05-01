@@ -7,6 +7,7 @@ import { Podio } from "@/components/colaboradores/podio"
 import { NovoColaboradorModal } from "@/components/usuarios/novo-colaborador-modal"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { api } from "@/lib/api-client"
 import type { ColaboradorResumo } from "@/types/colaboradores"
 import type { UsuarioSistema } from "@/types/usuarios"
 
@@ -21,7 +22,10 @@ function getInitials(name: string) {
 
 function buildColaboradores(usuarios: UsuarioSistema[]): ColaboradorResumo[] {
   // Filtrar super users - não devem aparecer na lista de colaboradores
-  const filteredUsuarios = usuarios.filter((usuario) => usuario.role !== "SUPER_USER")
+  const filteredUsuarios = usuarios.filter((usuario) => {
+    const isSuperUser = (usuario as any).isSuperUser === true
+    return usuario.role !== "SUPER_USER" && !isSuperUser
+  })
 
   return filteredUsuarios.map((usuario) => {
     return {
@@ -62,10 +66,10 @@ export function ColaboradoresClient({
   useEffect(() => {
     async function carregarUsuarios() {
       try {
-        const res = await fetch("/api/usuarios")
-        if (!res.ok) return
-        const data = await res.json()
-        setUsuarios(data.usuarios)
+        const { users } = await api.getUsers()
+        setUsuarios(users)
+      } catch (error) {
+        console.error("Erro ao carregar usuários:", error)
       } finally {
         setLoading(false)
       }

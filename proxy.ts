@@ -1,34 +1,41 @@
-import NextAuth from "next-auth"
-import { authConfig } from "./auth.config"
-import { NextResponse } from "next/server"
+import NextAuth from "next-auth";
+import { authConfig } from "./auth.config";
+import { NextResponse } from "next/server";
 
-export const { auth } = NextAuth(authConfig)
+export const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
-  const { pathname } = req.nextUrl
-  const role = req.auth?.user?.role
-  const isLoggedIn = !!req.auth
+  const { pathname } = req.nextUrl;
+  const role = req.auth?.user?.role;
+  const isSuperUser = Boolean(req.auth?.user?.isSuperUser);
+  const isLoggedIn = !!req.auth;
+  const isAdmin = role === "ADMIN" || isSuperUser;
 
-  // Se não está logado, redireciona para login
-  if (!isLoggedIn) {
-    return NextResponse.redirect(new URL("/login", req.url))
+  // If logged in and trying to access login page, redirect to dashboard/home
+  if (isLoggedIn && pathname === "/login") {
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
-  // Rotas exclusivas do Admin
-  if (pathname.startsWith("/configuracoes") && role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/", req.url))
+  // If not logged in and trying to access protected dashboard routes, redirect to login
+  if (!isLoggedIn && pathname.startsWith("/dashboard")) {
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Financeiro bloqueado para Colaborador
-  if (pathname.startsWith("/financeiro") && role === "COLABORADOR") {
-    return NextResponse.redirect(new URL("/", req.url))
+  // Role based restrictions
+  if (pathname.startsWith("/configuracoes") && !isAdmin) {
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
-  return NextResponse.next()
-})
+  if (pathname.startsWith("/financeiro") && role === "COLABORADOR" && !isSuperUser) {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|_next/data|favicon.ico|login).*)",
+    "/((?!api|api/auth|_next/static|_next/image|_next/data|favicon.ico|login).*)",
+    "/api/auth/:path*",
   ],
-}
+};

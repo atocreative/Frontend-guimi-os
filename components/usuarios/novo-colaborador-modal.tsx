@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { userCreateSchema } from "@/lib/schemas"
+import { api, ApiError } from "@/lib/api-client"
 import type { NovoUsuarioPayload, UsuarioSistema } from "@/types/usuarios"
 
 interface NovoColaboradorModalProps {
@@ -79,23 +80,15 @@ export function NovoColaboradorModal({
         return
       }
 
-      const res = await fetch("/api/usuarios", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        setErro(typeof data?.error === "string" ? data.error : "Erro ao cadastrar colaborador.")
-        return
-      }
-
-      const data = await res.json()
-      onCreated(data.usuario)
+      const usuario = await api.createUser(parsed.data as any)
+      onCreated(usuario)
       onClose()
-    } catch {
-      setErro("Erro de conexão. Tente novamente.")
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErro(error.message)
+      } else {
+        setErro("Erro ao cadastrar colaborador.")
+      }
     } finally {
       setSalvando(false)
     }

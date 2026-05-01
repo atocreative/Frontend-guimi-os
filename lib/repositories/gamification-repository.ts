@@ -1,3 +1,4 @@
+import { api, ApiError } from "@/lib/api-client"
 import type {
   GamificationLeaderboardResponseRaw,
   GamificationScope,
@@ -15,48 +16,26 @@ export class GamificationRepositoryError extends Error {
   }
 }
 
-async function parseJson(response: Response) {
-  const text = await response.text()
-
-  if (!text) {
-    return null
-  }
-
-  try {
-    return JSON.parse(text)
-  } catch {
-    return text
-  }
-}
-
-async function request<T>(path: string): Promise<T> {
-  const response = await fetch(path, {
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-    },
-  })
-
-  const data = await parseJson(response)
-
-  if (!response.ok) {
-    const message =
-      data && typeof data === "object" && "error" in data && typeof data.error === "string"
-        ? data.error
-        : "Falha ao carregar gamificação."
-
-    throw new GamificationRepositoryError(response.status, message, data)
-  }
-
-  return data as T
-}
-
 export const gamificationRepository = {
   async getLeaderboard(scope: GamificationScope): Promise<GamificationLeaderboardResponseRaw> {
-    return request<GamificationLeaderboardResponseRaw>(`/api/gamificacao/leaderboard?scope=${scope}`)
+    try {
+      return await api.getGamificationLeaderboard(scope)
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new GamificationRepositoryError(error.status, error.message, error.data)
+      }
+      throw new GamificationRepositoryError(500, "Falha ao carregar gamificação.", error)
+    }
   },
 
   async getUserStats(userId: string): Promise<GamificationUserStatsResponseRaw> {
-    return request<GamificationUserStatsResponseRaw>(`/api/gamificacao/usuarios/${userId}`)
+    try {
+      return await api.getGamificationUserStats(userId)
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw new GamificationRepositoryError(error.status, error.message, error.data)
+      }
+      throw new GamificationRepositoryError(500, "Falha ao carregar estatísticas do usuário.", error)
+    }
   },
 }

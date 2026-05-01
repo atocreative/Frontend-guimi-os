@@ -17,6 +17,7 @@ interface MenuItemVisibilityControlProps {
   itemName: string
   initialState: VisibilityState
   onSave?: (itemId: string, state: VisibilityState) => Promise<void>
+  disableSaveButton?: boolean
 }
 
 export function MenuItemVisibilityControl({
@@ -24,6 +25,7 @@ export function MenuItemVisibilityControl({
   itemName,
   initialState,
   onSave,
+  disableSaveButton = false,
 }: MenuItemVisibilityControlProps) {
   const [state, setState] = useState<VisibilityState>(initialState)
   const [loading, setLoading] = useState(false)
@@ -69,15 +71,17 @@ export function MenuItemVisibilityControl({
         </SelectContent>
       </Select>
 
-      <Button
-        onClick={handleSave}
-        disabled={!hasChanged || loading}
-        size="sm"
-        variant={saved ? "default" : "outline"}
-        className={saved ? "bg-green-600 hover:bg-green-700" : ""}
-      >
-        {loading ? "Salvando..." : saved ? "Salvo" : "Salvar"}
-      </Button>
+      {!disableSaveButton && (
+        <Button
+          onClick={handleSave}
+          disabled={!hasChanged || loading}
+          size="sm"
+          variant={saved ? "default" : "outline"}
+          className={saved ? "bg-green-600 hover:bg-green-700" : ""}
+        >
+          {loading ? "Salvando..." : saved ? "Salvo" : "Salvar"}
+        </Button>
+      )}
     </div>
   )
 }

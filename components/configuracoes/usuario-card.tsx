@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Edit2, Trash2, MoreVertical } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api-client"
 import type { UsuarioSistema } from "@/types/usuarios"
 
 const roleCor: Record<string, string> = {
@@ -45,12 +46,10 @@ export function UsuarioCard({ usuario, onEdit, onDelete }: { usuario: UsuarioSis
     if (!onDelete || !confirm("Tem certeza que deseja deletar este usuário?")) return
     setDeleting(true)
     try {
-      const res = await fetch(`/api/usuarios/${usuario.id}`, { method: "DELETE" })
-      if (!res.ok) {
-        alert("Erro ao deletar usuário")
-        return
-      }
+      await api.deleteUser(usuario.id)
       onDelete(usuario.id)
+    } catch (error) {
+      alert("Erro ao deletar usuário")
     } finally {
       setDeleting(false)
     }

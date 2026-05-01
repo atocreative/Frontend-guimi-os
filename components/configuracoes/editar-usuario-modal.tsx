@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { api, ApiError } from "@/lib/api-client"
 import type { RoleUsuario, UsuarioSistema } from "@/types/usuarios"
 
 interface EditarUsuarioModalProps {
@@ -83,28 +84,20 @@ export function EditarUsuarioModal({
     setErro("")
 
     try {
-      const res = await fetch(`/api/usuarios/${usuario.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          jobTitle: form.jobTitle.trim(),
-          role: form.role,
-          active: form.active,
-        }),
+      const usuarioAtualizado = await api.updateUser(usuario.id, {
+        name: form.name.trim(),
+        jobTitle: form.jobTitle.trim(),
+        role: form.role,
+        active: form.active,
       })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        setErro(typeof data?.error === "string" ? data.error : "Erro ao atualizar usuário.")
-        return
-      }
-
-      const data = await res.json()
-      onSaved(data.usuario)
+      onSaved(usuarioAtualizado)
       onClose()
-    } catch {
-      setErro("Erro de conexão. Tente novamente.")
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErro(error.message)
+      } else {
+        setErro("Erro ao atualizar usuário.")
+      }
     } finally {
       setSalvando(false)
     }

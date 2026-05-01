@@ -3,7 +3,8 @@ import { ColaboradoresClient } from "@/components/colaboradores/colaboradores-cl
 
 export default async function ColaboradoresPage() {
   const session = await auth()
-  const canManageUsers = session?.user?.role === "ADMIN"
+  const isSuperUser = (session?.user as any)?.isSuperUser
+  const canManageUsers = session?.user?.role === "ADMIN" || isSuperUser
 
   return <ColaboradoresClient canManageUsers={canManageUsers} />
 }

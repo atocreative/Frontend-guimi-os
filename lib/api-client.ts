@@ -66,7 +66,7 @@ function getApiErrorMessage(status: number, data: unknown) {
   return `API Error ${status}`
 }
 
-async function getAuthToken(): Promise<string> {
+async function getAuthToken(): Promise<string | null> {
   if (typeof window === "undefined") {
     throw new ApiError(
       401,
@@ -150,7 +150,8 @@ async function executeRequest(
   retryUnauthorized: boolean,
   params?: Record<string, string | number | boolean | null | undefined>
 ) {
-  const token = auth === "required" ? await getAuthToken() : undefined
+  const tokenOrNull = auth === "required" ? await getAuthToken() : undefined
+  const token = tokenOrNull || undefined
 
   const { response, data } = await backendFetch(path, {
     ...fetchOptions,
@@ -340,7 +341,7 @@ export const api = {
   },
 
   async getDashboard() {
-    return apiCall("/dashboard")
+    return apiCall("/api/dashboard")
   },
 
   async syncFoneNinja() {
@@ -362,6 +363,21 @@ export const api = {
       params: { month: month.toString(), year: year.toString() },
     })
     return data
+  },
+
+  async updateDevMenu(itemId: string, payload: { enabled?: boolean; pending?: boolean }) {
+    return apiCall(`/api/dev-menu/${itemId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async getGamificationLeaderboard(scope: string) {
+    return apiCall(`/api/gamificacao/leaderboard?scope=${scope}`)
+  },
+
+  async getGamificationUserStats(userId: string) {
+    return apiCall(`/api/gamificacao/usuarios/${userId}`)
   },
 
   async getHealth() {

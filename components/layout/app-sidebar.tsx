@@ -87,6 +87,7 @@ const devNavItems: NavItem[] = [
 interface AppSidebarProps {
   userRole: string
   userEmail?: string
+  isSuperUser?: boolean
 }
 
 function ThemeToggle() {
@@ -115,9 +116,9 @@ function ThemeToggle() {
   )
 }
 
-export function AppSidebar({ userRole, userEmail }: AppSidebarProps) {
+export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps) {
   const pathname = usePathname()
-  const isDeveloper = userEmail === "admin@guimicell.com"
+  const isDeveloper = isSuperUser || userEmail === "admin@guimicell.com" || userRole === "SUPER_USER"
 
   const filteredNav = React.useMemo(
     () =>
@@ -129,15 +130,15 @@ export function AppSidebar({ userRole, userEmail }: AppSidebarProps) {
             if (!isFeatureEnabled(item.featureId, userRole as any)) {
               return false
             }
-            // Hide settings from collaborators
-            if (item.featureId === "CONFIGURACOES" && userRole === "COLABORADOR") {
+            // Hide settings from collaborators only (super user and admin have access)
+            if (item.featureId === "CONFIGURACOES" && userRole === "COLABORADOR" && !isSuperUser) {
               return false
             }
             return true
           }),
         }))
         .filter((group) => group.items.length > 0),
-    [userRole]
+    [userRole, isSuperUser]
   )
 
   const finalNav = isDeveloper

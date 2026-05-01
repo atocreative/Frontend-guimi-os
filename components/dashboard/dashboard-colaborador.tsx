@@ -9,6 +9,7 @@ import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
 import { Leaderboard } from "@/components/gamificacao/leaderboard"
 import { UserStats } from "@/components/gamificacao/user-stats"
 import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
+import { api } from "@/lib/api-client"
 import type { TarefaDB } from "@/types/tarefas"
 
 interface DashboardColaboradorProps {
@@ -110,13 +111,8 @@ export function DashboardColaborador({
   const concluirTarefa = useCallback(async (id: string) => {
     const tarefa = tarefasPorId.get(id)
 
-    const res = await fetch(`/api/tarefas/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "CONCLUIDA" }),
-    })
-
-    if (res.ok) {
+    try {
+      await api.updateTask(id, { status: "CONCLUIDA" })
       notifyTaskCompleted({ taskTitle: tarefa?.title })
       setRiscados((prev) => new Set(prev).add(id))
       setTimeout(() => {
@@ -127,11 +123,11 @@ export function DashboardColaborador({
           return next
         })
       }, 700)
-    } else {
+      return true
+    } catch {
       notifyTaskCompletionError()
+      return false
     }
-
-    return res.ok
   }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasPorId])
 
   const pendentesVisiveis = useMemo(

@@ -12,12 +12,10 @@ import { TabelaEntradas } from "@/components/financeiro/tabela-entradas"
 import { TabelaDespesas } from "@/components/financeiro/tabela-despesas"
 import { GraficoFluxoCaixa } from "@/components/financeiro/grafico-fluxo-caixa"
 import { GraficoCategorias } from "@/components/financeiro/grafico-categorias"
-import {
-  mockDespesas,
-  mockFluxoCaixa,
-  mockCategoriasDespesa,
-} from "@/app/(dashboard)/data/mock"
-import { getFaturamentoMes, getResumoFinanceiroHoje, getVendasPorVendedor } from "@/lib/backend-financeiro"
+
+import { getSnapshotFinanceiroServer } from "@/lib/backend-financeiro"
+import { getSessionAccessToken } from "@/lib/backend-api"
+import { getSession } from "@/lib/auth-session"
 
 function brl(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -28,34 +26,32 @@ function brl(valor: number) {
 }
 
 export default async function FinanceiroPage() {
-  // Fetch real data from Fone Ninja
-  const [faturamentoMes, resumoHoje, vendasMes] = await Promise.all([
-    getFaturamentoMes().catch(() => 0),
-    getResumoFinanceiroHoje().catch(() => ({ faturamentoDia: 0, lucroBrutoDia: 0, margemBrutaDia: 0 })),
-    (async () => {
-      try {
-        const hoje = new Date()
-        const startDate = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`
-        const endDate = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
-        return await getVendasPorVendedor(startDate, endDate)
-      } catch {
-        return []
-      }
-    })(),
-  ])
+  const session = await getSession()
+  const accessToken = getSessionAccessToken(session)
 
-  // Calculate approximate values
+  // Fetch real data from backend
+  const now = new Date()
+  const month = now.getMonth() + 1
+  const year = now.getFullYear()
+
+  const snapshot = await getSnapshotFinanceiroServer(month, year, accessToken).catch(() => null)
+
+  // Use real data from snapshot when available
+  const faturamentoMes = snapshot?.receita || snapshot?.totalReceitas || 0
+  const despesasVariaveis = snapshot?.despesasVariaveis || snapshot?.variableExpenses || 0
+  const despesasFixas = snapshot?.fixedExpensesTotal || snapshot?.fixedExpenses || 0
+  const lucroBruto = snapshot?.grossProfit || 0
+  const margemBruta = snapshot?.grossMargin || 0
+  const lucroLiquido = snapshot?.netProfit || 0
+  const vendasMes: any[] = []
+
+  // Use real data from snapshot
   const metaMes = 100000 // Set target
-  const percentualMeta = Math.round((faturamentoMes / metaMes) * 100)
-  const lucroLiquido = resumoHoje.lucroBrutoDia * 25 // Approximate
-  const lucroBruto = resumoHoje.lucroBrutoDia
-  const margemBruta = resumoHoje.margemBrutaDia
-  const margemLiquida = margemBruta * 0.8 // Approximate
-  const despesasFixas = (faturamentoMes * 0.15) // Approximate 15% of revenue
-  const despesasVariaveis = (faturamentoMes * 0.25) // Approximate 25% of revenue
+  const percentualMeta = faturamentoMes > 0 ? Math.round((faturamentoMes / metaMes) * 100) : 0
   const totalDespesas = despesasFixas + despesasVariaveis
+  const margemLiquida = faturamentoMes > 0 ? (lucroLiquido / faturamentoMes * 100) : 0
   const saldoCaixa = faturamentoMes - totalDespesas
-  const contasPagarMes = despesasFixas * 0.3 // 30% of fixed costs
+  const contasPagarMes = despesasFixas * 0.3
 
   // Convert sales data to table format
   const entradas = vendasMes.map((venda, idx) => ({
@@ -139,25 +135,12 @@ export default async function FinanceiroPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <GraficoFluxoCaixa dados={mockFluxoCaixa} />
-        <GraficoCategorias dados={mockCategoriasDespesa} />
+        <GraficoFluxoCaixa dados={[]} />
+        <GraficoCategorias dados={[]} />
       </div>
 
-      <TabelaEntradas entradas={entradas.length > 0 ? entradas : mockFluxoCaixa.map((item, idx) => ({
-        id: String(idx),
-        produto: "Sem dados",
-        categoria: "Desconhecido",
-        valorVenda: 0,
-        custo: 0,
-        lucro: 0,
-        margem: 0,
-        formaPagamento: "—",
-        vendedor: "—",
-        cliente: "—",
-        data: item.data,
-        foneNinjaId: null,
-      }))} />
-      <TabelaDespesas despesas={mockDespesas} />
+      <TabelaEntradas entradas={entradas.length > 0 ? entradas : []} />
+      <TabelaDespesas despesas={[]} />
 
     </div>
   )

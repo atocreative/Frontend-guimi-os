@@ -7,6 +7,7 @@ import { NovoColaboradorModal } from "@/components/usuarios/novo-colaborador-mod
 import { EditarUsuarioModal } from "@/components/configuracoes/editar-usuario-modal"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { api } from "@/lib/api-client"
 import type { UsuarioSistema } from "@/types/usuarios"
 
 interface UsuariosSectionProps {
@@ -24,10 +25,10 @@ export function UsuariosSection({ canManageUsers, currentUserRole }: UsuariosSec
   useEffect(() => {
     async function carregarUsuarios() {
       try {
-        const res = await fetch("/api/usuarios")
-        if (!res.ok) return
-        const data = await res.json()
-        setUsuarios(data.usuarios)
+        const { users } = await api.getUsers()
+        setUsuarios(users)
+      } catch (error) {
+        console.error("Erro ao carregar usuários:", error)
       } finally {
         setLoading(false)
       }

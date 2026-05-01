@@ -7,6 +7,7 @@ export interface ColaboradorResumo {
   avatar: string
   role: RoleUsuario
   ativo: boolean
+  jobTitle?: string
   tempoEmpresa: string
   telefone: string
   nivel: string

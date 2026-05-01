@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { taskCreateSchema, taskUpdateSchema } from "@/lib/schemas"
+import { api, ApiError } from "@/lib/api-client"
 import type { TarefaDB, UsuarioSimples } from "@/types/tarefas"
 
 interface ModalNovaTarefaProps {
@@ -123,21 +124,17 @@ export function ModalNovaTarefa({
       }
 
       if (modoEdicao && tarefaParaEditar) {
-        const res = await fetch(`/api/tarefas/${tarefaParaEditar.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(parsed.data),
-        })
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => null)
-          setErro(typeof data?.error === "string" ? data.error : "Erro ao salvar. Tente novamente.")
-          return
+        try {
+          const updatedTarefa = await api.updateTask(tarefaParaEditar.id, parsed.data as any)
+          onAtualizada?.(updatedTarefa)
+          onClose()
+        } catch (error) {
+          if (error instanceof ApiError) {
+            setErro(error.message)
+          } else {
+            setErro("Erro ao salvar. Tente novamente.")
+          }
         }
-
-        const data = await res.json()
-        onAtualizada?.(data.tarefa)
-        onClose()
         return
       }
 
@@ -146,23 +143,23 @@ export function ModalNovaTarefa({
         assigneeId: podeEscolherResponsavel ? responsavelId : undefined,
       }
 
-      const res = await fetch("/api/tarefas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(createPayload),
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        setErro(typeof data?.error === "string" ? data.error : "Erro ao criar tarefa. Tente novamente.")
-        return
+      try {
+        const novaTarefa = await api.createTask(createPayload as any)
+        onCriada(novaTarefa)
+        onClose()
+      } catch (error) {
+        if (error instanceof ApiError) {
+          setErro(error.message)
+        } else {
+          setErro("Erro ao criar tarefa. Tente novamente.")
+        }
       }
-
-      const data = await res.json()
-      onCriada(data.tarefa)
-      onClose()
-    } catch {
-      setErro("Erro de conexão. Tente novamente.")
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setErro(error.message)
+      } else {
+        setErro("Erro de conexão. Tente novamente.")
+      }
     } finally {
       setSalvando(false)
     }

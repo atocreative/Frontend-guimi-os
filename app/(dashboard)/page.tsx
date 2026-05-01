@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth-session"
 import { DashboardAdmin } from "@/components/dashboard/dashboard-admin"
 import { DashboardColaborador } from "@/components/dashboard/dashboard-colaborador"
-import { getFaturamentoMes, getResumoFinanceiroHoje } from "@/lib/backend-financeiro"
+import { getSnapshotFinanceiroServer, getDashboardDataServer } from "@/lib/backend-financeiro"
 import { backendFetch, extractTasksPayload, getSessionAccessToken } from "@/lib/backend-api"
 import {
   isTaskDueToday,
@@ -73,10 +73,27 @@ export default async function DashboardPage() {
   ).slice(0, 5)
 
   if (!isColaborador) {
-    const [faturamentoMes, resumoHoje] = await Promise.all([
-      getFaturamentoMes().catch(() => undefined),
-      getResumoFinanceiroHoje().catch(() => undefined),
+    // Usar funções server-side que usam backendFetch
+    const now = new Date()
+    const month = now.getMonth() + 1
+    const year = now.getFullYear()
+
+    const [dashboardData] = await Promise.all([
+      getDashboardDataServer(accessToken).catch(() => undefined),
     ])
+
+    // Extrair dados de despesas e lucro líquido do dashboard aggregado
+    const faturamentoMes = dashboardData?.receita || dashboardData?.totalReceitas || 0
+    const despesasMes = dashboardData?.despesasVariaveis || dashboardData?.expenses || 0
+    const lucroLiquidoMes = dashboardData?.netProfit || dashboardData?.lucroLiquido || 0
+    const lucroBrutoDia = dashboardData?.grossProfit || 0
+    const margemBrutaDia = dashboardData?.grossMargin || 0
+
+    const resumoHoje = {
+      faturamentoDia: faturamentoMes / 30, // Aproximado
+      lucroBrutoDia,
+      margemBrutaDia,
+    }
 
     return (
       <DashboardAdmin
@@ -84,6 +101,8 @@ export default async function DashboardPage() {
         tarefasPendentes={tarefasPendentes}
         faturamentoMes={faturamentoMes}
         resumoHoje={resumoHoje}
+        despesasMes={despesasMes}
+        lucroLiquidoMes={lucroLiquidoMes}
         currentUser={{ id: session.user.id }}
       />
     )

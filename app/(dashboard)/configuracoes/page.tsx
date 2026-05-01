@@ -11,12 +11,16 @@ import { checkIntegrationHealth } from "@/lib/integration-checker"
 export default async function ConfiguracoesPage() {
   const session = await auth()
   const role = session?.user?.role
+  const isSuperUser = (session?.user as any)?.isSuperUser
 
-  if (role === "COLABORADOR" || !role) {
+  // Only allow ADMIN, SUPER_USER role, or isSuperUser flag
+  const isAllowed = role === "ADMIN" || role === "SUPER_USER" || isSuperUser === true
+
+  if (!isAllowed || !role) {
     redirect("/")
   }
 
-  const canManageUsers = role === "ADMIN" || role === "SUPER_USER"
+  const canManageUsers = true // Both admin and super user can manage
 
   // Check integration health status
   const integracaoComStatus = await Promise.all(

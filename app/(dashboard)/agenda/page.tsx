@@ -15,6 +15,7 @@ import { ChecklistCard } from "@/components/operacao/checklist-card"
 import type { ItemChecklist } from "@/components/operacao/checklist-card"
 import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
 import { sortTarefasByPriority } from "@/lib/tarefas"
+import { api } from "@/lib/api-client"
 import type { TarefaDB, UsuarioSimples, ResumoPainel } from "@/types/tarefas"
 
 const ModalNovaTarefa = dynamic(
@@ -130,20 +131,14 @@ export default function AgendaPage() {
 
   const carregarTarefas = useCallback(async () => {
     try {
-      const [tarefasRes, checklistRes] = await Promise.all([
-        fetch("/api/tarefas"),
-        fetch("/api/checklist"),
+      const [tarefasData, checklistData] = await Promise.all([
+        api.getTasks().catch(() => ({ tasks: [], users: [] })),
+        api.getChecklists().catch(() => ({ checklists: { abertura: [], fechamento: [] } })),
       ])
-      if (tarefasRes.ok) {
-        const data = await tarefasRes.json()
-        setTarefas(data.tarefas)
-        setUsuarios(data.usuarios)
-      }
-      if (checklistRes.ok) {
-        const data = await checklistRes.json()
-        setChecklistAbertura(data.abertura)
-        setChecklistFechamento(data.fechamento)
-      }
+      setTarefas(tarefasData.tasks || [])
+      setUsuarios(tarefasData.users || [])
+      setChecklistAbertura(checklistData.checklists?.abertura || [])
+      setChecklistFechamento(checklistData.checklists?.fechamento || [])
     } finally {
       setLoading(false)
     }
@@ -164,12 +159,9 @@ export default function AgendaPage() {
       prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
     )
 
-    const res = await fetch(`/api/checklist/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed }),
-    })
-    if (!res.ok) {
+    try {
+      await api.updateChecklist(id, { completed })
+    } catch {
       setChecklistAbertura((prev) =>
         prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
       )
@@ -189,31 +181,28 @@ export default function AgendaPage() {
       prev.map((t) => (t.id === id ? { ...t, status: novoStatus } : t))
     )
 
-    const res = await fetch(`/api/tarefas/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: novoStatus }),
-    })
-
-    if (!res.ok) {
-      setTarefas((prev) => prev.map((t) => (t.id === id ? tarefa : t)))
-      notifyTaskCompletionError()
-    } else {
-      const data = await res.json()
-      setTarefas((prev) => prev.map((t) => (t.id === id ? data.tarefa : t)))
+    try {
+      const updatedTarefa = await api.updateTask(id, { status: novoStatus })
+      setTarefas((prev) => prev.map((t) => (t.id === id ? updatedTarefa : t)))
 
       if (novoStatus === "CONCLUIDA") {
         notifyTaskCompleted({ taskTitle: tarefa.title })
       }
+    } catch {
+      setTarefas((prev) => prev.map((t) => (t.id === id ? tarefa : t)))
+      notifyTaskCompletionError()
     }
   }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasPorId])
 
   const handleDelete = useCallback(async (id: string) => {
     const tarefaAnterior = tarefasPorId.get(id)
     setTarefas((prev) => prev.filter((t) => t.id !== id))
-    const res = await fetch(`/api/tarefas/${id}`, { method: "DELETE" })
-    if (!res.ok && tarefaAnterior) {
-      setTarefas((prev) => [...prev, tarefaAnterior])
+    try {
+      await api.deleteTask(id)
+    } catch {
+      if (tarefaAnterior) {
+        setTarefas((prev) => [...prev, tarefaAnterior])
+      }
     }
   }, [tarefasPorId])
 

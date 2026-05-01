@@ -19,15 +19,16 @@ export default async function DashboardLayout({
     redirect("/login")
   }
 
-  const { name, email, role } = session.user as {
+  const { name, email, role, isSuperUser } = session.user as {
     name: string
     email: string
     role: string
+    isSuperUser?: boolean
   }
 
   return (
     <SidebarProvider>
-      <AppSidebar userRole={role} userEmail={email} />
+      <AppSidebar userRole={role} userEmail={email} isSuperUser={isSuperUser} />
       <SidebarInset className="flex flex-col min-h-svh">
         <Header
           userName={name}

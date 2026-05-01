@@ -5,6 +5,7 @@ declare module "next-auth" {
   interface User {
     id: string
     role: string
+    isSuperUser?: boolean
     jobTitle?: string | null
     accessToken?: string
   }
@@ -13,6 +14,7 @@ declare module "next-auth" {
     user: {
       id: string
       role: string
+      isSuperUser?: boolean
       jobTitle?: string | null
     } & DefaultSession["user"]
     accessToken?: string
@@ -23,6 +25,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id?: string
     role?: string
+    isSuperUser?: boolean
     jobTitle?: string | null
     accessToken?: string
   }

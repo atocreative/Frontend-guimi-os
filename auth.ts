@@ -8,6 +8,7 @@ const sessionUserSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   role: z.string().min(1),
+  isSuperUser: z.boolean().optional(),
   jobTitle: z.string().nullable().optional(),
 })
 
@@ -58,6 +59,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.data.name,
           email: user.data.email,
           role: user.data.role,
+          isSuperUser: Boolean(user.data.isSuperUser),
           jobTitle: user.data.jobTitle ?? null,
           accessToken: String(parsed.data.token),
         }
