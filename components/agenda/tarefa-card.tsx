@@ -26,9 +26,8 @@ export const TarefaCard = memo(function TarefaCard({ tarefa, onToggle, onDelete,
 
   function handleDelete(event: React.MouseEvent) {
     event.stopPropagation()
-    if (confirm(`Deletar "${tarefa.title}"?`)) {
-      onDelete()
-    }
+    // TODO: Replace with ConfirmDialog modal instead of confirm()
+    onDelete()
   }
 
   function handleEdit(event: React.MouseEvent) {

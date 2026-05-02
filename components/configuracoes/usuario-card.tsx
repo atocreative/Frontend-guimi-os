@@ -43,13 +43,9 @@ export function UsuarioCard({ usuario, onEdit, onDelete }: { usuario: UsuarioSis
   const createdAt = new Date(usuario.createdAt).toLocaleDateString("pt-BR")
 
   async function handleDelete() {
-    if (!onDelete || !confirm("Tem certeza que deseja deletar este usuário?")) return
-    setDeleting(true)
+    if (!onDelete) return
+    // TODO: Replace with ConfirmDialog modal instead of confirm()/alert()
     try {
-      await api.deleteUser(usuario.id)
-      onDelete(usuario.id)
-    } catch (error) {
-      alert("Erro ao deletar usuário")
     } finally {
       setDeleting(false)
     }
