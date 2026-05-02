@@ -208,6 +208,8 @@ export default async function DashboardPage() {
         despesasMes={despesasMes}
         lucroLiquidoMes={lucroLiquidoMes}
         currentUser={{ id: session.user.id }}
+        mes={month}
+        ano={year}
       />
     )
   }

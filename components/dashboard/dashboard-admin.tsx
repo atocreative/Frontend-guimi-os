@@ -78,9 +78,9 @@ const KpiGridPrimeira = memo(function KpiGridPrimeira({
         tendencia="up"
       />
       <KpiCard
-        titulo="Faturamento do Mês"
+        titulo="Faturamento do Período"
         valor={faturamentoMes !== undefined ? formatBRL(faturamentoMes) : "—"}
-        descricao={faturamentoMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
+        descricao={faturamentoMes !== undefined ? `Dados de 2026` : "Aguardando dados"}
         icone={Target}
         tendencia="up"
       />
@@ -93,7 +93,7 @@ const KpiGridPrimeira = memo(function KpiGridPrimeira({
       <KpiCard
         titulo="Lucro Líquido"
         valor={lucroLiquidoMes !== undefined ? formatBRL(lucroLiquidoMes) : "—"}
-        descricao={lucroLiquidoMes !== undefined ? "Este mês (real)" : "Aguardando dados"}
+        descricao={lucroLiquidoMes !== undefined ? `Resultado do período` : "Aguardando dados"}
         icone={TrendingUp}
         tendencia="up"
         destaque
@@ -131,6 +131,8 @@ interface DashboardAdminProps {
   despesasMes?: number
   lucroLiquidoMes?: number
   currentUser?: DashboardAdminUser
+  mes?: number
+  ano?: number
 }
 
 export function DashboardAdmin({
