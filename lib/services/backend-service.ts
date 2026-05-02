@@ -38,7 +38,7 @@ export const backendService = {
     }
   },
 
-  async createTask(data: { title: string; description?: string; dueAt?: string; assignedToId?: string }): Promise<TarefaDB> {
+  async createTask(data: { title: string; description?: string; priority?: "ALTA" | "MEDIA" | "BAIXA"; dueAt?: string; assigneeId?: string }): Promise<TarefaDB> {
     try {
       if (!data.title || data.title.trim().length === 0) {
         throw new BackendServiceError("INVALID_TASK", "Task title is required")

@@ -77,8 +77,20 @@ async function getAuthToken(): Promise<string | null> {
   }
 
   const now = Date.now()
+
+  // Validar token em cache
   if (cachedToken && now < tokenExpiry) {
-    return cachedToken
+    const cachedTokenStr = String(cachedToken).trim()
+    if (cachedTokenStr.length > 0) {
+      const parts = cachedTokenStr.split('.')
+      if (parts.length === 3) {
+        console.log("[getAuthToken] Token em cache válido e em uso")
+        return cachedToken
+      }
+    }
+    // Token em cache inválido, limpar
+    console.warn("[getAuthToken] Token em cache inválido, limpando cache")
+    clearAuthTokenCache()
   }
 
   let data: unknown = null
@@ -125,8 +137,35 @@ async function getAuthToken(): Promise<string | null> {
       )
     }
 
-    cachedToken = tokenPayload.token
+    // Validar novo token antes de cachear
+    const newTokenStr = String(tokenPayload.token).trim()
+    if (newTokenStr.length === 0) {
+      clearAuthTokenCache()
+      throw new ApiError(
+        500,
+        data,
+        "Token retornado é vazio.",
+        "TOKEN_ENDPOINT_ERROR"
+      )
+    }
+
+    const tokenParts = newTokenStr.split('.')
+    if (tokenParts.length !== 3) {
+      clearAuthTokenCache()
+      throw new ApiError(
+        500,
+        data,
+        "Formato de token inválido (esperado JWT com 3 partes).",
+        "TOKEN_ENDPOINT_ERROR"
+      )
+    }
+
+    cachedToken = newTokenStr
     tokenExpiry = now + 50 * 60 * 1000
+    console.log("[getAuthToken] Novo token obtido e validado com sucesso", {
+      tokenLength: newTokenStr.length,
+      expiryIn: "50 minutos",
+    })
     return cachedToken
   } catch (error) {
     if (error instanceof ApiError) {
@@ -153,6 +192,11 @@ async function executeRequest(
   const tokenOrNull = auth === "required" ? await getAuthToken() : undefined
   const token = tokenOrNull || undefined
 
+  console.log({
+    path,
+    hasToken: !!token,
+  })
+
   const { response, data } = await backendFetch(path, {
     ...fetchOptions,
     params,
@@ -166,7 +210,21 @@ async function executeRequest(
   }
 
   if (!response.ok) {
+    if (response.status === 400) {
+      console.error("[api-client] 400 response", {
+        path,
+        payload: fetchOptions.body,
+        response: data,
+      })
+    }
+
     if (response.status === 401 && auth === "required") {
+      console.warn("[api-client] 401 response", {
+        path,
+        hasToken: !!token,
+        tokenPreview: token ? `${token.slice(0, 20)}...` : null,
+        response: data,
+      })
       clearAuthTokenCache()
       // Trigger token expiration modal instead of throwing error
       if (tokenExpirationHandler) {
@@ -304,7 +362,7 @@ export const api = {
     }>
   ) {
     const data = await apiCall(`/api/users/${id}`, {
-      method: "PUT",
+      method: "PATCH",
       body: JSON.stringify(payload),
     })
     return extractUserPayload(data)
@@ -382,5 +440,16 @@ export const api = {
 
   async getHealth() {
     return apiCall("/health", { auth: "none" })
+  },
+
+  async getMenuConfig() {
+    return apiCall("/api/menu-config")
+  },
+
+  async updateMenuConfig(items: any[]) {
+    return apiCall("/api/menu-config", {
+      method: "PUT",
+      body: JSON.stringify({ items }),
+    })
   },
 }

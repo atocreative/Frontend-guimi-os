@@ -46,6 +46,19 @@ function getAvailableRoles(currentUserRole?: string): { value: RoleUsuario; labe
   return allRoles.filter((role) => role.value === "COLABORADOR" || role.value === "GESTOR")
 }
 
+/**
+ * Remove campos proibidos do payload de update
+ * Apenas campos válidos: name, email, role, active, jobTitle
+ */
+function cleanUserPayload(formData: any) {
+  return {
+    name: formData.name,
+    jobTitle: formData.jobTitle,
+    role: formData.role,
+    active: formData.active,
+  }
+}
+
 export function EditarUsuarioModal({
   open,
   usuario,
@@ -84,12 +97,15 @@ export function EditarUsuarioModal({
     setErro("")
 
     try {
-      const usuarioAtualizado = await api.updateUser(usuario.id, {
+      const updatePayload = cleanUserPayload({
         name: form.name.trim(),
         jobTitle: form.jobTitle.trim(),
         role: form.role,
         active: form.active,
       })
+      console.log("[EditarUsuarioModal] updatePayload:", updatePayload)
+
+      const usuarioAtualizado = await api.updateUser(usuario.id, updatePayload)
       onSaved(usuarioAtualizado)
       onClose()
     } catch (error) {

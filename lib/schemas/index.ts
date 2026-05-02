@@ -4,6 +4,7 @@ const optionalNullableString = z.union([z.string(), z.null()]).optional()
 const optionalNullableDateInput = z
   .union([
     z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
+    z.string().datetime({ message: "Data inválida" }),
     z.null(),
   ])
   .optional()

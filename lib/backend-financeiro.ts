@@ -44,17 +44,34 @@ export async function getSnapshotFinanceiroServer(
   token?: string | null
 ): Promise<any> {
   try {
-    if (!token) return null
-    
+    if (!token) {
+      console.warn('[getSnapshotFinanceiroServer] Token não fornecido')
+      return null
+    }
+
     const { response, data } = await backendFetch(
       `/api/financeiro/snapshot?month=${month}&year=${year}`,
       { token }
     )
-    
-    if (!response.ok) return null
-    return data?.data || data || null
+
+    if (!response.ok) {
+      console.error('[getSnapshotFinanceiroServer] Resposta não OK:', {
+        status: response.status,
+        data
+      })
+      return null
+    }
+
+    const snapshot = data?.data || data || null
+    console.log('[getSnapshotFinanceiroServer] Snapshot carregado com sucesso:', {
+      month,
+      year,
+      hasData: !!snapshot,
+      fields: snapshot ? Object.keys(snapshot) : []
+    })
+    return snapshot
   } catch (error) {
-    console.error('Erro ao carregar snapshot financeiro (server):', error)
+    console.error('[getSnapshotFinanceiroServer] Erro ao carregar:', error)
     return null
   }
 }
@@ -64,14 +81,29 @@ export async function getSnapshotFinanceiroServer(
  */
 export async function getDashboardDataServer(token?: string): Promise<any> {
   try {
-    if (!token) return null
-    
+    if (!token) {
+      console.warn('[getDashboardDataServer] Token não fornecido')
+      return null
+    }
+
     const { response, data } = await backendFetch('/api/dashboard', { token })
-    
-    if (!response.ok) return null
-    return data?.data || data || null
+
+    if (!response.ok) {
+      console.error('[getDashboardDataServer] Resposta não OK:', {
+        status: response.status,
+        data
+      })
+      return null
+    }
+
+    const dashboard = data?.data || data || null
+    console.log('[getDashboardDataServer] Dashboard carregado com sucesso:', {
+      hasData: !!dashboard,
+      fields: dashboard ? Object.keys(dashboard) : []
+    })
+    return dashboard
   } catch (error) {
-    console.error('Erro ao carregar dashboard (server):', error)
+    console.error('[getDashboardDataServer] Erro ao carregar:', error)
     return null
   }
 }
@@ -84,7 +116,8 @@ export async function syncFoneNinjaReceitas(): Promise<{ success: boolean; synce
   try {
     // Use server api client para passar auth token do servidor
     const response = await serverApi.syncFoneNinja()
-    return { success: true, synced: response?.synced || 0 }
+    const responseData = response && typeof response === 'object' ? response as { synced?: number } : {}
+    return { success: true, synced: responseData.synced || 0 }
   } catch (error) {
     console.error('Erro ao sincronizar FoneNinja:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' }
@@ -98,7 +131,9 @@ export async function syncFoneNinjaReceitas(): Promise<{ success: boolean; synce
 export async function getReceitasPeriodo(month: number, year: number): Promise<any[]> {
   try {
     const data = await serverApi.getFinanceiroReceitas(month, year)
-    return data?.data || data || []
+    if (!data || typeof data !== 'object') return []
+    const payload = data as { data?: any[] }
+    return payload.data || (Array.isArray(data) ? data : [])
   } catch (error) {
     console.error('Erro ao carregar receitas:', error)
     return []
@@ -112,7 +147,9 @@ export async function getReceitasPeriodo(month: number, year: number): Promise<a
 export async function getSnapshotFinanceiro(month: number, year: number): Promise<any> {
   try {
     const data = await serverApi.getFinanceiroSnapshot(month, year)
-    return data?.data || data || null
+    if (!data || typeof data !== 'object') return null
+    const payload = data as { data?: any }
+    return payload.data || data || null
   } catch (error) {
     console.error('Erro ao carregar snapshot financeiro:', error)
     return null
@@ -126,7 +163,9 @@ export async function getSnapshotFinanceiro(month: number, year: number): Promis
 export async function getDashboardData(): Promise<any> {
   try {
     const data = await serverApi.getDashboard()
-    return data?.data || data || null
+    if (!data || typeof data !== 'object') return null
+    const payload = data as { data?: any }
+    return payload.data || data || null
   } catch (error) {
     console.error('Erro ao carregar dashboard:', error)
     return null

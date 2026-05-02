@@ -35,7 +35,8 @@ export interface EvolucaoIndicador {
 export async function getIndicadoresTime(): Promise<IndicadorColaborador[]> {
   try {
     // Fetch users from backend
-    const { users: usuarios } = await serverApi.getUsers()
+    const response = await serverApi.getUsers()
+    const usuarios = (response && typeof response === 'object' ? (response as { users?: any[] }).users : null) || []
 
     if (!usuarios || usuarios.length === 0) {
       return []
@@ -64,7 +65,7 @@ export async function getIndicadoresTime(): Promise<IndicadorColaborador[]> {
         nome: user.name,
         avatar: user.name
           .split(' ')
-          .map((n) => n[0])
+          .map((n: string) => n[0])
           .join('')
           .toUpperCase()
           .slice(0, 2),

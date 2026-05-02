@@ -34,6 +34,8 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { FEATURE_FLAGS, isFeatureEnabled } from "@/lib/feature-flags"
+import { useMenuConfig, type MenuConfigItem } from "@/lib/menu-config-context"
+import { canAccessMenuItem } from "@/hooks/use-menu-visibility"
 
 interface NavItem {
   title: string
@@ -118,27 +120,69 @@ function ThemeToggle() {
 
 export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps) {
   const pathname = usePathname()
+  const { items: menuConfigItems } = useMenuConfig()
   const isDeveloper = isSuperUser || userEmail === "admin@guimicell.com" || userRole === "SUPER_USER"
 
+  // Debug logs
+  React.useEffect(() => {
+    console.log("[AppSidebar] Menu config carregado:", {
+      count: menuConfigItems.length,
+      items: menuConfigItems.map(i => ({
+        id: i.id,
+        name: i.name,
+        enabled: i.enabled,
+        allowedRoles: i.allowedRoles
+      })),
+      userRole,
+      isDeveloper
+    })
+  }, [menuConfigItems, userRole, isDeveloper])
+
+  // Find menu item config by feature ID
+  const getMenuItemConfig = (featureId: string): MenuConfigItem | undefined => {
+    return menuConfigItems.find((item) =>
+      item.id === featureId.toLowerCase() || item.name === featureId
+    )
+  }
+
   const filteredNav = React.useMemo(
-    () =>
-      navItems
+    () => {
+      const filtered = navItems
         .map((group) => ({
           ...group,
           items: group.items.filter((item) => {
             // Check feature flag is enabled
             if (!isFeatureEnabled(item.featureId, userRole as any)) {
+              console.log(`[AppSidebar] ${item.featureId} filtrado: feature flag desativado`)
               return false
             }
+
+            // Check menu config roles if configured
+            const menuConfig = getMenuItemConfig(item.featureId)
+            if (menuConfig && !canAccessMenuItem(menuConfig, userRole)) {
+              console.log(`[AppSidebar] ${item.featureId} filtrado: role ${userRole} não permitido. Roles permitidos: ${menuConfig.allowedRoles?.join(', ')}`)
+              return false
+            }
+
             // Hide settings from collaborators only (super user and admin have access)
             if (item.featureId === "CONFIGURACOES" && userRole === "COLABORADOR" && !isSuperUser) {
+              console.log(`[AppSidebar] CONFIGURACOES filtrado: colaborador sem super_user`)
               return false
             }
             return true
           }),
         }))
-        .filter((group) => group.items.length > 0),
-    [userRole, isSuperUser]
+        .filter((group) => group.items.length > 0)
+
+      console.log("[AppSidebar] Filtragem completa:", {
+        totalBefore: navItems.reduce((acc, g) => acc + g.items.length, 0),
+        totalAfter: filtered.reduce((acc, g) => acc + g.items.length, 0),
+        groups: filtered.map(g => ({ label: g.label, itemsCount: g.items.length }))
+      })
+
+      return filtered
+    },
+    [userRole, isSuperUser, menuConfigItems]
   )
 
   const finalNav = isDeveloper

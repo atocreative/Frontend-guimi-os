@@ -107,15 +107,24 @@ export function ModalNovaTarefa({
     try {
       // Only include assigneeId if we have valid users and responsável is selected
       const shouldIncludeAssignee = usuarios.length > 0 && podeEscolherResponsavel && responsavelId
+      const dueAtIso = prazo ? new Date(`${prazo}T00:00:00`).toISOString() : undefined
 
-      const payload = {
-        title: titulo.trim(),
-        description: descricao.trim() || null,
-        priority: selectValueToPriority(prioridade),
-        dueAt: prazo || null,
-        horario: horario || null,
-        assigneeId: shouldIncludeAssignee ? responsavelId : undefined,
-      }
+      const payload = modoEdicao
+        ? {
+            title: titulo.trim(),
+            description: descricao.trim() || null,
+            priority: selectValueToPriority(prioridade),
+            dueAt: dueAtIso,
+            horario: horario || null,
+            assigneeId: shouldIncludeAssignee ? responsavelId : undefined,
+          }
+        : {
+            title: titulo.trim(),
+            description: descricao.trim() || undefined,
+            priority: selectValueToPriority(prioridade) ?? undefined,
+            dueAt: dueAtIso,
+            assigneeId: shouldIncludeAssignee ? responsavelId : undefined,
+          }
 
       const parsed = (modoEdicao ? taskUpdateSchema : taskCreateSchema).safeParse(payload)
       if (!parsed.success) {
@@ -139,7 +148,10 @@ export function ModalNovaTarefa({
       }
 
       const createPayload = {
-        ...parsed.data,
+        title: parsed.data.title,
+        description: parsed.data.description ?? undefined,
+        priority: parsed.data.priority ?? undefined,
+        dueAt: parsed.data.dueAt ?? undefined,
         assigneeId: podeEscolherResponsavel ? responsavelId : undefined,
       }
 

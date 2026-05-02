@@ -9,6 +9,8 @@ import {
   sortTarefasByPriority,
 } from "@/lib/tarefas"
 
+export const dynamic = "force-dynamic"
+
 function getMonthBounds() {
   const now = new Date()
   return {
@@ -73,26 +75,123 @@ export default async function DashboardPage() {
   ).slice(0, 5)
 
   if (!isColaborador) {
-    // Usar funções server-side que usam backendFetch
     const now = new Date()
     const month = now.getMonth() + 1
     const year = now.getFullYear()
 
-    const [dashboardData] = await Promise.all([
-      getDashboardDataServer(accessToken).catch(() => undefined),
+    console.log("[Dashboard] Iniciando carregamento de dados financeiros:", { month, year })
+
+    const [snapshot, dashboardData] = await Promise.all([
+      getSnapshotFinanceiroServer(month, year, accessToken).catch((err) => {
+        console.error("[Dashboard] Erro ao carregar snapshot:", err)
+        return null
+      }),
+      getDashboardDataServer(accessToken).catch((err) => {
+        console.error("[Dashboard] Erro ao carregar dashboard data:", err)
+        return undefined
+      }),
     ])
 
-    // Extrair dados de despesas e lucro líquido do dashboard aggregado
-    const faturamentoMes = dashboardData?.receita || dashboardData?.totalReceitas || 0
-    const despesasMes = dashboardData?.despesasVariaveis || dashboardData?.expenses || 0
-    const lucroLiquidoMes = dashboardData?.netProfit || dashboardData?.lucroLiquido || 0
-    const lucroBrutoDia = dashboardData?.grossProfit || 0
-    const margemBrutaDia = dashboardData?.grossMargin || 0
+    const financeiroData = dashboardData?.financeiro
+
+    console.log("[Dashboard] Raw dashboardData (completo):", JSON.stringify(dashboardData, null, 2))
+    console.log("[Dashboard] Raw snapshot (completo):", JSON.stringify(snapshot, null, 2))
+    console.log("[Dashboard] Dados extraídos financeiroData:", financeiroData)
+
+    // Mapeamento com fallbacks - tenta múltiplos nomes de campo
+    const faturamentoMes =
+      snapshot?.receita ??
+      snapshot?.totalReceitas ??
+      snapshot?.faturamento ??
+      dashboardData?.receita ??
+      dashboardData?.totalReceitas ??
+      financeiroData?.receita ??
+      0
+
+    const despesasVariaveis =
+      snapshot?.despesasVariaveis ??
+      snapshot?.variableExpenses ??
+      snapshot?.despesas_variaveis ??
+      dashboardData?.despesasVariaveis ??
+      financeiroData?.despesasVariaveis ??
+      0
+
+    const despesasFixas =
+      snapshot?.fixedExpensesTotal ??
+      snapshot?.fixedExpenses ??
+      snapshot?.despesasFixas ??
+      snapshot?.despesas_fixas ??
+      dashboardData?.despesasFixas ??
+      financeiroData?.despesasFixas ??
+      0
+
+    const despesasMes = despesasFixas + despesasVariaveis
+
+    const lucroLiquidoMes =
+      snapshot?.netProfit ??
+      snapshot?.lucroLiquido ??
+      snapshot?.lucro_liquido ??
+      dashboardData?.netProfit ??
+      dashboardData?.lucroLiquido ??
+      financeiroData?.netProfit ??
+      financeiroData?.lucroLiquido ??
+      0
 
     const resumoHoje = {
-      faturamentoDia: faturamentoMes / 30, // Aproximado
-      lucroBrutoDia,
-      margemBrutaDia,
+      faturamentoDia:
+        snapshot?.todayRevenue ??
+        snapshot?.receita_hoje ??
+        snapshot?.receitaHoje ??
+        dashboardData?.receitaHoje ??
+        financeiroData?.receitaHoje ??
+        0,
+      lucroBrutoDia:
+        snapshot?.todayProfit ??
+        snapshot?.lucro_bruto_hoje ??
+        snapshot?.lucroBrutoHoje ??
+        dashboardData?.lucroBrutoHoje ??
+        financeiroData?.lucroBrutoHoje ??
+        0,
+      margemBrutaDia:
+        snapshot?.todayMargin ??
+        snapshot?.margem_bruta_hoje ??
+        snapshot?.margemBrutaHoje ??
+        dashboardData?.margemBrutaHoje ??
+        financeiroData?.margemBrutaHoje ??
+        0,
+    }
+
+    console.log("[Dashboard] Mapeamento de valores (antes de fallbacks):", {
+      "snapshot.receita": snapshot?.receita,
+      "snapshot.totalReceitas": snapshot?.totalReceitas,
+      "snapshot.faturamento": snapshot?.faturamento,
+      "dashboardData.receita": dashboardData?.receita,
+      "financeiroData.receita": financeiroData?.receita,
+    })
+
+    console.log("[Dashboard] Valores finais mapeados:", {
+      faturamentoMes,
+      despesasFixas,
+      despesasVariaveis,
+      despesasMes,
+      lucroLiquidoMes,
+      resumoHoje,
+    })
+
+    // Validação: alertar se valores estão todos zeros
+    const todosZeros =
+      faturamentoMes === 0 &&
+      despesasFixas === 0 &&
+      despesasVariaveis === 0 &&
+      lucroLiquidoMes === 0
+
+    if (todosZeros) {
+      console.warn("[Dashboard] ⚠️ TODOS OS VALORES FINANCEIROS ESTÃO ZERO - VERIFICAR BACKEND")
+      console.warn("[Dashboard] Verifique os endpoints:", {
+        "/api/financeiro/snapshot": "deveria retornar dados financeiros",
+        "/api/dashboard": "deveria retornar dados agregados",
+        "Campos esperados no backend": ["receita", "totalReceitas", "despesasFixas", "despesasVariaveis", "netProfit", "lucroLiquido"]
+      })
     }
 
     return (

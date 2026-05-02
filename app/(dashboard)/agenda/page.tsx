@@ -131,14 +131,31 @@ export default function AgendaPage() {
 
   const carregarTarefas = useCallback(async () => {
     try {
-      const [tarefasData, checklistData] = await Promise.all([
-        api.getTasks().catch(() => ({ tasks: [], users: [] })),
-        api.getChecklists().catch(() => ({ checklists: { abertura: [], fechamento: [] } })),
+      const [tarefasData, usuariosData, checklistAbertura, checklistFechamento] = await Promise.all([
+        api.getTasks().catch(() => ({ tasks: [], total: 0 })),
+        api.getUsers().catch(() => ({ users: [], total: 0 })),
+        api.getChecklists("ABERTURA").catch(() => ({ checklists: [] })),
+        api.getChecklists("FECHAMENTO").catch(() => ({ checklists: [] })),
       ])
       setTarefas(tarefasData.tasks || [])
-      setUsuarios(tarefasData.users || [])
-      setChecklistAbertura(checklistData.checklists?.abertura || [])
-      setChecklistFechamento(checklistData.checklists?.fechamento || [])
+      setUsuarios(usuariosData.users || [])
+
+      // Flatten items from checklists
+      const itensAbertura = checklistAbertura.checklists?.flatMap((c) => c.items || []) || []
+      const itensFechamento = checklistFechamento.checklists?.flatMap((c) => c.items || []) || []
+
+      // Map to ItemChecklist format (PT-BR keys)
+      const formatarItem = (item: any): ItemChecklist => ({
+        id: item.id,
+        titulo: item.title || item.titulo || "",
+        descricao: item.description || item.descricao || null,
+        concluido: item.completed || item.concluido || false,
+        responsavel: item.responsavel || item.createdBy || "Sistema",
+        horario: item.horario || null,
+      })
+
+      setChecklistAbertura(itensAbertura.map(formatarItem))
+      setChecklistFechamento(itensFechamento.map(formatarItem))
     } finally {
       setLoading(false)
     }

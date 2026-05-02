@@ -137,7 +137,14 @@ function normalizeChecklist(input: unknown): ChecklistDB {
 }
 
 export function getSessionAccessToken(session: { accessToken?: string | null } | null | undefined) {
-  return session?.accessToken ?? null
+  const token = session?.accessToken ?? null
+
+  // Validar se o token é válido
+  if (token && typeof token === "string" && token.length > 0) {
+    return token
+  }
+
+  return null
 }
 
 export async function backendFetch(path: string, options: BackendFetchOptions = {}) {
@@ -159,18 +166,36 @@ export async function backendFetch(path: string, options: BackendFetchOptions = 
     requestHeaders.set("Content-Type", "application/json")
   }
 
+  // Validar e aplicar token com segurança
   if (token) {
-    const tokenStr = String(token)
-    console.log("[backendFetch] Token info:", {
+    // Validar que token é uma string não-vazia
+    const tokenStr = String(token).trim()
+
+    if (tokenStr.length === 0) {
+      console.error("[backendFetch] Token inválido (vazio) fornecido para:", path)
+      throw new Error(`Token inválido fornecido para requisição em ${path}`)
+    }
+
+    // Validar formato básico do token JWT (deve ter 3 partes separadas por pontos)
+    const tokenParts = tokenStr.split('.')
+    if (tokenParts.length !== 3) {
+      console.error("[backendFetch] Formato de token inválido para:", path, {
+        tokenLength: tokenStr.length,
+        tokenParts: tokenParts.length,
+      })
+      throw new Error(`Formato de token inválido fornecido para requisição em ${path}`)
+    }
+
+    console.log("[backendFetch] Token validado e aplicado:", {
       path,
       tokenLength: tokenStr.length,
-      tokenStart: tokenStr.substring(0, 50),
-      tokenEnd: tokenStr.substring(Math.max(0, tokenStr.length - 20)),
-      headerValue: `Bearer ${tokenStr.substring(0, 30)}...`,
+      tokenStart: tokenStr.substring(0, 30),
+      tokenEnd: tokenStr.substring(Math.max(0, tokenStr.length - 10)),
+      isJWT: tokenParts.length === 3,
     })
     requestHeaders.set("Authorization", `Bearer ${tokenStr}`)
   } else {
-    console.warn("[backendFetch] No token provided for", path)
+    console.warn("[backendFetch] Nenhum token fornecido para:", path)
   }
 
   const response = await fetch(url, {
