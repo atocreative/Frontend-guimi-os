@@ -45,6 +45,9 @@ export default async function DashboardPage() {
 
   const { response, data } = await backendFetch("/api/tasks", {
     token: accessToken,
+  }).catch((err) => {
+    console.error("[Dashboard] Error fetching tasks:", err)
+    return { response: { ok: false, status: 503 }, data: null }
   })
 
   if (!response.ok) {
@@ -52,10 +55,12 @@ export default async function DashboardPage() {
       ? (data as { message?: string }).message
       : "Desconhecido"
     console.error(`[Dashboard] Falha ao carregar tarefas: ${response.status} - ${errorMsg}`)
-    throw new Error(`Falha ao carregar tarefas do dashboard. Status: ${response.status}. ${errorMsg !== "Desconhecido" ? `Detalhes: ${errorMsg}` : ""}`)
+    // Don't throw - return empty tasks and continue
   }
 
-  const { tasks } = extractTasksPayload(data)
+  // If fetch failed, use empty tasks but don't crash
+  const taskData = response.ok ? extractTasksPayload(data) : { tasks: [], total: 0 }
+  const { tasks } = taskData
   const tarefas = isColaborador
     ? tasks.filter((tarefa) => tarefa.assigneeId === session.user.id)
     : tasks
