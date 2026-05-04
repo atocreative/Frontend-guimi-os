@@ -192,15 +192,24 @@ async function executeRequest(
   const tokenOrNull = auth === "required" ? await getAuthToken() : undefined
   const token = tokenOrNull || undefined
 
-  console.log({
+  console.log('[executeRequest]', {
     path,
+    method: fetchOptions.method || 'GET',
     hasToken: !!token,
+    auth,
+    params,
   })
 
   const { response, data } = await backendFetch(path, {
     ...fetchOptions,
     params,
     token,
+  })
+
+  console.log('[executeRequest response]', {
+    path,
+    status: response.status,
+    statusText: response.statusText,
   })
 
   if (response.status === 401 && auth === "required" && retryUnauthorized) {
@@ -458,11 +467,20 @@ export const api = {
     })
   },
 
-  async updateCurrentUserPassword(payload: { newPassword: string }) {
+  async updateCurrentUserPassword(payload: { currentPassword: string; newPassword: string }) {
+    console.log('[DEBUG PASSWORD API]', {
+      endpoint: '/api/users/me/password',
+      method: 'PATCH',
+      hasCurrentPassword: !!payload.currentPassword,
+      hasNewPassword: !!payload.newPassword,
+    })
+
     const data = await apiCall("/api/users/me/password", {
-      method: "PUT",
+      method: "PATCH",
       body: JSON.stringify(payload),
     })
+    
+    console.log('[DEBUG PASSWORD API SUCCESS]', { data })
     return data
   },
 }

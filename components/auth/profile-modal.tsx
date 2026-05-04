@@ -21,12 +21,18 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ open, onClose }: ProfileModalProps) {
+  const [senhaAtual, setSenhaAtual] = useState("")
   const [novaSenha, setNovaSenha] = useState("")
   const [confirmarSenha, setConfirmarSenha] = useState("")
   const [salvando, setSalvando] = useState(false)
 
   async function salvar() {
     // Validação
+    if (!senhaAtual.trim()) {
+      toast.error("Digite sua senha atual")
+      return
+    }
+
     if (!novaSenha.trim()) {
       toast.error("Digite a nova senha")
       return
@@ -45,12 +51,14 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
     setSalvando(true)
 
     try {
-      // Chama PUT /api/users/me/password
+      // Chama PATCH /api/users/me/password
       const response = await api.updateCurrentUserPassword({
+        currentPassword: senhaAtual,
         newPassword: novaSenha,
       })
 
       toast.success("Senha alterada com sucesso!")
+      setSenhaAtual("")
       setNovaSenha("")
       setConfirmarSenha("")
       onClose()
@@ -68,6 +76,7 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
   }
 
   function handleClose() {
+    setSenhaAtual("")
     setNovaSenha("")
     setConfirmarSenha("")
     onClose()
@@ -82,6 +91,18 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
         </SheetHeader>
 
         <div className="space-y-6 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="senha-atual">Senha Atual</Label>
+            <Input
+              id="senha-atual"
+              type="password"
+              placeholder="Digite sua senha atual"
+              value={senhaAtual}
+              onChange={(e) => setSenhaAtual(e.target.value)}
+              disabled={salvando}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="nova-senha">Nova Senha</Label>
             <Input
