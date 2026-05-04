@@ -180,9 +180,9 @@ export function Leaderboard({
             Ranking
           </CardTitle>
           <Tabs value={scope} onValueChange={(value) => setScope(value as GamificationScope)}>
-            <TabsList>
-              <TabsTrigger value="month">Esse Mês</TabsTrigger>
-              <TabsTrigger value="all">Geral</TabsTrigger>
+            <TabsList className="cursor-pointer">
+              <TabsTrigger className="cursor-pointer" value="month">Esse Mês</TabsTrigger>
+              <TabsTrigger className="cursor-pointer" value="all">Geral</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>

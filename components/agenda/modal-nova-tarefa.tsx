@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import {
   Sheet,
   SheetContent,
@@ -73,7 +74,7 @@ export function ModalNovaTarefa({
   const [erro, setErro] = useState("")
 
   const podeEscolherResponsavel =
-    currentUserRole === "ADMIN" || currentUserRole === "GESTOR"
+    currentUserRole === "ADMIN" || currentUserRole === "GESTOR" || currentUserRole === "SUPER_USER"
 
   useEffect(() => {
     if (open && tarefaParaEditar) {
@@ -136,8 +137,10 @@ export function ModalNovaTarefa({
         try {
           const updatedTarefa = await api.updateTask(tarefaParaEditar.id, parsed.data as any)
           onAtualizada?.(updatedTarefa)
+          toast.success("Tarefa atualizada com sucesso")
           onClose()
         } catch (error) {
+          console.error("Erro ao atualizar tarefa:", error)
           if (error instanceof ApiError) {
             setErro(error.message)
           } else {
@@ -152,14 +155,16 @@ export function ModalNovaTarefa({
         description: parsed.data.description ?? undefined,
         priority: parsed.data.priority ?? undefined,
         dueAt: parsed.data.dueAt ?? undefined,
-        assigneeId: podeEscolherResponsavel ? responsavelId : undefined,
+        assigneeId: podeEscolherResponsavel && responsavelId ? responsavelId : null,
       }
 
       try {
         const novaTarefa = await api.createTask(createPayload as any)
         onCriada(novaTarefa)
+        toast.success("Tarefa criada com sucesso")
         onClose()
       } catch (error) {
+        console.error("Erro ao criar tarefa:", error)
         if (error instanceof ApiError) {
           setErro(error.message)
         } else {
@@ -167,6 +172,7 @@ export function ModalNovaTarefa({
         }
       }
     } catch (error) {
+      console.error("Erro geral ao salvar tarefa:", error)
       if (error instanceof ApiError) {
         setErro(error.message)
       } else {

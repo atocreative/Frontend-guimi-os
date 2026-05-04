@@ -4,6 +4,7 @@ import { memo, useState, useEffect, useCallback, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { Plus } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
@@ -178,13 +179,15 @@ export default function AgendaPage() {
 
     try {
       await api.updateChecklist(id, { completed })
-    } catch {
+    } catch (error) {
+      console.error("Erro ao atualizar checklist:", error)
       setChecklistAbertura((prev) =>
         prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
       )
       setChecklistFechamento((prev) =>
         prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
       )
+      toast.error("Falha ao atualizar checklist. Tente novamente.")
     }
   }, [checklistPorId])
 
@@ -205,9 +208,11 @@ export default function AgendaPage() {
       if (novoStatus === "CONCLUIDA") {
         notifyTaskCompleted({ taskTitle: tarefa.title })
       }
-    } catch {
+    } catch (error) {
+      console.error("Erro ao atualizar tarefa:", error)
       setTarefas((prev) => prev.map((t) => (t.id === id ? tarefa : t)))
       notifyTaskCompletionError()
+      toast.error("Falha ao atualizar tarefa. Tente novamente.")
     }
   }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasPorId])
 
@@ -216,10 +221,13 @@ export default function AgendaPage() {
     setTarefas((prev) => prev.filter((t) => t.id !== id))
     try {
       await api.deleteTask(id)
-    } catch {
+      toast.success("Tarefa deletada com sucesso")
+    } catch (error) {
+      console.error("Erro ao deletar tarefa:", error)
       if (tarefaAnterior) {
         setTarefas((prev) => [...prev, tarefaAnterior])
       }
+      toast.error("Falha ao deletar tarefa. Tente novamente.")
     }
   }, [tarefasPorId])
 

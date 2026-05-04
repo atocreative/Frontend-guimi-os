@@ -16,10 +16,16 @@ import {
 } from "@/components/ui/select"
 import { api } from "@/lib/api-client"
 import { useMenuConfig, type MenuConfigItem } from "@/lib/menu-config-context"
+import { FEATURE_DEFINITIONS } from "@/lib/feature-definitions"
 import { toast } from "sonner"
 
 const ROLES = ["COLABORADOR", "GESTOR", "ADMIN", "SUPER_USER"] as const
 type Role = typeof ROLES[number]
+
+// Map id → featureId for API calls
+const ID_TO_FEATURE_ID = new Map(
+  FEATURE_DEFINITIONS.map((d) => [d.id, d.featureId])
+)
 
 interface DeveloperMenuEnhancedProps {
   initialMenu: MenuConfigItem[]
@@ -33,21 +39,28 @@ export function DeveloperMenuEnhanced({
   const { items, setItems, updateItem, saveToStorage } = useMenuConfig()
   const [saving, setSaving] = useState(false)
   const [changes, setChanges] = useState<Record<string, boolean>>({})
-  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
 
-  // Initialize from prop if context is empty
   useEffect(() => {
-    if (items.length === 0 && initialMenu.length > 0) {
+    if (initialMenu.length === 0) return
+    if (items.length === 0) {
       setItems(initialMenu)
+      return
     }
-  }, [initialMenu, items.length, setItems])
+    // If context is missing items (stale localStorage), fill gaps from server data
+    if (items.length < initialMenu.length) {
+      const itemMap = new Map(items.map(i => [i.id, i]))
+      const merged = initialMenu.map(s => itemMap.get(s.id) ?? s)
+      setItems(merged)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleStateChange = useCallback(
     (itemId: string, state: "hidden" | "disabled" | "enabled") => {
-      const enabled = state === "enabled"
-      const pending = state === "disabled"
-
-      updateItem(itemId, { enabled, pending })
+      updateItem(itemId, {
+        enabled: state === "enabled",
+        pending: state === "disabled",
+      })
       setChanges((prev) => ({ ...prev, [itemId]: true }))
     },
     [updateItem]
@@ -57,12 +70,10 @@ export function DeveloperMenuEnhanced({
     (itemId: string, role: Role) => {
       const item = items.find((i) => i.id === itemId)
       if (!item) return
-
       const roles = item.allowedRoles || []
       const newRoles = roles.includes(role)
         ? roles.filter((r) => r !== role)
         : [...roles, role]
-
       updateItem(itemId, { allowedRoles: newRoles })
       setChanges((prev) => ({ ...prev, [itemId]: true }))
     },
@@ -77,17 +88,22 @@ export function DeveloperMenuEnhanced({
 
     setSaving(true)
     try {
-      // Save locally
       saveToStorage()
 
-      // Save to backend
       const promises = Object.keys(changes).map((itemId) => {
         const item = items.find((i) => i.id === itemId)
         if (!item) return Promise.resolve()
 
-        return api.updateDevMenu(itemId, {
+        // Use featureId for the API endpoint (e.g. COMERCIAL, not comercial)
+        const featureId = ID_TO_FEATURE_ID.get(itemId) ?? itemId.toUpperCase()
+
+        return api.updateDevMenu(featureId, {
           enabled: item.enabled,
           pending: item.pending,
+          allowedRoles: item.allowedRoles,
+        }).catch((err) => {
+          console.error(`Erro ao salvar ${featureId}:`, err)
+          // continue saving others even if one fails
         })
       })
 
@@ -142,9 +158,11 @@ export function DeveloperMenuEnhanced({
           return (
             <Card
               key={item.id}
-              className={`transition-all ${
-                isHidden && isSuperUser ? "border-red-300 bg-red-50/50" : ""
-              } ${isChanged ? "ring-2 ring-blue-500" : ""}`}
+              className={[
+                "transition-all",
+                isHidden && isSuperUser ? "border-red-300 bg-red-50/50" : "",
+                isChanged ? "ring-2 ring-blue-500" : "",
+              ].filter(Boolean).join(" ")}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-4">
@@ -158,9 +176,7 @@ export function DeveloperMenuEnhanced({
                         </Badge>
                       )}
                       {isDisabled && (
-                        <Badge variant="secondary" className="text-xs">
-                          EM BREVE
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs">EM BREVE</Badge>
                       )}
                       {isChanged && (
                         <Badge className="text-xs bg-blue-500">ALTERADO</Badge>
@@ -171,65 +187,52 @@ export function DeveloperMenuEnhanced({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Select
-                      value={status}
-                      onValueChange={(value) =>
-                        handleStateChange(item.id, value as any)
-                      }
-                    >
-                      <SelectTrigger className="w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="hidden">
-                          <span className="flex items-center gap-2">
-                            <EyeOff className="h-4 w-4" />
-                            Ocultar
-                          </span>
-                        </SelectItem>
-                        <SelectItem value="disabled">
-                          <span>Em breve</span>
-                        </SelectItem>
-                        <SelectItem value="enabled">
-                          <span className="flex items-center gap-2">
-                            <Eye className="h-4 w-4" />
-                            Ativo
-                          </span>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Select
+                    value={status}
+                    onValueChange={(value) => handleStateChange(item.id, value as any)}
+                  >
+                    <SelectTrigger className="w-40 flex-shrink-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hidden">
+                        <span className="flex items-center gap-2">
+                          <EyeOff className="h-4 w-4" />
+                          Ocultar
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="disabled">Em breve</SelectItem>
+                      <SelectItem value="enabled">
+                        <span className="flex items-center gap-2">
+                          <Eye className="h-4 w-4" />
+                          Ativo
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardHeader>
 
               <CardContent className="space-y-4 border-t pt-4">
-                <div>
-                  <p className="text-sm font-medium mb-3">
-                    Visível para roles:
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {ROLES.map((role) => (
-                      <div key={role} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`${item.id}-${role}`}
-                          checked={
-                            item.allowedRoles?.includes(role) ?? false
-                          }
-                          onCheckedChange={() =>
-                            handleRoleToggle(item.id, role)
-                          }
-                          disabled={!isChanged && Object.keys(changes).length > 0}
-                        />
-                        <Label
-                          htmlFor={`${item.id}-${role}`}
-                          className="font-normal cursor-pointer text-sm"
-                        >
-                          {role}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
+                <p className="text-sm font-medium">
+                  Visível para roles: <span className="text-muted-foreground font-normal">(vazio = todos)</span>
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {ROLES.map((role) => (
+                    <div key={role} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`${item.id}-${role}`}
+                        checked={item.allowedRoles?.includes(role) ?? false}
+                        onCheckedChange={() => handleRoleToggle(item.id, role)}
+                      />
+                      <Label
+                        htmlFor={`${item.id}-${role}`}
+                        className="font-normal cursor-pointer text-sm"
+                      >
+                        {role}
+                      </Label>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>

@@ -13,6 +13,8 @@ import {
 import { Edit2, Trash2, MoreVertical } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api-client"
+import { useConfirmDialog } from "@/context/confirm-dialog-context"
+import { toast } from "sonner"
 import type { UsuarioSistema } from "@/types/usuarios"
 
 const roleCor: Record<string, string> = {
@@ -40,12 +42,30 @@ function getInitials(name: string) {
 
 export function UsuarioCard({ usuario, onEdit, onDelete }: { usuario: UsuarioSistema; onEdit?: (usuario: UsuarioSistema) => void; onDelete?: (usuarioId: string) => void }) {
   const [deleting, setDeleting] = useState(false)
+  const { confirm } = useConfirmDialog()
   const createdAt = new Date(usuario.createdAt).toLocaleDateString("pt-BR")
 
   async function handleDelete() {
     if (!onDelete) return
-    // TODO: Replace with ConfirmDialog modal instead of confirm()/alert()
+
+    const confirmed = await confirm({
+      title: "Deletar usuário",
+      description: `Tem certeza que deseja deletar ${usuario.name}? Esta ação não pode ser desfeita.`,
+      confirmText: "Deletar",
+      cancelText: "Cancelar",
+      isDangerous: true,
+    })
+
+    if (!confirmed) return
+
+    setDeleting(true)
     try {
+      await api.deleteUser(usuario.id)
+      onDelete(usuario.id)
+      toast.success(`${usuario.name} deletado com sucesso`)
+    } catch (error) {
+      console.error("Erro ao deletar usuário:", error)
+      toast.error("Falha ao deletar usuário. Tente novamente.")
     } finally {
       setDeleting(false)
     }
@@ -94,14 +114,15 @@ export function UsuarioCard({ usuario, onEdit, onDelete }: { usuario: UsuarioSis
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 hover:bg-muted"
+                disabled={deleting}
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {onEdit && (
-                <DropdownMenuItem onClick={() => onEdit(usuario)}>
+                <DropdownMenuItem onClick={() => onEdit(usuario)} disabled={deleting}>
                   <Edit2 className="h-4 w-4 mr-2" />
                   Editar
                 </DropdownMenuItem>
@@ -110,10 +131,10 @@ export function UsuarioCard({ usuario, onEdit, onDelete }: { usuario: UsuarioSis
                 <DropdownMenuItem
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="text-red-500 focus:text-red-500"
+                  className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Deletar
+                  {deleting ? "Deletando..." : "Deletar"}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>

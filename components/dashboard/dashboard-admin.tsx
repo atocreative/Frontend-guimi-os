@@ -57,7 +57,8 @@ interface KpiGridProps {
   lucroBrutoValor: string
   lucroBrutoDescricao: string
   lucroLiquidoMes?: number
-  despesasMes?: number
+  metaMes?: number
+  percentualMeta?: number
 }
 
 const KpiGridPrimeira = memo(function KpiGridPrimeira({
@@ -67,7 +68,13 @@ const KpiGridPrimeira = memo(function KpiGridPrimeira({
   lucroBrutoValor,
   lucroBrutoDescricao,
   lucroLiquidoMes,
+  metaMes,
+  percentualMeta,
 }: KpiGridProps) {
+  const metaDescricao = metaMes && metaMes > 0 && percentualMeta !== undefined
+    ? `${percentualMeta.toFixed(1)}% da meta (${formatBRL(metaMes)})`
+    : faturamentoMes !== undefined ? "Meta não configurada" : "Aguardando dados"
+
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       <KpiCard
@@ -78,9 +85,9 @@ const KpiGridPrimeira = memo(function KpiGridPrimeira({
         tendencia="up"
       />
       <KpiCard
-        titulo="Faturamento do Período"
+        titulo="Faturamento do Mês"
         valor={faturamentoMes !== undefined ? formatBRL(faturamentoMes) : "—"}
-        descricao={faturamentoMes !== undefined ? `Dados de 2026` : "Aguardando dados"}
+        descricao={metaDescricao}
         icone={Target}
         tendencia="up"
       />
@@ -93,7 +100,7 @@ const KpiGridPrimeira = memo(function KpiGridPrimeira({
       <KpiCard
         titulo="Lucro Líquido"
         valor={lucroLiquidoMes !== undefined ? formatBRL(lucroLiquidoMes) : "—"}
-        descricao={lucroLiquidoMes !== undefined ? `Resultado do período` : "Aguardando dados"}
+        descricao={lucroLiquidoMes !== undefined ? "Resultado do mês" : "Aguardando dados"}
         icone={TrendingUp}
         tendencia="up"
         destaque
@@ -130,6 +137,8 @@ interface DashboardAdminProps {
   resumoHoje?: ResumoFinanceiroHoje
   despesasMes?: number
   lucroLiquidoMes?: number
+  metaMes?: number
+  percentualMeta?: number
   currentUser?: DashboardAdminUser
   mes?: number
   ano?: number
@@ -142,6 +151,8 @@ export function DashboardAdmin({
   resumoHoje,
   despesasMes,
   lucroLiquidoMes,
+  metaMes,
+  percentualMeta,
   currentUser,
 }: DashboardAdminProps) {
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
@@ -214,6 +225,8 @@ export function DashboardAdmin({
         lucroBrutoValor={lucroBrutoValor}
         lucroBrutoDescricao={lucroBrutoDescricao}
         lucroLiquidoMes={lucroLiquidoMes}
+        metaMes={metaMes}
+        percentualMeta={percentualMeta}
       />
 
       <KpiGridSegunda despesasMes={despesasMes} />

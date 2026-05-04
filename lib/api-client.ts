@@ -423,11 +423,16 @@ export const api = {
     return data
   },
 
-  async updateDevMenu(itemId: string, payload: { enabled?: boolean; pending?: boolean }) {
-    return apiCall(`/api/dev-menu/${itemId}`, {
+  async updateDevMenu(featureId: string, payload: { enabled?: boolean; pending?: boolean; allowedRoles?: string[] }) {
+    // Use Next.js BFF route — avoids CORS and handles auth server-side
+    const res = await fetch(`/api/dev-menu/${featureId}`, {
       method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      cache: "no-store",
     })
+    if (!res.ok) throw new Error(`dev-menu PUT failed: ${res.status}`)
+    return res.json().catch(() => ({ ok: true }))
   },
 
   async getGamificationLeaderboard(scope: string) {
@@ -451,5 +456,13 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ items }),
     })
+  },
+
+  async updateCurrentUserPassword(payload: { newPassword: string }) {
+    const data = await apiCall("/api/users/me/password", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    })
+    return data
   },
 }

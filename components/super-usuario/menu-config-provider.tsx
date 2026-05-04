@@ -8,6 +8,7 @@ import {
   saveMenuConfigToStorage,
   loadMenuConfigFromStorage,
 } from "@/lib/menu-config-context"
+import { FEATURE_DEFINITIONS } from "@/lib/feature-definitions"
 
 interface MenuConfigProviderProps {
   children: React.ReactNode
@@ -22,26 +23,27 @@ export function MenuConfigProvider({
   const [isLoading, setIsLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date>()
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount, merging with FEATURE_DEFINITIONS to ensure all features are present
   useEffect(() => {
     const stored = loadMenuConfigFromStorage()
-    if (stored) {
-      console.log("[MenuConfigProvider] Items carregados do localStorage:", {
-        count: stored.length,
-        items: stored.map(i => ({ id: i.id, name: i.name, enabled: i.enabled }))
-      })
-      setItemsState(stored)
-      setLastUpdated(new Date())
-    } else if (initialItems.length > 0) {
-      console.log("[MenuConfigProvider] Usando initialItems do props:", {
-        count: initialItems.length,
-        items: initialItems.map(i => ({ id: i.id, name: i.name, enabled: i.enabled }))
-      })
-      setItemsState(initialItems)
-      setLastUpdated(new Date())
+    const base = initialItems.length > 0 ? initialItems : FEATURE_DEFINITIONS.map(d => ({
+      id: d.id,
+      name: d.name,
+      description: d.description,
+      enabled: true,
+      pending: false,
+      allowedRoles: [] as ("COLABORADOR" | "GESTOR" | "ADMIN" | "SUPER_USER")[],
+    }))
+
+    if (stored && stored.length > 0) {
+      // Merge: stored overrides base, but missing features from FEATURE_DEFINITIONS are added
+      const storedMap = new Map(stored.map(i => [i.id, i]))
+      const merged = base.map(baseItem => storedMap.get(baseItem.id) ?? baseItem)
+      setItemsState(merged)
     } else {
-      console.warn("[MenuConfigProvider] Nenhum menu config carregado (localStorage vazio e initialItems vazio)")
+      setItemsState(base)
     }
+    setLastUpdated(new Date())
   }, [])
 
   const setItems = useCallback((newItems: MenuConfigItem[]) => {

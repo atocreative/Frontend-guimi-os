@@ -124,6 +124,95 @@ export async function syncFoneNinjaReceitas(): Promise<{ success: boolean; synce
   }
 }
 
+export interface FinanceiroSummary {
+  receitaMes: number
+  despesasMes: number
+  lucroLiquidoMes: number
+  metaMes: number
+  percentualMeta: number
+  receitaHoje: number
+  lucroBrutoHoje: number
+  margemBrutoHoje: number
+  quantidadeVendas?: number
+  periodo?: { startDate: string; endDate: string }
+}
+
+/**
+ * SERVER-SIDE: Obtém summary financeiro do mês corrente.
+ * Usa /api/financeiro/sales com filtro de mês — NÃO usa snapshot como receita.
+ * Lança erro se dados não disponíveis (sem fallback silencioso).
+ */
+export async function getFinanceiroSummaryServer(
+  token?: string | null
+): Promise<FinanceiroSummary | null> {
+  if (!token) {
+    console.warn('[getFinanceiroSummaryServer] Token não fornecido')
+    return null
+  }
+
+  const { getMonthRange, buildSalesFilters, calculateRevenue, filtersToSearchParams } =
+    await import('@/lib/financeiro-utils')
+
+  const { startDate, endDate } = getMonthRange()
+  const filters = buildSalesFilters({ startDate, endDate })
+  const params = filtersToSearchParams(filters)
+
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+  // 1. Busca vendas filtradas pelo mês corrente
+  const salesRes = await fetch(
+    `${apiBase}/api/financeiro/sales?${params.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
+    }
+  ).catch((err) => {
+    throw new Error(`SALES_FETCH_NETWORK_ERROR: ${(err as Error).message}`)
+  })
+
+  if (!salesRes.ok) {
+    console.error(`[getFinanceiroSummaryServer] /api/financeiro/sales retornou ${salesRes.status}`)
+    return null
+  }
+
+  const salesData = await salesRes.json()
+  const sales: import('@/lib/financeiro-utils').SaleItem[] = Array.isArray(salesData)
+    ? salesData
+    : (salesData?.data ?? salesData?.sales ?? salesData?.items ?? [])
+
+  if (!sales || sales.length === 0) {
+    throw new Error(`NO_SALES_DATA_FOR_PERIOD:${startDate}/${endDate}`)
+  }
+
+  const receitaMes = calculateRevenue(sales)
+
+  // 2. Snapshot apenas para campos complementares (despesas, meta, hoje)
+  const { response: snapRes, data: snapData } = await backendFetch(
+    `/api/financeiro/snapshot?month=${new Date().getMonth() + 1}&year=${new Date().getFullYear()}`,
+    { token }
+  ).catch(() => ({ response: { ok: false }, data: null }))
+
+  const snap: Record<string, unknown> = snapRes.ok
+    ? (snapData?.data ?? snapData ?? {})
+    : {}
+
+  const metaMes = Number(snap.metaMes ?? snap.meta ?? 0)
+
+  return {
+    receitaMes,
+    quantidadeVendas: sales.length,
+    periodo: { startDate, endDate },
+    despesasMes: Number(snap.despesasMes ?? snap.totalDespesas ?? 0),
+    lucroLiquidoMes: Number(snap.lucroLiquidoMes ?? snap.netProfit ?? snap.lucroLiquido ?? 0),
+    metaMes,
+    percentualMeta: metaMes > 0 ? Math.round((receitaMes / metaMes) * 1000) / 10 : 0,
+    receitaHoje: Number(snap.receitaHoje ?? snap.todayRevenue ?? 0),
+    lucroBrutoHoje: Number(snap.lucroBrutoHoje ?? snap.todayProfit ?? 0),
+    margemBrutoHoje: Number(snap.margemBrutoHoje ?? snap.todayMargin ?? 0),
+  }
+}
+
 /**
  * Obtém receitas de um período
  * GET /api/financeiro/receitas?month=4&year=2026

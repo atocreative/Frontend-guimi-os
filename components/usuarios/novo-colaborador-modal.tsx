@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import {
   Sheet,
   SheetContent,
@@ -82,8 +83,10 @@ export function NovoColaboradorModal({
 
       const usuario = await api.createUser(parsed.data as any)
       onCreated(usuario)
+      toast.success(`${usuario.name} cadastrado com sucesso`)
       onClose()
     } catch (error) {
+      console.error("Erro ao criar usuário:", error)
       if (error instanceof ApiError) {
         setErro(error.message)
       } else {

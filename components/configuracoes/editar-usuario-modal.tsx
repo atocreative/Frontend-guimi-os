@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import {
   Sheet,
   SheetContent,
@@ -48,15 +49,22 @@ function getAvailableRoles(currentUserRole?: string): { value: RoleUsuario; labe
 
 /**
  * Remove campos proibidos do payload de update
- * Apenas campos válidos: name, email, role, active, jobTitle
+ * Apenas campos válidos: name, email, role, active, jobTitle, password (SUPER_USER only)
  */
-function cleanUserPayload(formData: any) {
-  return {
+function cleanUserPayload(formData: any, currentUserRole?: string) {
+  const payload: any = {
     name: formData.name,
     jobTitle: formData.jobTitle,
     role: formData.role,
     active: formData.active,
   }
+
+  // Only include password if SUPER_USER is editing and password is provided
+  if (currentUserRole === "SUPER_USER" && formData.password?.trim()) {
+    payload.password = formData.password
+  }
+
+  return payload
 }
 
 export function EditarUsuarioModal({
@@ -72,6 +80,7 @@ export function EditarUsuarioModal({
     jobTitle: "",
     role: "COLABORADOR" as RoleUsuario,
     active: true,
+    password: "",
   })
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState("")
@@ -83,6 +92,7 @@ export function EditarUsuarioModal({
       jobTitle: usuario.jobTitle ?? "",
       role: usuario.role,
       active: usuario.active,
+      password: "",
     })
     setErro("")
   }, [open, usuario])
@@ -102,13 +112,16 @@ export function EditarUsuarioModal({
         jobTitle: form.jobTitle.trim(),
         role: form.role,
         active: form.active,
-      })
+        password: form.password,
+      }, currentUserRole)
       console.log("[EditarUsuarioModal] updatePayload:", updatePayload)
 
       const usuarioAtualizado = await api.updateUser(usuario.id, updatePayload)
       onSaved(usuarioAtualizado)
+      toast.success(`${usuarioAtualizado.name} atualizado com sucesso`)
       onClose()
     } catch (error) {
+      console.error("Erro ao atualizar usuário:", error)
       if (error instanceof ApiError) {
         setErro(error.message)
       } else {
@@ -173,6 +186,19 @@ export function EditarUsuarioModal({
               </SelectContent>
             </Select>
           </div>
+
+          {currentUserRole === "SUPER_USER" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-usuario-nova-senha">Nova Senha</Label>
+              <Input
+                id="edit-usuario-nova-senha"
+                type="password"
+                placeholder="Deixe em branco para manter a senha atual"
+                value={form.password}
+                onChange={(event) => updateField("password", event.target.value)}
+              />
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <Checkbox

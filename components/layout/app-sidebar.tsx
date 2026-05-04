@@ -17,6 +17,7 @@ import {
   LifeBuoy,
   Sun,
   Code2,
+  Moon,
   type LucideIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -83,7 +84,7 @@ const navItems: NavGroup[] = [
 ]
 
 const devNavItems: NavItem[] = [
-  { title: "Developer Dashboard", href: "/super-usuario", icon: Code2, featureId: "SUPER_USER_DASHBOARD" },
+  { title: "Dashboard Development", href: "/dashboard-development", icon: Code2, featureId: "SUPER_USER_DASHBOARD" },
 ]
 
 interface AppSidebarProps {
@@ -105,11 +106,20 @@ function ThemeToggle() {
     <SidebarMenu className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
       <SidebarMenuItem>
         <SidebarMenuButton
+          // Se está escuro (isDark), ao clicar ele deve ir para o claro (light)
           onClick={() => setTheme(isDark ? "light" : "dark")}
-          tooltip={isDark ? "Modo claro" : "Modo escuro"}
+          tooltip={isDark ? "Mudar para modo claro" : "Mudar para modo escuro"}
+          className="transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground cursor-pointer"
         >
-          <Sun className="h-4 w-4" />
-          <span className="group-data-[collapsible=icon]:hidden">
+          {/* Se está escuro (isDark), mostra o SOL para o usuário clicar e clarear */}
+          {isDark ? (
+            <Moon className="h-4 w-4" />
+          ) : (
+            <Sun className="h-4 w-4" />
+          )}
+
+          <span className="group-data-[collapsible=icon]:hidden ml-2">
+            {/* Mostra o nome do modo atual ou do modo que será ativado */}
             {isDark ? "Light Mode" : "Dark Mode"}
           </span>
         </SidebarMenuButton>
@@ -123,21 +133,6 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
   const { items: menuConfigItems } = useMenuConfig()
   const isDeveloper = isSuperUser || userEmail === "admin@guimicell.com" || userRole === "SUPER_USER"
 
-  // Debug logs
-  React.useEffect(() => {
-    console.log("[AppSidebar] Menu config carregado:", {
-      count: menuConfigItems.length,
-      items: menuConfigItems.map(i => ({
-        id: i.id,
-        name: i.name,
-        enabled: i.enabled,
-        allowedRoles: i.allowedRoles
-      })),
-      userRole,
-      isDeveloper
-    })
-  }, [menuConfigItems, userRole, isDeveloper])
-
   // Find menu item config by feature ID
   const getMenuItemConfig = (featureId: string): MenuConfigItem | undefined => {
     return menuConfigItems.find((item) =>
@@ -145,79 +140,87 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
     )
   }
 
+  // Determine item status from menu config
+  const getItemStatus = (featureId: string): "active" | "coming_soon" | "hidden" => {
+    const config = getMenuItemConfig(featureId)
+    if (!config) return "active" // default if no config
+    if (!config.enabled) return "hidden"
+    if (config.pending) return "coming_soon"
+    return "active"
+  }
+
+  // For regular users: filter by access rules
   const filteredNav = React.useMemo(
     () => {
-      const filtered = navItems
+      return navItems
         .map((group) => ({
           ...group,
           items: group.items.filter((item) => {
-            // Check feature flag is enabled
-            if (!isFeatureEnabled(item.featureId, userRole as any)) {
-              console.log(`[AppSidebar] ${item.featureId} filtrado: feature flag desativado`)
-              return false
-            }
+            // Static feature flag check
+            if (!isFeatureEnabled(item.featureId, userRole as any)) return false
 
-            // Check menu config roles if configured
+            // Dynamic menu config check
             const menuConfig = getMenuItemConfig(item.featureId)
-            if (menuConfig && !canAccessMenuItem(menuConfig, userRole)) {
-              console.log(`[AppSidebar] ${item.featureId} filtrado: role ${userRole} não permitido. Roles permitidos: ${menuConfig.allowedRoles?.join(', ')}`)
-              return false
+            if (menuConfig) {
+              if (!menuConfig.enabled) return false
+              if (!canAccessMenuItem(menuConfig, userRole)) return false
             }
 
-            // Hide settings from collaborators only (super user and admin have access)
-            if (item.featureId === "CONFIGURACOES" && userRole === "COLABORADOR" && !isSuperUser) {
-              console.log(`[AppSidebar] CONFIGURACOES filtrado: colaborador sem super_user`)
-              return false
-            }
+            // Settings restricted from collaborators
+            if (item.featureId === "CONFIGURACOES" && userRole === "COLABORADOR") return false
+
             return true
           }),
         }))
         .filter((group) => group.items.length > 0)
-
-      console.log("[AppSidebar] Filtragem completa:", {
-        totalBefore: navItems.reduce((acc, g) => acc + g.items.length, 0),
-        totalAfter: filtered.reduce((acc, g) => acc + g.items.length, 0),
-        groups: filtered.map(g => ({ label: g.label, itemsCount: g.items.length }))
-      })
-
-      return filtered
     },
-    [userRole, isSuperUser, menuConfigItems]
+    [userRole, menuConfigItems]
+  )
+
+  // For SUPER_USER: all nav items visible with status-based color coding
+  const superUserNav = React.useMemo(
+    () => navItems.map((group) => ({
+      ...group,
+      items: group.items.map((item) => ({
+        ...item,
+        _status: getItemStatus(item.featureId),
+      })),
+    })),
+    [menuConfigItems]
   )
 
   const finalNav = isDeveloper
     ? [
-        ...filteredNav,
-        {
-          label: "Desenvolvedor",
-          items: devNavItems,
-        },
-      ]
-    : filteredNav
+      ...superUserNav,
+      { label: "Desenvolvedor", items: devNavItems.map(i => ({ ...i, _status: "active" as const })) },
+    ]
+    : filteredNav.map(g => ({
+      ...g,
+      items: g.items.map(i => ({ ...i, _status: getItemStatus(i.featureId) })),
+    }))
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-muted overflow-hidden">
-                  <Image
-                    src="/logo.webp"
-                    alt="GuimiCell OS"
-                    width={32}
-                    height={32}
-                    className="w-full h-full object-cover"
-                    priority
-                  />
-                </div>
-                <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-                  <span className="font-semibold">GuimiCell OS</span>
-                  <span className="text-xs">v0.1.0</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
+            <div className="flex w-full items-center gap-2 px-2 py-1.5 group-data-[collapsible=icon]:justify-center">
+              <div className="flex shrink-0 items-center justify-center">
+                <Image
+                  src="/logo.webp"
+                  alt="GuimiCell OS"
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+              <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
+                <span className="font-semibold text-foreground whitespace-nowrap">
+                  GuimiCell OS
+                </span>
+              </div>
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -229,19 +232,55 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
+                  const status = (item as any)._status as "active" | "coming_soon" | "hidden"
                   const isActive =
                     item.href === "/"
                       ? pathname === "/"
                       : pathname.startsWith(item.href)
 
-                  const isDisabled = !isFeatureEnabled(item.featureId, userRole as any)
+                  // SUPER_USER: show all with color coding
+                  if (isDeveloper) {
+                    const textClass =
+                      status === "hidden"
+                        ? "text-red-500"
+                        : status === "coming_soon"
+                        ? "text-yellow-500"
+                        : ""
 
-                  if (isDisabled) {
+                    return (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={item.title}
+                          className={textClass}
+                        >
+                          <Link href={item.href}>
+                            <item.icon className="h-4 w-4" />
+                            <span>{item.title}</span>
+                            {status === "hidden" && (
+                              <span className="ml-auto text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded group-data-[collapsible=icon]:hidden">
+                                oculto
+                              </span>
+                            )}
+                            {status === "coming_soon" && (
+                              <span className="ml-auto text-[10px] bg-yellow-100 text-yellow-700 px-1 py-0.5 rounded group-data-[collapsible=icon]:hidden">
+                                em breve
+                              </span>
+                            )}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  }
+
+                  // Regular users: coming_soon appears disabled, active appears normal
+                  if (status === "coming_soon") {
                     return (
                       <SidebarMenuItem key={item.href}>
                         <SidebarMenuButton
                           disabled
-                          className="opacity-40 cursor-not-allowed"
+                          className="opacity-50 cursor-not-allowed"
                           tooltip="Em breve"
                         >
                           <item.icon className="h-4 w-4" />
@@ -277,11 +316,6 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
 
       <SidebarFooter>
         <ThemeToggle />
-        <div className="px-2 py-2 group-data-[collapsible=icon]:hidden">
-          <p className="text-xs text-muted-foreground">
-            GuimiCell OS · 2026
-          </p>
-        </div>
       </SidebarFooter>
 
       <SidebarRail />

@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { MenuConfigProvider } from "@/components/super-usuario/menu-config-provider"
 import { backendFetch, getSessionAccessToken } from "@/lib/backend-api"
+import { normalizeDevMenuItems } from "@/lib/feature-definitions"
 import {
   SidebarInset,
   SidebarProvider,
@@ -42,20 +43,28 @@ export default async function DashboardLayout({
     }
   }
 
+  const normalizedMenu = normalizeDevMenuItems(menuConfig)
+
   return (
-    <MenuConfigProvider initialItems={menuConfig}>
+    <MenuConfigProvider initialItems={normalizedMenu}>
       <SidebarProvider>
         <AppSidebar userRole={role} userEmail={email} isSuperUser={isSuperUser} />
-        <SidebarInset className="flex flex-col min-h-svh">
+        
+        {/* O h-screen garante que a área de conteúdo ocupe a tela toda */}
+        <SidebarInset className="flex flex-col h-screen overflow-hidden">
           <Header
             userName={name}
             userEmail={email}
           />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          
+          {/* O overflow-y-auto vai apenas nesta main, mantendo header e footer fixos na tela */}
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-background/50">
             <div className="flex flex-col gap-4">
               {children}
             </div>
           </main>
+
+          {/* O Footer agora fica aqui, fora da main, para nunca ser coberto */}
           <Footer />
         </SidebarInset>
       </SidebarProvider>

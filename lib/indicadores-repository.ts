@@ -90,6 +90,7 @@ export async function getIndicadoresTime(): Promise<IndicadorColaborador[]> {
 
 /**
  * Get historical evolution of team indicators
+ * With timeout protection to prevent infinite loading
  */
 export async function getEvolucaoIndicadores(
   dias: number = 30,
@@ -98,18 +99,29 @@ export async function getEvolucaoIndicadores(
     const evolucao: EvolucaoIndicador[] = []
     const hoje = new Date()
 
-    for (let i = dias; i >= 0; i--) {
+    // Limit to last 7 days to prevent timeout
+    const diasLimite = Math.min(dias, 7)
+
+    for (let i = diasLimite; i >= 0; i--) {
       const data = new Date(hoje)
       data.setDate(data.getDate() - i)
 
       const dataStr = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`
 
       try {
-        const vendas = await getVendasPorVendedor(dataStr, `${dataStr}T23:59:59`)
+        // Add timeout protection
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout: API não respondeu em tempo')), 5000)
+        })
 
-        const totalVendas = vendas.reduce((acc, v) => acc + v.totalVendas, 0)
-        const totalFaturamento = vendas.reduce((acc, v) => acc + v.faturamento, 0)
-        const totalLucro = vendas.reduce((acc, v) => acc + v.lucro, 0)
+        const vendas = await Promise.race([
+          getVendasPorVendedor(dataStr, `${dataStr}T23:59:59`),
+          timeoutPromise
+        ]) as any
+
+        const totalVendas = vendas.reduce((acc: number, v: any) => acc + v.totalVendas, 0)
+        const totalFaturamento = vendas.reduce((acc: number, v: any) => acc + v.faturamento, 0)
+        const totalLucro = vendas.reduce((acc: number, v: any) => acc + v.lucro, 0)
 
         evolucao.push({
           data: dataStr,
@@ -117,8 +129,9 @@ export async function getEvolucaoIndicadores(
           faturamento: totalFaturamento,
           lucro: totalLucro,
         })
-      } catch {
+      } catch (error) {
         // Skip days with API errors
+        console.warn(`Falha ao buscar vendas de ${dataStr}:`, error)
         evolucao.push({
           data: dataStr,
           vendas: 0,

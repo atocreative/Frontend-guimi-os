@@ -1,10 +1,11 @@
 "use client"
 
-import { memo } from "react"
+import { memo, useState } from "react"
 import { AlertTriangle, CheckCircle2, Circle, Clock, Pencil, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { isTaskAtrasada } from "@/lib/tarefas"
+import { useConfirmDialog } from "@/context/confirm-dialog-context"
 import type { TarefaDB } from "@/types/tarefas"
 
 const prioridadeCor: Record<Exclude<TarefaDB["priority"], null>, string> = {
@@ -23,11 +24,22 @@ interface TarefaCardProps {
 export const TarefaCard = memo(function TarefaCard({ tarefa, onToggle, onDelete, onEdit }: TarefaCardProps) {
   const concluida = tarefa.status === "CONCLUIDA"
   const atrasada = isTaskAtrasada(tarefa)
+  const { confirm } = useConfirmDialog()
 
-  function handleDelete(event: React.MouseEvent) {
+  async function handleDelete(event: React.MouseEvent) {
     event.stopPropagation()
-    // TODO: Replace with ConfirmDialog modal instead of confirm()
-    onDelete()
+    
+    const confirmed = await confirm({
+      title: "Deletar tarefa",
+      description: `Tem certeza que deseja deletar "${tarefa.title}"? Esta ação não pode ser desfeita.`,
+      confirmText: "Deletar",
+      cancelText: "Cancelar",
+      isDangerous: true,
+    })
+
+    if (confirmed) {
+      onDelete()
+    }
   }
 
   function handleEdit(event: React.MouseEvent) {
@@ -111,14 +123,14 @@ export const TarefaCard = memo(function TarefaCard({ tarefa, onToggle, onDelete,
         )}
         <button
           onClick={handleEdit}
-          className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:text-blue-500"
+          className="rounded p-0.5 opacity-0 transition-all group-hover:opacity-100 hover:text-blue-500 hover:bg-blue-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           aria-label="Editar tarefa"
         >
           <Pencil className="h-3 w-3" />
         </button>
         <button
           onClick={handleDelete}
-          className="rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+          className="rounded p-0.5 opacity-0 transition-all group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
           aria-label="Deletar tarefa"
         >
           <Trash2 className="h-3 w-3" />

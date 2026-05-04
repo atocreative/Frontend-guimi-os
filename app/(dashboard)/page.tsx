@@ -2,22 +2,16 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth-session"
 import { DashboardAdmin } from "@/components/dashboard/dashboard-admin"
 import { DashboardColaborador } from "@/components/dashboard/dashboard-colaborador"
-import { getSnapshotFinanceiroServer, getDashboardDataServer } from "@/lib/backend-financeiro"
+import { getFinanceiroSummaryServer } from "@/lib/backend-financeiro"
 import { backendFetch, extractTasksPayload, getSessionAccessToken } from "@/lib/backend-api"
 import {
   isTaskDueToday,
   sortTarefasByPriority,
 } from "@/lib/tarefas"
+import { getMonthRange } from "@/lib/financeiro-utils"
 
 export const dynamic = "force-dynamic"
 
-function getMonthBounds() {
-  const now = new Date()
-  return {
-    start: new Date(now.getFullYear(), now.getMonth(), 1),
-    end: new Date(now.getFullYear(), now.getMonth() + 1, 1),
-  }
-}
 
 export default async function DashboardPage() {
   const session = await getSession()
@@ -84,120 +78,44 @@ export default async function DashboardPage() {
     const month = now.getMonth() + 1
     const year = now.getFullYear()
 
-    console.log("[Dashboard] Iniciando carregamento de dados financeiros:", { month, year })
+    // Fonte canônica: vendas filtradas pelo mês via getFinanceiroSummaryServer
+    // SE não houver dados no período → erro explícito, não zero silencioso
+    let summary: Awaited<ReturnType<typeof getFinanceiroSummaryServer>> = null
+    let summaryError: string | null = null
 
-    const [snapshot, dashboardData] = await Promise.all([
-      getSnapshotFinanceiroServer(month, year, accessToken).catch((err) => {
-        console.error("[Dashboard] Erro ao carregar snapshot:", err)
-        return null
-      }),
-      getDashboardDataServer(accessToken).catch((err) => {
-        console.error("[Dashboard] Erro ao carregar dashboard data:", err)
-        return undefined
-      }),
-    ])
-
-    const financeiroData = dashboardData?.financeiro
-
-    console.log("[Dashboard] Raw dashboardData (completo):", JSON.stringify(dashboardData, null, 2))
-    console.log("[Dashboard] Raw snapshot (completo):", JSON.stringify(snapshot, null, 2))
-    console.log("[Dashboard] Dados extraídos financeiroData:", financeiroData)
-
-    // Mapeamento com fallbacks - tenta múltiplos nomes de campo
-    const faturamentoMes =
-      snapshot?.receita ??
-      snapshot?.totalReceitas ??
-      snapshot?.faturamento ??
-      dashboardData?.receita ??
-      dashboardData?.totalReceitas ??
-      financeiroData?.receita ??
-      0
-
-    const despesasVariaveis =
-      snapshot?.despesasVariaveis ??
-      snapshot?.variableExpenses ??
-      snapshot?.despesas_variaveis ??
-      dashboardData?.despesasVariaveis ??
-      financeiroData?.despesasVariaveis ??
-      0
-
-    const despesasFixas =
-      snapshot?.fixedExpensesTotal ??
-      snapshot?.fixedExpenses ??
-      snapshot?.despesasFixas ??
-      snapshot?.despesas_fixas ??
-      dashboardData?.despesasFixas ??
-      financeiroData?.despesasFixas ??
-      0
-
-    const despesasMes = despesasFixas + despesasVariaveis
-
-    const lucroLiquidoMes =
-      snapshot?.netProfit ??
-      snapshot?.lucroLiquido ??
-      snapshot?.lucro_liquido ??
-      dashboardData?.netProfit ??
-      dashboardData?.lucroLiquido ??
-      financeiroData?.netProfit ??
-      financeiroData?.lucroLiquido ??
-      0
-
-    const resumoHoje = {
-      faturamentoDia:
-        snapshot?.todayRevenue ??
-        snapshot?.receita_hoje ??
-        snapshot?.receitaHoje ??
-        dashboardData?.receitaHoje ??
-        financeiroData?.receitaHoje ??
-        0,
-      lucroBrutoDia:
-        snapshot?.todayProfit ??
-        snapshot?.lucro_bruto_hoje ??
-        snapshot?.lucroBrutoHoje ??
-        dashboardData?.lucroBrutoHoje ??
-        financeiroData?.lucroBrutoHoje ??
-        0,
-      margemBrutaDia:
-        snapshot?.todayMargin ??
-        snapshot?.margem_bruta_hoje ??
-        snapshot?.margemBrutaHoje ??
-        dashboardData?.margemBrutaHoje ??
-        financeiroData?.margemBrutaHoje ??
-        0,
+    try {
+      summary = await getFinanceiroSummaryServer(accessToken)
+    } catch (err) {
+      summaryError = err instanceof Error ? err.message : String(err)
+      console.error("[Dashboard] ⚠️ Erro ao carregar summary financeiro:", summaryError)
     }
 
-    console.log("[Dashboard] Mapeamento de valores (antes de fallbacks):", {
-      "snapshot.receita": snapshot?.receita,
-      "snapshot.totalReceitas": snapshot?.totalReceitas,
-      "snapshot.faturamento": snapshot?.faturamento,
-      "dashboardData.receita": dashboardData?.receita,
-      "financeiroData.receita": financeiroData?.receita,
-    })
+    if (!summary && !summaryError) {
+      console.warn("[Dashboard] ⚠️ /api/financeiro/sales não retornou dados — backend sem vendas no período ou endpoint ausente")
+    }
 
-    console.log("[Dashboard] Valores finais mapeados:", {
+    const faturamentoMes = summary?.receitaMes ?? undefined
+    const despesasMes = summary?.despesasMes ?? undefined
+    const lucroLiquidoMes = summary?.lucroLiquidoMes ?? undefined
+    const metaMes = summary?.metaMes ?? undefined
+    const percentualMeta = summary?.percentualMeta ?? undefined
+
+    const resumoHoje = summary ? {
+      faturamentoDia: summary.receitaHoje,
+      lucroBrutoDia: summary.lucroBrutoHoje,
+      margemBrutaDia: summary.margemBrutoHoje,
+    } : undefined
+
+    console.log("[Dashboard] Financeiro:", {
+      fonte: summary ? "sales+snapshot" : "indisponível",
+      erro: summaryError,
       faturamentoMes,
-      despesasFixas,
-      despesasVariaveis,
       despesasMes,
       lucroLiquidoMes,
-      resumoHoje,
+      metaMes,
+      percentualMeta,
+      periodo: summary?.periodo,
     })
-
-    // Validação: alertar se valores estão todos zeros
-    const todosZeros =
-      faturamentoMes === 0 &&
-      despesasFixas === 0 &&
-      despesasVariaveis === 0 &&
-      lucroLiquidoMes === 0
-
-    if (todosZeros) {
-      console.warn("[Dashboard] ⚠️ TODOS OS VALORES FINANCEIROS ESTÃO ZERO - VERIFICAR BACKEND")
-      console.warn("[Dashboard] Verifique os endpoints:", {
-        "/api/financeiro/snapshot": "deveria retornar dados financeiros",
-        "/api/dashboard": "deveria retornar dados agregados",
-        "Campos esperados no backend": ["receita", "totalReceitas", "despesasFixas", "despesasVariaveis", "netProfit", "lucroLiquido"]
-      })
-    }
 
     return (
       <DashboardAdmin
@@ -207,6 +125,8 @@ export default async function DashboardPage() {
         resumoHoje={resumoHoje}
         despesasMes={despesasMes}
         lucroLiquidoMes={lucroLiquidoMes}
+        metaMes={metaMes}
+        percentualMeta={percentualMeta}
         currentUser={{ id: session.user.id }}
         mes={month}
         ano={year}
@@ -214,7 +134,10 @@ export default async function DashboardPage() {
     )
   }
 
-  const { start, end } = getMonthBounds()
+  const { startDate, endDate } = getMonthRange()
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+
   const concluidasMes = tarefas.filter((tarefa) => {
     if (tarefa.status !== "CONCLUIDA" || !tarefa.completedAt) {
       return false

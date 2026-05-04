@@ -167,6 +167,8 @@ export async function backendFetch(path: string, options: BackendFetchOptions = 
   }
 
   // Validar e aplicar token com segurança
+  const isPublicRoute = ["/api/auth/login", "/api/auth/captcha"].some(route => path.includes(route))
+  
   if (token) {
     // Validar que token é uma string não-vazia
     const tokenStr = String(token).trim()
@@ -194,7 +196,7 @@ export async function backendFetch(path: string, options: BackendFetchOptions = 
       isJWT: tokenParts.length === 3,
     })
     requestHeaders.set("Authorization", `Bearer ${tokenStr}`)
-  } else {
+  } else if (!isPublicRoute) {
     console.warn("[backendFetch] Nenhum token fornecido para:", path)
   }
 
