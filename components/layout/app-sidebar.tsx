@@ -94,33 +94,24 @@ interface AppSidebarProps {
 }
 
 function ThemeToggle() {
-  const { theme, setTheme, resolvedTheme } = useTheme()
-  const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => setMounted(true), [])
-
-  if (!mounted) return null
-
-  const isDark = theme === "dark" || resolvedTheme === "dark"
+  const { theme, setTheme } = useTheme()
 
   return (
     <SidebarMenu className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
       <SidebarMenuItem>
         <SidebarMenuButton
-          // Se está escuro (isDark), ao clicar ele deve ir para o claro (light)
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          tooltip={isDark ? "Mudar para modo claro" : "Mudar para modo escuro"}
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          tooltip={theme === "dark" ? "Mudar para modo claro" : "Mudar para modo escuro"}
           className="transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground cursor-pointer"
         >
-          {/* Se está escuro (isDark), mostra o SOL para o usuário clicar e clarear */}
-          {isDark ? (
-            <Moon className="h-4 w-4" />
-          ) : (
+          {theme === "dark" ? (
             <Sun className="h-4 w-4" />
+          ) : (
+            <Moon className="h-4 w-4" />
           )}
 
           <span className="group-data-[collapsible=icon]:hidden ml-2">
-            {/* Mostra o nome do modo atual ou do modo que será ativado */}
-            {isDark ? "Light Mode" : "Dark Mode"}
+            {theme === "dark" ? "Light Mode" : "Dark Mode"}
           </span>
         </SidebarMenuButton>
       </SidebarMenuItem>

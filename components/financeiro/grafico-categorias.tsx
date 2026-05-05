@@ -40,13 +40,7 @@ function tooltipFormatter(
 }
 
 export function GraficoCategorias({ dados }: GraficoCategoriaProps) {
-  const [mounted, setMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
+  if (dados.length === 0) {
     return (
       <Card>
         <CardHeader className="pb-2">
@@ -55,7 +49,7 @@ export function GraficoCategorias({ dados }: GraficoCategoriaProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="h-[280px] flex items-center justify-center">
-          <div className="h-full w-full animate-pulse rounded-lg bg-muted/50" />
+          <p className="text-sm text-muted-foreground">Sem dados</p>
         </CardContent>
       </Card>
     )
