@@ -44,16 +44,7 @@ function getMensagemErro(error: unknown, recurso: string) {
 export function DashboardContent({ user }: DashboardContentProps) {
   const [tarefas, setTarefas] = useState<TarefaDB[]>([])
   const [loading, setLoading] = useState(true)
-  const [faturamentoMes, setFaturamentoMes] = useState<number | undefined>(undefined)
-  const [despesasMes, setDespesasMes] = useState<number | undefined>(undefined)
-  const [lucroLiquidoMes, setLucroLiquidoMes] = useState<number | undefined>(undefined)
-  const [resumoHoje, setResumoHoje] = useState<{
-    faturamentoDia: number
-    lucroBrutoDia: number
-    margemBrutaDia: number
-  } | undefined>(undefined)
   const [tarefasErro, setTarefasErro] = useState<string | null>(null)
-  const [dashboardErro, setDashboardErro] = useState<string | null>(null)
 
   const isColaborador = user?.role === "COLABORADOR"
 
@@ -61,7 +52,6 @@ export function DashboardContent({ user }: DashboardContentProps) {
     async function carregarDados() {
       try {
         setTarefasErro(null)
-        setDashboardErro(null)
 
         try {
           const tarefasData = await backendService.getTasks()
@@ -73,34 +63,7 @@ export function DashboardContent({ user }: DashboardContentProps) {
         }
 
         if (!isColaborador) {
-          try {
-            const dashData = await backendService.getDashboard()
-            const fin = dashData?.financeiro && typeof dashData.financeiro === "object"
-              ? dashData.financeiro as {
-                  total?: number
-                  receitas?: number
-                  despesas?: number
-                  lucro?: number
-                }
-              : null
-            // API retorna financeiro.total ou financeiro.receitas como faturamento
-            const financeiroTotal = fin?.total ?? fin?.receitas ?? 0
-            setFaturamentoMes(financeiroTotal)
-            // Mapeia despesas e lucro se a API os fornecer
-            if (typeof fin?.despesas === "number") setDespesasMes(fin.despesas)
-            if (typeof fin?.lucro === "number") setLucroLiquidoMes(fin.lucro)
-            // TODO: API ainda não fornece aPagar, aReceber e saldo — aguardar implementação no backend
-            setResumoHoje({
-              faturamentoDia: Math.floor(financeiroTotal / 30),
-              lucroBrutoDia: Math.floor((financeiroTotal * 0.3) / 30),
-              margemBrutaDia: 30
-            })
-          } catch (error) {
-            setFaturamentoMes(undefined)
-            setResumoHoje(undefined)
-            setDashboardErro(getMensagemErro(error, "os dados financeiros"))
-            console.error("Erro ao carregar dashboard Fone Ninja:", error)
-          }
+          // KPIs financeiros são carregados diretamente pelo DashboardAdmin via /api/indicadores/geral
         }
       } finally {
         setLoading(false)
@@ -132,7 +95,7 @@ export function DashboardContent({ user }: DashboardContentProps) {
     [tarefas]
   )
 
-  const avisos = [tarefasErro, dashboardErro].filter(Boolean) as string[]
+  const avisos = [tarefasErro].filter(Boolean) as string[]
   const alerta = avisos.length > 0 ? (
     <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
       <ul className="space-y-1">
@@ -180,10 +143,6 @@ export function DashboardContent({ user }: DashboardContentProps) {
       <DashboardAdmin
         tarefasHoje={tarefasHoje}
         tarefasPendentes={tarefasPendentes}
-        faturamentoMes={faturamentoMes}
-        resumoHoje={resumoHoje}
-        despesasMes={despesasMes}
-        lucroLiquidoMes={lucroLiquidoMes}
       />
     </div>
   )

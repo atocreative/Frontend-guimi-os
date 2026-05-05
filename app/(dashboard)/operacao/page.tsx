@@ -1,77 +1,59 @@
 import { ResumoOperacao } from "@/components/operacao/resumo-operacao"
 import { AparelhoCard } from "@/components/operacao/aparelho-card"
+import { InventarioEstoque, type InventarioItem } from "@/components/operacao/inventario-estoque"
+import { headers } from "next/headers"
 import {
-  mockEstoque,
   mockTradeIns,
   mockResumoOperacao,
 } from "./data/mock"
 
-export default function OperacaoPage() {
-  const aguardandoRetirada = mockEstoque.filter(
-    (a) => a.status === "AGUARDANDO_RETIRADA"
-  )
-  const disponiveis = mockEstoque.filter(
-    (a) => a.status === "DISPONIVEL" || a.status === "RESERVADO"
-  )
+async function fetchInventario(): Promise<InventarioItem[]> {
+  try {
+    const h = await headers()
+    const host = h.get("host") ?? "localhost:3000"
+    const protocol = process.env.NODE_ENV === "production" ? "https" : "http"
+    const res = await fetch(`${protocol}://${host}/api/operacao/inventory`, {
+      cache: "no-store",
+    })
+    const json = await res.json().catch(() => null)
+    return Array.isArray(json?.itens) ? json.itens : []
+  } catch {
+    return []
+  }
+}
+
+export default async function OperacaoPage() {
+  const inventario: InventarioItem[] = await fetchInventario()
+
+  const temInventario = inventario.length > 0
 
   return (
     <div className="space-y-6">
 
-      {/* Título */}
       <div>
         <h2 className="text-xl font-semibold">Operação</h2>
         <p className="text-sm text-muted-foreground">
-          Controle de estoque
+          Controle de estoque e inventário
         </p>
       </div>
 
-      {/* Aviso: Dados mockados aguardando integração */}
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <p className="font-medium">⚠️ Dados de referência</p>
-        <p className="mt-1 text-xs">
-          Esta seção exibe dados mockados para fins de layout e design.
-          A integração com dados reais do backend será implementada após configuração das APIs operacionais.
-        </p>
-      </div>
-
-      {/* Resumo */}
-      <ResumoOperacao resumo={mockResumoOperacao} />
-
-
-
-      {/* Aguardando Retirada — destaque */}
-      {aguardandoRetirada.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold mb-3">
-            Aguardando Retirada
-            <span className="ml-2 text-xs font-normal text-blue-500">
-              cliente precisa buscar hoje
-            </span>
-          </h3>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {aguardandoRetirada.map((a) => (
-              <AparelhoCard key={a.id} aparelho={a} />
-            ))}
-          </div>
+      {!temInventario && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">⚠️ Inventário indisponível</p>
+          <p className="mt-1 text-xs">
+            Não foi possível carregar dados de <code>/dashboard/inventory</code>.
+            Verifique a conexão com o backend.
+          </p>
         </div>
       )}
 
-      {/* Estoque */}
-      <div>
-        <h3 className="text-sm font-semibold mb-3">
-          Estoque
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            novos e seminovos disponíveis e reservados
-          </span>
-        </h3>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {disponiveis.map((a) => (
-            <AparelhoCard key={a.id} aparelho={a} />
-          ))}
-        </div>
-      </div>
+      {/* Resumo operacional (mock enquanto não há endpoint dedicado) */}
+      <ResumoOperacao resumo={mockResumoOperacao} />
 
-      {/* Trade-ins */}
+      {/* Inventário real do backend */}
+      {temInventario && <InventarioEstoque itens={inventario} />}
+
+      {/* Trade-ins (mock — endpoint não disponível ainda) */}
       <div>
         <h3 className="text-sm font-semibold mb-3">
           Trade-ins Recebidos

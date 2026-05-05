@@ -64,6 +64,43 @@ export function calculateRevenue(sales: SaleItem[]): number {
   }, 0)
 }
 
+export interface GraficoItem {
+  data: string
+  entradas: number
+  saidas: number
+  saldo: number
+}
+
+export interface ResumoHoje {
+  faturamentoDia: number
+  lucroBrutoDia: number
+  margemBrutaDia: number
+}
+
+/**
+ * Extrai KPIs do dia atual a partir do array grafico retornado pelo backend.
+ * Compara pela data local no formato YYYY-MM-DD.
+ * Retorna null se não houver entrada para hoje.
+ */
+export function getResumoHoje(grafico: unknown): ResumoHoje | null {
+  if (!Array.isArray(grafico) || grafico.length === 0) return null
+
+  const hoje = new Date()
+  const dataHoje = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`
+
+  const dia = (grafico as GraficoItem[]).find((item) => item.data === dataHoje)
+  if (!dia) return null
+
+  const entradas = Number(dia.entradas ?? 0)
+  const saldo = Number(dia.saldo ?? 0)
+
+  return {
+    faturamentoDia: entradas,
+    lucroBrutoDia: saldo,
+    margemBrutaDia: entradas > 0 ? (saldo / entradas) * 100 : 0,
+  }
+}
+
 /**
  * Serializa SalesFilters para URLSearchParams
  */

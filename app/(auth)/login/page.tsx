@@ -103,7 +103,7 @@ export default function LoginPage() {
 
         {/* 1. Topo: Logo e Títulos */}
         <div className="flex flex-col items-center gap-4 text-center lg:text-left lg:items-start lg:mt-4">
-          <div className="relative h-28 w-28 lg:h-24 lg:w-24 items-center flex justify-center">
+          <div className="relative h-28 w-28 lg:h-24 lg:w-full flex flex-col items-center flex justify-center">
             <Image src="/logo.webp" alt="Guimicell" fill className="object-contain" priority />
           </div>
           <div className="space-y-1">
@@ -154,7 +154,7 @@ export default function LoginPage() {
             <Button 
               type="submit" 
               disabled={loading || !captchaSolved} 
-              className="w-full h-14 text-[12px] font-black bg-secondary hover:bg-secondary/90 text-white shadow-xl shadow-secondary/30 transition-all cursor-pointer uppercase tracking-[0.2em] active:scale-[0.97] disabled:opacity-30 disabled:grayscale"
+              className="w-full h-14 text-[12px] font-black bg-secondary hover:bg-secondary/90 text-white transition-all cursor-pointer uppercase tracking-[0.2em] active:scale-[0.97] disabled:opacity-30 disabled:grayscale"
             >
               {loading ? "Entrando..." : "Entrar no Sistema"}
             </Button>
@@ -174,7 +174,7 @@ export default function LoginPage() {
         
         {/* Elementos Abstratos */}
         <div className="absolute inset-0 z-1 pointer-events-none">
-          <div className="absolute top-[15%] left-[5%] w-[40vw] h-[40vw] rounded-full bg-secondary/25 blur-[120px] animate-pulse duration-[6s]" />
+          <div className="absolute top-[15%] left-[5%] w-[60vw] h-[60vw] rounded-full bg-secondary/25 blur-[200px] animate-pulse duration-[6s]" />
           <div className="absolute bottom-[5%] right-[20%] w-[30vw] h-[30vw] rounded-full bg-white/10 blur-[100px] animate-pulse duration-[10s]" />
         </div>
 
@@ -192,7 +192,7 @@ export default function LoginPage() {
 
         {/* Celulares Pulsantes */}
         <div className="relative mt-auto w-full h-[65%] flex justify-end items-end p-[2vw] z-10">
-          <div className="relative w-[90%] h-full animate-soft-pulse">
+          <div className="relative w-[90%] h-full">
             <Image 
               src="/cell.png" 
               alt="Mobiles" 

@@ -132,6 +132,7 @@ export interface FinanceiroSummary {
     despesasMes: number
     lucroLiquidoMes: number
     totalVendas: number
+    conversao: number
   }
   grafico: Array<{
     data: string
@@ -143,12 +144,13 @@ export interface FinanceiroSummary {
 }
 
 /**
- * SERVER-SIDE: Obtém summary financeiro do mês corrente.
+ * SERVER-SIDE: Obtém summary financeiro do mês corrente (ou período informado).
  * Backend retorna: { data, count, resumo, grafico, periodo }
  * Frontend consome direto — sem cálculos adicionais.
  */
 export async function getFinanceiroSummaryServer(
-  token?: string | null
+  token?: string | null,
+  periodo?: { startDate: string; endDate: string }
 ): Promise<FinanceiroSummary | null> {
   if (!token) {
     console.warn('[getFinanceiroSummaryServer] Token não fornecido')
@@ -158,7 +160,7 @@ export async function getFinanceiroSummaryServer(
   const { getMonthRange, filtersToSearchParams, buildSalesFilters } =
     await import('@/lib/financeiro-utils')
 
-  const { startDate, endDate } = getMonthRange()
+  const { startDate, endDate } = periodo ?? getMonthRange()
   const filters = buildSalesFilters({ startDate, endDate })
   const params = filtersToSearchParams(filters)
 
@@ -198,15 +200,21 @@ export async function getFinanceiroSummaryServer(
   console.log('[FRONT FINANCEIRO] grafico:', salesData?.grafico?.length)
   console.log('[FRONT FINANCEIRO] vendas:', salesData?.data?.length)
 
+  const vendas = salesData?.data ?? []
+  const completed = vendas.filter((v: any) => v?.status === "completed").length
+  const pending = vendas.filter((v: any) => v?.status === "pending").length
+  const conversao = (completed + pending) > 0 ? completed / (completed + pending) : 0
+
   // Backend retorna contrato novo com resumo e grafico calculados
   return {
-    data: salesData?.data ?? [],
+    data: vendas,
     count: salesData?.count ?? 0,
     resumo: {
       faturamentoMes: Number(salesData?.resumo?.faturamentoMes ?? 0),
       despesasMes: Number(salesData?.resumo?.despesasMes ?? 0),
       lucroLiquidoMes: Number(salesData?.resumo?.lucroLiquidoMes ?? 0),
       totalVendas: Number(salesData?.resumo?.totalVendas ?? 0),
+      conversao,
     },
     grafico: Array.isArray(salesData?.grafico) ? salesData.grafico : [],
     periodo: salesData?.periodo ?? { startDate, endDate },

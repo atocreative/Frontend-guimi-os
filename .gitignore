@@ -40,7 +40,6 @@ dist/
 build/
 __pycache__/
 
-package.json
 bun.lock
 
 # dependencies

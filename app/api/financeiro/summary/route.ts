@@ -1,14 +1,14 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth-session"
 import { getSessionAccessToken } from "@/lib/backend-api"
 import { getFinanceiroSummaryServer } from "@/lib/backend-financeiro"
 
 /**
- * BFF — GET /api/financeiro/summary
- * Proxy para getFinanceiroSummaryServer, retornando o contrato do backend:
- * { data, count, resumo, grafico, periodo }
+ * BFF — GET /api/financeiro/summary?startDate=...&endDate=...
+ * Aceita período opcional via query params.
+ * Retorna contrato do backend: { data, count, resumo, grafico, periodo }
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession()
   const token = getSessionAccessToken(session)
 
@@ -16,7 +16,12 @@ export async function GET() {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 })
   }
 
-  const summary = await getFinanceiroSummaryServer(token).catch(() => null)
+  const { searchParams } = req.nextUrl
+  const startDate = searchParams.get("startDate")
+  const endDate = searchParams.get("endDate")
+  const periodo = startDate && endDate ? { startDate, endDate } : undefined
+
+  const summary = await getFinanceiroSummaryServer(token, periodo).catch(() => null)
 
   if (!summary) {
     return NextResponse.json(

@@ -2,7 +2,6 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth-session"
 import { DashboardAdmin } from "@/components/dashboard/dashboard-admin"
 import { DashboardColaborador } from "@/components/dashboard/dashboard-colaborador"
-import { getFinanceiroSummaryServer } from "@/lib/backend-financeiro"
 import { backendFetch, extractTasksPayload, getSessionAccessToken } from "@/lib/backend-api"
 import {
   isTaskDueToday,
@@ -74,56 +73,11 @@ export default async function DashboardPage() {
   ).slice(0, 5)
 
   if (!isColaborador) {
-    const now = new Date()
-    const month = now.getMonth() + 1
-    const year = now.getFullYear()
-
-    // Fonte canônica: vendas filtradas pelo mês via getFinanceiroSummaryServer
-    // SE não houver dados no período → erro explícito, não zero silencioso
-    let summary: Awaited<ReturnType<typeof getFinanceiroSummaryServer>> = null
-    let summaryError: string | null = null
-
-    try {
-      summary = await getFinanceiroSummaryServer(accessToken)
-    } catch (err) {
-      summaryError = err instanceof Error ? err.message : String(err)
-      console.error("[Dashboard] ⚠️ Erro ao carregar summary financeiro:", summaryError)
-    }
-
-    if (!summary && !summaryError) {
-      console.warn("[Dashboard] ⚠️ /api/financeiro/sales não retornou dados — backend sem vendas no período ou endpoint ausente")
-    }
-
-    // Backend retorna { data, count, resumo, grafico, periodo }
-    const faturamentoMes = summary?.resumo?.faturamentoMes ?? undefined
-    const despesasMes = summary?.resumo?.despesasMes ?? undefined
-    const lucroLiquidoMes = summary?.resumo?.lucroLiquidoMes ?? undefined
-    const metaMes = undefined
-    const percentualMeta = undefined
-    const resumoHoje = undefined
-
-    console.log("[Dashboard] Financeiro:", {
-      fonte: summary ? "sales" : "indisponível",
-      erro: summaryError,
-      faturamentoMes,
-      despesasMes,
-      lucroLiquidoMes,
-      periodo: summary?.periodo,
-    })
-
     return (
       <DashboardAdmin
         tarefasHoje={tarefasHoje}
         tarefasPendentes={tarefasPendentes}
-        faturamentoMes={faturamentoMes}
-        resumoHoje={resumoHoje}
-        despesasMes={despesasMes}
-        lucroLiquidoMes={lucroLiquidoMes}
-        metaMes={metaMes}
-        percentualMeta={percentualMeta}
         currentUser={{ id: session.user.id }}
-        mes={month}
-        ano={year}
       />
     )
   }
