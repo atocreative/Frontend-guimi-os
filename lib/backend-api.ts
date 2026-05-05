@@ -1,7 +1,7 @@
 import type { ChecklistDB, ChecklistItemDB, TarefaDB, UsuarioSimples } from "@/types/tarefas"
 import type { UsuarioDB } from "@/types/usuarios"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001"
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001").replace(/\/$/, "")
 
 interface BackendFetchOptions extends RequestInit {
   token?: string

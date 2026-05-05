@@ -27,7 +27,8 @@ import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
 import { backendService } from "@/lib/services/backend-service"
-import { getDashboardData, type IndicadoresGeral, type OverviewExtra } from "@/lib/services/api"
+import { type IndicadoresGeral, type OverviewExtra } from "@/lib/services/api"
+import { getDashboardSummary } from "@/lib/services/dashboard-summary"
 import type { TarefaDB } from "@/types/tarefas"
 
 interface DashboardAdminUser {
@@ -41,10 +42,6 @@ const MESES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ]
 
-const ANOS_DISPONIVEIS = Array.from(
-  { length: new Date().getFullYear() - 2023 },
-  (_, i) => 2024 + i
-)
 
 // ─── utilitários ──────────────────────────────────────────────────────────────
 
@@ -67,6 +64,11 @@ const INDICADORES_ZERO: IndicadoresGeral = {
   ticketMedio: 0, estoqueTotal: 0, conversao: 0,
 }
 
+function toNum(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
 // ─── componentes lazy ─────────────────────────────────────────────────────────
 
 const GraficoFinanceiro = dynamic(
@@ -87,6 +89,7 @@ interface DashboardAdminProps {
   currentUser?: DashboardAdminUser
   mes?: number
   ano?: number
+  availableYears: number[]
 }
 
 // ─── componente principal ─────────────────────────────────────────────────────
@@ -97,10 +100,10 @@ export function DashboardAdmin({
   currentUser,
   mes: mesProp,
   ano: anoProp,
+  availableYears,
 }: DashboardAdminProps) {
-  const now = new Date()
-  const [mes, setMes] = useState(mesProp ?? now.getMonth())
-  const [ano, setAno] = useState(anoProp ?? now.getFullYear())
+  const [mes, setMes] = useState(mesProp ?? 0)
+  const [ano, setAno] = useState(anoProp ?? availableYears[availableYears.length - 1] ?? 2024)
 
   const [indicadores, setIndicadores] = useState<IndicadoresGeral>(INDICADORES_ZERO)
   const [loadingKpi, setLoadingKpi] = useState(true)
@@ -110,14 +113,35 @@ export function DashboardAdmin({
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
 
-  // ── fetch consolidado via serviço ────────────────────────────────────────────
+  // ── fetch via /api/dashboard/summary ────────────────────────────────────────
   const fetchDados = useCallback(async (m: number, a: number) => {
     setLoadingKpi(true)
     try {
       const { startDate, endDate } = gerarPeriodo(m, a)
-      const data = await getDashboardData(startDate, endDate)
-      setIndicadores(data.indicadores)
-      setOverviewExtra(data.overview)
+      const summary = await getDashboardSummary({ startDate, endDate })
+      if (summary) {
+        setIndicadores({
+          faturamento: toNum(summary.faturamentoMes ?? summary.financeiro?.receita),
+          despesas:    toNum(summary.despesasMes ?? summary.financeiro?.despesasVariaveis),
+          compras:     toNum(summary.comprasMes),
+          lucro:       toNum(summary.lucroLiquidoMes ?? summary.financeiro?.netProfit),
+          ticketMedio: toNum(summary.ticketMedio),
+          estoqueTotal: 0,
+          conversao:   0,
+        })
+        setOverviewExtra({
+          grafico: (summary.grafico ?? []).map((item) => ({
+            dia:     item.data,
+            receita: item.entradas,
+            custo:   item.saidas,
+            lucro:   item.saldo,
+          })),
+          resumo: { faturamentoDia: toNum(summary.faturamentoDia) },
+        })
+      } else {
+        setIndicadores(INDICADORES_ZERO)
+        setOverviewExtra(null)
+      }
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error)
       setIndicadores(INDICADORES_ZERO)
@@ -202,7 +226,7 @@ export function DashboardAdmin({
           <Select value={String(ano)} onValueChange={(v) => setAno(Number(v))}>
             <SelectTrigger className="w-[90px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {ANOS_DISPONIVEIS.map((a) => (
+              {availableYears.map((a) => (
                 <SelectItem key={a} value={String(a)}>{a}</SelectItem>
               ))}
             </SelectContent>

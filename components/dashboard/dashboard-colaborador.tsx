@@ -20,6 +20,7 @@ interface DashboardColaboradorProps {
   concluidasMes: number
   pendentes: number
   taxaConclusao: number
+  dataAtual: string
 }
 
 interface GreetingCardProps {
@@ -88,17 +89,8 @@ export function DashboardColaborador({
   concluidasMes,
   pendentes,
   taxaConclusao,
+  dataAtual,
 }: DashboardColaboradorProps) {
-  const dataAtual = useMemo(
-    () => new Intl.DateTimeFormat("pt-BR", {
-      weekday: "long",
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }).format(new Date()),
-    []
-  )
-
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()

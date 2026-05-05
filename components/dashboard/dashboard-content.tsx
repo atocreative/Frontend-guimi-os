@@ -23,6 +23,16 @@ function isTaskDueToday(value: string | null | Date): boolean {
   return new Date(value).toDateString() === new Date().toDateString()
 }
 
+function formatCurrentDate() {
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  }).format(new Date())
+}
+
 function getMensagemErro(error: unknown, recurso: string) {
   if (error instanceof ApiError) {
     if (error.code === "FRONTEND_SESSION_MISSING") {
@@ -132,6 +142,7 @@ export function DashboardContent({ user }: DashboardContentProps) {
           concluidasMes={concluidasMes}
           pendentes={pendentes}
           taxaConclusao={taxaConclusao}
+          dataAtual={formatCurrentDate()}
         />
       </div>
     )
@@ -143,6 +154,9 @@ export function DashboardContent({ user }: DashboardContentProps) {
       <DashboardAdmin
         tarefasHoje={tarefasHoje}
         tarefasPendentes={tarefasPendentes}
+        mes={new Date().getMonth()}
+        ano={new Date().getFullYear()}
+        availableYears={[new Date().getFullYear()]}
       />
     </div>
   )

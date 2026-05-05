@@ -155,6 +155,8 @@ export async function getOverview(startDate: string, endDate: string): Promise<O
 export interface InventarioResponse {
   totalEstoque: number
   itens: InventarioItem[]
+  error?: string | null
+  pending?: boolean
 }
 
 export interface InventarioItem {
@@ -170,15 +172,28 @@ export interface InventarioItem {
   [key: string]: unknown
 }
 
-export async function getInventario(): Promise<InventarioResponse> {
+export async function getInventario(baseUrl = ""): Promise<InventarioResponse> {
   try {
-    const res = await fetch("/api/operacao/inventory")
+    const res = await fetch(`${baseUrl}/api/operacao/inventory`)
+    const data = await res.json().catch(() => null)
+
     if (!res.ok) {
-      return { totalEstoque: 0, itens: [] }
+      return {
+        totalEstoque: 0,
+        itens: [],
+        error: typeof data?.error === "string" ? data.error : "INVENTORY_UNAVAILABLE",
+        pending: false,
+      }
     }
-    return await res.json()
+
+    return {
+      totalEstoque: Number(data?.totalEstoque ?? 0),
+      itens: Array.isArray(data?.itens) ? data.itens : [],
+      error: typeof data?.error === "string" ? data.error : null,
+      pending: Boolean(data?.pending),
+    }
   } catch (error) {
     console.error("Erro ao buscar inventário:", error)
-    return { totalEstoque: 0, itens: [] }
+    return { totalEstoque: 0, itens: [], error: "INVENTORY_UNAVAILABLE", pending: false }
   }
 }

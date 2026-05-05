@@ -11,12 +11,17 @@ interface ItemNormalizado {
 }
 
 function normalizar(item: InventarioItem, i: number): ItemNormalizado {
-  const nome       = String(item.product_name ?? item.nome ?? "—")
-  const quantidade = Number(item.quantidade ?? item.stock ?? 0)
-  const valorTotal = Number(item.valor_estoque ?? item.valorTotal ?? 0)
+  const nome = String(
+    (item as any).titulo ?? item.product_name ?? item.nome ?? "—"
+  )
+  const quantidade = Number(
+    (item as any).estoque ?? item.quantidade ?? item.stock ?? 0
+  )
   const valorUnitario = Number(
-    item.valorUnitario ?? item.valor_unitario ??
-    (quantidade > 0 ? valorTotal / quantidade : 0)
+    (item as any).preco_varejo ?? item.valorUnitario ?? item.valor_unitario ?? 0
+  )
+  const valorTotal = Number(
+    item.valor_estoque ?? item.valorTotal ?? quantidade * valorUnitario
   )
   return {
     id: String(item.id ?? i),

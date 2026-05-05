@@ -1,22 +1,38 @@
-import { getFinanceiroSummaryServer } from "@/lib/backend-financeiro"
-import { getSessionAccessToken, backendFetch } from "@/lib/backend-api"
+import { getSessionAccessToken } from "@/lib/backend-api"
 import { getSession } from "@/lib/auth-session"
 import { FinanceiroFiltrado } from "@/components/financeiro/financeiro-filtrado"
+import type { DashboardSummary } from "@/lib/types/dashboard"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+const BACKEND_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:3001"
+).replace(/\/$/, "")
 
-async function fetchDespesasServer(token: string, startDate: string, endDate: string) {
+async function fetchDashboardSummaryServer(
+  token: string | null | undefined,
+  startDate: string,
+  endDate: string
+): Promise<DashboardSummary | null> {
   try {
     const params = new URLSearchParams({ startDate, endDate })
-    const res = await fetch(
-      `${BACKEND_URL}/payments-by-account-plan/pagar?${params}`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(8_000) }
-    )
-    if (!res.ok) return []
-    const data = await res.json()
-    return Array.isArray(data) ? data : (data?.data ?? [])
-  } catch {
-    return []
+    const reqHeaders: Record<string, string> = {}
+    if (token) reqHeaders["Authorization"] = `Bearer ${token}`
+
+    const res = await fetch(`${BACKEND_URL}/api/dashboard?${params}`, {
+      headers: reqHeaders,
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    })
+
+    if (!res.ok) {
+      console.warn("[FinanceiroPage] Backend status:", res.status)
+      return null
+    }
+    return (await res.json()) ?? null
+  } catch (err) {
+    console.warn("[FinanceiroPage] Falha ao buscar dashboard summary", err)
+    return null
   }
 }
 
@@ -27,20 +43,22 @@ export default async function FinanceiroPage() {
   const now = new Date()
   const initialMes = now.getMonth()
   const initialAno = now.getFullYear()
+  const availableYears = Array.from(
+    { length: initialAno - 2023 },
+    (_, i) => 2024 + i
+  )
 
   const antMes = initialMes === 0 ? 11 : initialMes - 1
   const antAno = initialMes === 0 ? initialAno - 1 : initialAno
 
   const startDate = new Date(Date.UTC(initialAno, initialMes, 1)).toISOString()
-  const endDate   = new Date(Date.UTC(initialAno, initialMes + 1, 1) - 1).toISOString()
+  const endDate = new Date(Date.UTC(initialAno, initialMes + 1, 1) - 1).toISOString()
+  const antStart = new Date(Date.UTC(antAno, antMes, 1)).toISOString()
+  const antEnd = new Date(Date.UTC(antAno, antMes + 1, 1) - 1).toISOString()
 
-  const [summary, summaryAnterior, initialDespesas] = await Promise.all([
-    getFinanceiroSummaryServer(accessToken).catch(() => null),
-    getFinanceiroSummaryServer(accessToken, {
-      startDate: new Date(Date.UTC(antAno, antMes, 1)).toISOString(),
-      endDate:   new Date(Date.UTC(antAno, antMes + 1, 1) - 1).toISOString(),
-    }).catch(() => null),
-    accessToken ? fetchDespesasServer(accessToken, startDate, endDate) : Promise.resolve([]),
+  const [summary, summaryAnterior] = await Promise.all([
+    fetchDashboardSummaryServer(accessToken, startDate, endDate),
+    fetchDashboardSummaryServer(accessToken, antStart, antEnd),
   ])
 
   return (
@@ -49,7 +67,7 @@ export default async function FinanceiroPage() {
       initialMes={initialMes}
       initialAno={initialAno}
       initialSummaryAnterior={summaryAnterior}
-      initialDespesas={initialDespesas}
+      availableYears={availableYears}
     />
   )
 }

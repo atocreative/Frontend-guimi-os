@@ -45,15 +45,22 @@ function getHorarioRank(value: HorarioValue): number {
   return hour * 60 + minute
 }
 
-export function isTaskDueToday(value: DueAtValue): boolean {
-  if (!value) return false
-  return new Date(value).toDateString() === new Date().toDateString()
+function getReferenceDate(referenceDate?: Date | string): Date {
+  return referenceDate ? new Date(referenceDate) : new Date()
 }
 
-export function isTaskAtrasada(tarefa: { dueAt: DueAtValue; status: string }): boolean {
+export function isTaskDueToday(value: DueAtValue, referenceDate?: Date | string): boolean {
+  if (!value) return false
+  return new Date(value).toDateString() === getReferenceDate(referenceDate).toDateString()
+}
+
+export function isTaskAtrasada(
+  tarefa: { dueAt: DueAtValue; status: string },
+  referenceDate?: Date | string
+): boolean {
   if (!tarefa.dueAt) return false
   if (tarefa.status === "CONCLUIDA" || tarefa.status === "CANCELADA") return false
-  const hoje = new Date()
+  const hoje = getReferenceDate(referenceDate)
   hoje.setHours(0, 0, 0, 0)
   const prazo = new Date(tarefa.dueAt)
   prazo.setHours(0, 0, 0, 0)
@@ -61,9 +68,10 @@ export function isTaskAtrasada(tarefa: { dueAt: DueAtValue; status: string }): b
 }
 
 export function sortTarefasByPriority<T extends { priority: TaskPriority; dueAt: DueAtValue; status: string; horario?: HorarioValue }>(
-  tarefas: T[]
+  tarefas: T[],
+  referenceDate?: Date | string
 ): T[] {
-  const hoje = new Date()
+  const hoje = getReferenceDate(referenceDate)
   hoje.setHours(0, 0, 0, 0)
 
   function isAtrasada(t: T): boolean {

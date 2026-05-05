@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth-session"
 import { getSessionAccessToken } from "@/lib/backend-api"
 import { normalizeDevMenuItems } from "@/lib/feature-definitions"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
 
 export async function GET() {
   const session = await getSession()

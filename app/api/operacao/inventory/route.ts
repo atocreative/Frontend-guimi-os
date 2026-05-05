@@ -2,39 +2,69 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth-session"
 import { getSessionAccessToken } from "@/lib/backend-api"
 
-const FONE_NINJA_URL =
-  "https://api.fone.ninja/erp/api/lojas/guimicell/dashboard/inventory"
+const BACKEND_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:3001"
+).replace(/\/$/, "")
 
 export async function GET(_req: NextRequest) {
   try {
-    const session = await getSession()
-    const token = getSessionAccessToken(session)
-
-    if (!token) {
-      return NextResponse.json({ totalEstoque: 0, itens: [] }, { status: 200 })
+    const reqHeaders: Record<string, string> = {}
+    try {
+      const session = await getSession()
+      const token = getSessionAccessToken(session)
+      if (token) reqHeaders["Authorization"] = `Bearer ${token}`
+    } catch {
+      // proceed without auth
     }
 
-    const res = await fetch(FONE_NINJA_URL, {
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(`${BACKEND_URL}/api/operacao/inventory`, {
+      headers: reqHeaders,
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     }).catch(() => null)
 
-    if (!res || !res.ok) {
-      return NextResponse.json({ totalEstoque: 0, itens: [] }, { status: 200 })
+    if (!res) {
+      return NextResponse.json(
+        { totalEstoque: 0, itens: [], error: "INVENTORY_UNAVAILABLE", pending: false },
+        { status: 502 }
+      )
+    }
+
+    if (!res.ok) {
+      return NextResponse.json(
+        { totalEstoque: 0, itens: [], error: "INVENTORY_UPSTREAM_ERROR", pending: false },
+        { status: res.status }
+      )
     }
 
     const data = await res.json().catch(() => null)
-    if (!data || !Array.isArray(data.data)) {
-      return NextResponse.json({ totalEstoque: 0, itens: [] }, { status: 200 })
+    if (!data) {
+      return NextResponse.json(
+        { totalEstoque: 0, itens: [], error: "INVENTORY_PARSE_ERROR", pending: false },
+        { status: 502 }
+      )
     }
 
-    const total = data.data.reduce((acc: number, item: any) => {
-      return acc + Number(item.valor_estoque || 0)
+    // Backend returns { data: [...] } with items: { id, titulo, estoque, preco_varejo, ... }
+    const itens: any[] = Array.isArray(data.data)
+      ? data.data
+      : Array.isArray(data.itens)
+        ? data.itens
+        : []
+
+    const total = itens.reduce((acc: number, item: any) => {
+      const valorEstoque = Number(item.valor_estoque ?? 0)
+      if (valorEstoque > 0) return acc + valorEstoque
+      return acc + Number(item.estoque ?? 0) * Number(item.preco_varejo ?? 0)
     }, 0)
 
-    return NextResponse.json({ totalEstoque: total, itens: data.data })
+    return NextResponse.json({ totalEstoque: total, itens, error: null, pending: false })
   } catch {
-    return NextResponse.json({ totalEstoque: 0, itens: [] }, { status: 200 })
+    return NextResponse.json(
+      { totalEstoque: 0, itens: [], error: "INVENTORY_UNAVAILABLE", pending: false },
+      { status: 502 }
+    )
   }
 }

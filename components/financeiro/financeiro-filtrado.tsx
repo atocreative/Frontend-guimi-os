@@ -11,7 +11,6 @@ import {
   Target,
 } from "lucide-react"
 import { KpiCard } from "@/components/dashboard/kpi-card"
-import { TabelaEntradas } from "@/components/financeiro/tabela-entradas"
 import { TabelaDespesas } from "@/components/financeiro/tabela-despesas"
 import { GraficoFluxoCaixa } from "@/components/financeiro/grafico-fluxo-caixa"
 import { GraficoCategorias } from "@/components/financeiro/grafico-categorias"
@@ -22,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { FinanceiroSummary } from "@/lib/backend-financeiro"
+import type { DashboardSummary } from "@/lib/types/dashboard"
 import type { DespesaItem } from "@/components/financeiro/tabela-despesas"
 
 const META_MES = 100_000
@@ -32,12 +31,17 @@ const MESES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ]
 
+function toNum(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
 function brl(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
     maximumFractionDigits: 0,
-  }).format(valor)
+  }).format(toNum(valor))
 }
 
 function gerarPeriodo(mes: number, ano: number) {
@@ -53,25 +57,26 @@ function mesAnterior(mes: number, ano: number): { mes: number; ano: number } {
   return mes === 0 ? { mes: 11, ano: ano - 1 } : { mes: mes - 1, ano }
 }
 
-async function fetchSummaryPeriodo(mes: number, ano: number): Promise<FinanceiroSummary | null> {
+async function fetchSummaryPeriodo(mes: number, ano: number): Promise<DashboardSummary | null> {
   try {
     const { startDate, endDate } = gerarPeriodo(mes, ano)
     const res = await fetch(
-      `/api/financeiro/summary?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
+      `/api/dashboard/summary?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
     )
     if (!res.ok) return null
-    return res.json()
+    const data = await res.json().catch(() => null)
+    return data ?? null
   } catch {
     return null
   }
 }
 
 interface Props {
-  initialSummary: FinanceiroSummary | null
+  initialSummary: DashboardSummary | null
   initialMes: number
   initialAno: number
-  initialSummaryAnterior?: FinanceiroSummary | null
-  initialDespesas?: DespesaItem[]
+  initialSummaryAnterior?: DashboardSummary | null
+  availableYears: number[]
 }
 
 export function FinanceiroFiltrado({
@@ -79,17 +84,13 @@ export function FinanceiroFiltrado({
   initialMes,
   initialAno,
   initialSummaryAnterior = null,
-  initialDespesas = [],
+  availableYears,
 }: Props) {
   const [mes, setMes] = useState(initialMes)
   const [ano, setAno] = useState(initialAno)
-  const [summary, setSummary] = useState<FinanceiroSummary | null>(initialSummary)
-  const [summaryAnterior, setSummaryAnterior] = useState<FinanceiroSummary | null>(initialSummaryAnterior)
-  const [despesas, setDespesas] = useState<DespesaItem[]>(initialDespesas)
-  const [totalDespesasApi, setTotalDespesasApi] = useState(
-    () => initialDespesas.reduce((acc, d) => acc + Number((d as any)?.valor || 0), 0)
-  )
-  const [totalComprasApi, setTotalComprasApi] = useState(0)
+  const [summary, setSummary] = useState<DashboardSummary | null>(initialSummary)
+  const [summaryAnterior, setSummaryAnterior] = useState<DashboardSummary | null>(initialSummaryAnterior)
+  const [despesas, setDespesas] = useState<DespesaItem[]>([])
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState(false)
 
@@ -102,18 +103,19 @@ export function FinanceiroFiltrado({
     const { startDate, endDate } = gerarPeriodo(m, a)
     const params = `startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
     type ApiListResponse = { raw?: DespesaItem[]; total?: number }
-    const [atual, anterior, despesasRes, comprasRes] = await Promise.all([
+
+    const [atual, anterior, despesasRes] = await Promise.all([
       fetchSummaryPeriodo(m, a),
       fetchSummaryPeriodo(ant.mes, ant.ano),
-      fetch(`/api/financeiro/despesas?${params}`).then((r) => r.ok ? r.json() as Promise<ApiListResponse> : ({} as ApiListResponse)).catch(() => ({} as ApiListResponse)),
-      fetch(`/api/financeiro/compras?${params}`).then((r) => r.ok ? r.json() as Promise<ApiListResponse> : ({} as ApiListResponse)).catch(() => ({} as ApiListResponse)),
+      fetch(`/api/financeiro/despesas?${params}`)
+        .then((r) => r.ok ? r.json() as Promise<ApiListResponse> : ({} as ApiListResponse))
+        .catch(() => ({} as ApiListResponse)),
     ])
+
     if (!atual) setErro(true)
     setSummary(atual)
     setSummaryAnterior(anterior)
     setDespesas(Array.isArray(despesasRes?.raw) ? despesasRes.raw : [])
-    setTotalDespesasApi(Number(despesasRes?.total || 0))
-    setTotalComprasApi(Number(comprasRes?.total || 0))
     setLoading(false)
   }, [])
 
@@ -123,13 +125,13 @@ export function FinanceiroFiltrado({
     }
   }, [mes, ano, isInicial, fetchAmbos])
 
-  // KPIs mês atual
-  const faturamento = Number(summary?.resumo?.faturamentoMes ?? 0)
-  const totalDespesas = totalDespesasApi
-  const totalCompras = totalComprasApi
-  const lucro = faturamento - totalDespesas - totalCompras
-  const totalVendas = Number(summary?.resumo?.totalVendas ?? 0)
-  const conversao = Number(summary?.resumo?.conversao ?? 0)
+  // KPIs
+  const faturamento = toNum(summary?.faturamentoMes ?? summary?.financeiro?.receita)
+  const lucro = toNum(summary?.lucroLiquidoMes ?? summary?.financeiro?.netProfit)
+  const totalDespesas = toNum(summary?.despesasMes ?? summary?.financeiro?.despesasVariaveis)
+  const totalCompras = toNum(summary?.comprasMes)
+  const totalVendas = toNum(summary?.totalVendas)
+  const ticketMedio = toNum(summary?.ticketMedio)
   const margem = faturamento > 0 ? (lucro / faturamento) * 100 : 0
   const saldoCaixa = Math.max(0, faturamento - totalDespesas - totalCompras)
 
@@ -138,22 +140,17 @@ export function FinanceiroFiltrado({
   const barraWidth = Math.min(percentualMeta, 100)
 
   // Crescimento vs mês anterior
-  const faturamentoAnterior = Number(summaryAnterior?.resumo?.faturamentoMes ?? 0)
+  const faturamentoAnterior = toNum(summaryAnterior?.faturamentoMes ?? summaryAnterior?.financeiro?.receita)
   const crescimento = faturamentoAnterior > 0
     ? ((faturamento - faturamentoAnterior) / faturamentoAnterior) * 100
     : null
 
-  // Dados para gráficos e tabela
+  // Dados para gráficos — DashboardSummary.grafico já está no formato { data, entradas, saidas, saldo }
   const fluxoCaixa = Array.isArray(summary?.grafico) ? summary.grafico : []
-  const vendasMes = Array.isArray(summary?.data) ? summary.data : []
+
   const categorias = totalDespesas > 0
     ? [{ categoria: "Despesas", valor: totalDespesas, percentual: 100 }]
     : []
-
-  const anosDisponiveis = Array.from(
-    { length: new Date().getFullYear() - 2023 },
-    (_, i) => 2024 + i
-  )
 
   const crescimentoLabel = crescimento === null
     ? "Sem dados do mês anterior"
@@ -189,7 +186,7 @@ export function FinanceiroFiltrado({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {anosDisponiveis.map((a) => (
+              {availableYears.map((a) => (
                 <SelectItem key={a} value={String(a)}>{a}</SelectItem>
               ))}
             </SelectContent>
@@ -253,7 +250,7 @@ export function FinanceiroFiltrado({
         <KpiCard
           titulo="Lucro Líquido"
           valor={brl(lucro)}
-          descricao={`Margem líquida ${margem.toFixed(1)}%`}
+          descricao={`Margem líquida ${toNum(margem).toFixed(1)}%`}
           icone={TrendingUp}
           tendencia={lucro > 0 ? "up" : "down"}
         />
@@ -279,18 +276,18 @@ export function FinanceiroFiltrado({
           tendencia={totalVendas > 0 ? "up" : "down"}
         />
         <KpiCard
+          titulo="Ticket Médio"
+          valor={brl(ticketMedio)}
+          descricao="Por venda"
+          icone={PiggyBank}
+          tendencia={ticketMedio > 0 ? "up" : "down"}
+        />
+        <KpiCard
           titulo="Lucro Bruto"
           valor={brl(faturamento - totalDespesas)}
           descricao="Receita − despesas"
-          icone={PiggyBank}
+          icone={TrendingUp}
           tendencia={faturamento > totalDespesas ? "up" : "down"}
-        />
-        <KpiCard
-          titulo="Taxa de Conversão"
-          valor={(conversao * 100).toFixed(1) + "%"}
-          descricao="Convertidas / Pendentes"
-          icone={Target}
-          tendencia="up"
         />
       </div>
 
@@ -300,7 +297,6 @@ export function FinanceiroFiltrado({
         <GraficoCategorias dados={categorias} />
       </div>
 
-      <TabelaEntradas entradas={vendasMes as any[]} />
       <TabelaDespesas despesas={despesas} />
     </div>
   )

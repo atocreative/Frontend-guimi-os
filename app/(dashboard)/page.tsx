@@ -35,6 +35,20 @@ export default async function DashboardPage() {
 
   const role = session.user.role
   const isColaborador = role === "COLABORADOR"
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+  const availableYears = Array.from(
+    { length: currentYear - 2023 },
+    (_, i) => 2024 + i
+  )
+  const dataAtual = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  }).format(now)
 
   const { response, data } = await backendFetch("/api/tasks", {
     token: accessToken,
@@ -61,15 +75,17 @@ export default async function DashboardPage() {
   const tarefasPendentes = sortTarefasByPriority(
     tarefas.filter(
       (tarefa) => tarefa.status === "PENDENTE" || tarefa.status === "EM_ANDAMENTO"
-    )
+    ),
+    now
   )
 
   const tarefasHoje = sortTarefasByPriority(
     tarefas.filter(
       (tarefa) =>
         (tarefa.status === "PENDENTE" || tarefa.status === "EM_ANDAMENTO") &&
-        isTaskDueToday(tarefa.dueAt)
-    )
+        isTaskDueToday(tarefa.dueAt, now)
+    ),
+    now
   ).slice(0, 5)
 
   if (!isColaborador) {
@@ -78,6 +94,9 @@ export default async function DashboardPage() {
         tarefasHoje={tarefasHoje}
         tarefasPendentes={tarefasPendentes}
         currentUser={{ id: session.user.id }}
+        mes={currentMonth}
+        ano={currentYear}
+        availableYears={availableYears}
       />
     )
   }
@@ -110,6 +129,7 @@ export default async function DashboardPage() {
       concluidasMes={concluidasMes}
       pendentes={pendentes}
       taxaConclusao={taxaConclusao}
+      dataAtual={dataAtual}
     />
   )
 }

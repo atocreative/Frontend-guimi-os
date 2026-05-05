@@ -164,7 +164,7 @@ export async function getFinanceiroSummaryServer(
   const filters = buildSalesFilters({ startDate, endDate })
   const params = filtersToSearchParams(filters)
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+  const apiBase = (process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '')
 
   console.log('[FRONT FINANCEIRO] Fetching sales...', { url: `${apiBase}/api/financeiro/sales?${params.toString()}` })
 

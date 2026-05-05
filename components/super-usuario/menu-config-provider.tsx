@@ -19,14 +19,12 @@ export function MenuConfigProvider({
   children,
   initialItems = [],
 }: MenuConfigProviderProps) {
-  const [items, setItemsState] = useState<MenuConfigItem[]>(initialItems)
-  const [isLoading, setIsLoading] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState<Date>()
+  const baseItems = React.useMemo<MenuConfigItem[]>(() => {
+    if (initialItems.length > 0) {
+      return initialItems
+    }
 
-  // Load from localStorage on mount, merging with FEATURE_DEFINITIONS to ensure all features are present
-  useEffect(() => {
-    const stored = loadMenuConfigFromStorage()
-    const base = initialItems.length > 0 ? initialItems : FEATURE_DEFINITIONS.map(d => ({
+    return FEATURE_DEFINITIONS.map((d) => ({
       id: d.id,
       name: d.name,
       description: d.description,
@@ -34,17 +32,38 @@ export function MenuConfigProvider({
       pending: false,
       allowedRoles: [] as ("COLABORADOR" | "GESTOR" | "ADMIN" | "SUPER_USER")[],
     }))
+  }, [initialItems])
+
+  const [items, setItemsState] = useState<MenuConfigItem[]>(baseItems)
+  const [isLoading, setIsLoading] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date>()
+
+  useEffect(() => {
+    setItemsState(baseItems)
+  }, [baseItems])
+
+  // Keep server-provided items authoritative on initial dashboard load.
+  useEffect(() => {
+    if (initialItems.length > 0) {
+      setLastUpdated(new Date())
+      return
+    }
+
+    const stored = loadMenuConfigFromStorage()
 
     if (stored && stored.length > 0) {
-      // Merge: stored overrides base, but missing features from FEATURE_DEFINITIONS are added
-      const storedMap = new Map(stored.map(i => [i.id, i]))
-      const merged = base.map(baseItem => storedMap.get(baseItem.id) ?? baseItem)
+      const storedMap = new Map(stored.map((item) => [item.id, item]))
+      const merged = baseItems.map((baseItem) => {
+        const storedItem = storedMap.get(baseItem.id)
+        return storedItem ? { ...baseItem, ...storedItem } : baseItem
+      })
       setItemsState(merged)
-    } else {
-      setItemsState(base)
+      setLastUpdated(new Date())
+      return
     }
+
     setLastUpdated(new Date())
-  }, [])
+  }, [baseItems, initialItems.length])
 
   const setItems = useCallback((newItems: MenuConfigItem[]) => {
     setItemsState(newItems)

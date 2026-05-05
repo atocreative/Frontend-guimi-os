@@ -50,6 +50,15 @@ interface NavGroup {
   items: NavItem[]
 }
 
+interface NavItemWithStatus extends NavItem {
+  _status: "active" | "coming_soon" | "hidden"
+}
+
+interface NavGroupWithStatus {
+  label: string
+  items: NavItemWithStatus[]
+}
+
 const navItems: NavGroup[] = [
   {
     label: "Principal",
@@ -94,25 +103,23 @@ interface AppSidebarProps {
 }
 
 function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
+  const isDark = resolvedTheme !== "light"
 
   return (
     <SidebarMenu className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
       <SidebarMenuItem>
         <SidebarMenuButton
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          tooltip={theme === "dark" ? "Mudar para modo claro" : "Mudar para modo escuro"}
+          onClick={() => setTheme(isDark ? "light" : "dark")}
+          tooltip="Alternar tema"
           className="transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground cursor-pointer"
         >
-          {theme === "dark" ? (
-            <Sun className="h-4 w-4" />
-          ) : (
-            <Moon className="h-4 w-4" />
-          )}
+          <div className="relative h-4 w-4">
+            <Sun className="absolute h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          </div>
 
-          <span className="group-data-[collapsible=icon]:hidden ml-2">
-            {theme === "dark" ? "Light Mode" : "Dark Mode"}
-          </span>
+          <span className="group-data-[collapsible=icon]:hidden ml-2">Tema</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>
@@ -168,27 +175,34 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
     [userRole, menuConfigItems]
   )
 
-  // For SUPER_USER: all nav items visible with status-based color coding
-  const superUserNav = React.useMemo(
-    () => navItems.map((group) => ({
-      ...group,
-      items: group.items.map((item) => ({
+  const mapItemsWithStatus = React.useCallback(
+    (items: NavItem[]): NavItemWithStatus[] =>
+      items.map((item) => ({
         ...item,
         _status: getItemStatus(item.featureId),
       })),
-    })),
-    [menuConfigItems]
+    [getItemStatus]
   )
 
-  const finalNav = isDeveloper
+  // For SUPER_USER: all nav items visible with status-based color coding
+  const superUserNav = React.useMemo<NavGroupWithStatus[]>(
+    () =>
+      navItems.map((group) => ({
+        ...group,
+        items: mapItemsWithStatus(group.items),
+      })),
+    [mapItemsWithStatus]
+  )
+
+  const finalNav: NavGroupWithStatus[] = isDeveloper
     ? [
-      ...superUserNav,
-      { label: "Desenvolvedor", items: devNavItems.map(i => ({ ...i, _status: "active" as const })) },
-    ]
-    : filteredNav.map(g => ({
-      ...g,
-      items: g.items.map(i => ({ ...i, _status: getItemStatus(i.featureId) })),
-    }))
+        ...superUserNav,
+        { label: "Desenvolvedor", items: devNavItems.map((item) => ({ ...item, _status: "active" as const })) },
+      ]
+    : filteredNav.map((group) => ({
+        ...group,
+        items: mapItemsWithStatus(group.items),
+      }))
 
   return (
     <Sidebar collapsible="icon">
@@ -223,7 +237,7 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
-                  const status = (item as any)._status as "active" | "coming_soon" | "hidden"
+                  const status = item._status
                   const isActive =
                     item.href === "/"
                       ? pathname === "/"

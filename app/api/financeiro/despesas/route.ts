@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth-session"
 import { getSessionAccessToken } from "@/lib/backend-api"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+const BACKEND_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(/\/$/, "")
 
 /**
  * BFF — GET /api/financeiro/despesas?startDate=...&endDate=...
