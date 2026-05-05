@@ -125,22 +125,27 @@ export async function syncFoneNinjaReceitas(): Promise<{ success: boolean; synce
 }
 
 export interface FinanceiroSummary {
-  receitaMes: number
-  despesasMes: number
-  lucroLiquidoMes: number
-  metaMes: number
-  percentualMeta: number
-  receitaHoje: number
-  lucroBrutoHoje: number
-  margemBrutoHoje: number
-  quantidadeVendas?: number
-  periodo?: { startDate: string; endDate: string }
+  data: import('@/lib/financeiro-utils').SaleItem[]
+  count: number
+  resumo: {
+    faturamentoMes: number
+    despesasMes: number
+    lucroLiquidoMes: number
+    totalVendas: number
+  }
+  grafico: Array<{
+    data: string
+    entradas: number
+    saidas: number
+    saldo: number
+  }>
+  periodo: { startDate: string; endDate: string }
 }
 
 /**
  * SERVER-SIDE: Obtém summary financeiro do mês corrente.
- * Usa /api/financeiro/sales com filtro de mês — NÃO usa snapshot como receita.
- * Lança erro se dados não disponíveis (sem fallback silencioso).
+ * Backend retorna: { data, count, resumo, grafico, periodo }
+ * Frontend consome direto — sem cálculos adicionais.
  */
 export async function getFinanceiroSummaryServer(
   token?: string | null
@@ -150,7 +155,7 @@ export async function getFinanceiroSummaryServer(
     return null
   }
 
-  const { getMonthRange, buildSalesFilters, calculateRevenue, filtersToSearchParams } =
+  const { getMonthRange, filtersToSearchParams, buildSalesFilters } =
     await import('@/lib/financeiro-utils')
 
   const { startDate, endDate } = getMonthRange()
@@ -159,7 +164,8 @@ export async function getFinanceiroSummaryServer(
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
-  // 1. Busca vendas filtradas pelo mês corrente
+  console.log('[FRONT FINANCEIRO] Fetching sales...', { url: `${apiBase}/api/financeiro/sales?${params.toString()}` })
+
   const salesRes = await fetch(
     `${apiBase}/api/financeiro/sales?${params.toString()}`,
     {
@@ -168,48 +174,42 @@ export async function getFinanceiroSummaryServer(
       signal: AbortSignal.timeout(10_000),
     }
   ).catch((err) => {
-    throw new Error(`SALES_FETCH_NETWORK_ERROR: ${(err as Error).message}`)
+    console.error('[FRONT FINANCEIRO] Sales network error:', (err as Error).message)
+    return null
   })
 
-  if (!salesRes.ok) {
-    console.error(`[getFinanceiroSummaryServer] /api/financeiro/sales retornou ${salesRes.status}`)
+  if (!salesRes) {
+    console.warn('[FRONT FINANCEIRO] Nenhuma resposta do endpoint sales (network error)')
     return null
   }
 
-  const salesData = await salesRes.json()
-  const sales: import('@/lib/financeiro-utils').SaleItem[] = Array.isArray(salesData)
-    ? salesData
-    : (salesData?.data ?? salesData?.sales ?? salesData?.items ?? [])
-
-  if (!sales || sales.length === 0) {
-    throw new Error(`NO_SALES_DATA_FOR_PERIOD:${startDate}/${endDate}`)
+  if (!salesRes.ok) {
+    console.warn(`[FRONT FINANCEIRO] /api/financeiro/sales retornou ${salesRes.status}`)
+    return null
   }
 
-  const receitaMes = calculateRevenue(sales)
+  const salesData = await salesRes.json().catch(() => null)
+  if (!salesData) {
+    console.warn('[FRONT FINANCEIRO] Falha ao parsear resposta do sales')
+    return null
+  }
 
-  // 2. Snapshot apenas para campos complementares (despesas, meta, hoje)
-  const { response: snapRes, data: snapData } = await backendFetch(
-    `/api/financeiro/snapshot?month=${new Date().getMonth() + 1}&year=${new Date().getFullYear()}`,
-    { token }
-  ).catch(() => ({ response: { ok: false }, data: null }))
+  console.log('[FRONT FINANCEIRO] resumo:', salesData?.resumo)
+  console.log('[FRONT FINANCEIRO] grafico:', salesData?.grafico?.length)
+  console.log('[FRONT FINANCEIRO] vendas:', salesData?.data?.length)
 
-  const snap: Record<string, unknown> = snapRes.ok
-    ? (snapData?.data ?? snapData ?? {})
-    : {}
-
-  const metaMes = Number(snap.metaMes ?? snap.meta ?? 0)
-
+  // Backend retorna contrato novo com resumo e grafico calculados
   return {
-    receitaMes,
-    quantidadeVendas: sales.length,
-    periodo: { startDate, endDate },
-    despesasMes: Number(snap.despesasMes ?? snap.totalDespesas ?? 0),
-    lucroLiquidoMes: Number(snap.lucroLiquidoMes ?? snap.netProfit ?? snap.lucroLiquido ?? 0),
-    metaMes,
-    percentualMeta: metaMes > 0 ? Math.round((receitaMes / metaMes) * 1000) / 10 : 0,
-    receitaHoje: Number(snap.receitaHoje ?? snap.todayRevenue ?? 0),
-    lucroBrutoHoje: Number(snap.lucroBrutoHoje ?? snap.todayProfit ?? 0),
-    margemBrutoHoje: Number(snap.margemBrutoHoje ?? snap.todayMargin ?? 0),
+    data: salesData?.data ?? [],
+    count: salesData?.count ?? 0,
+    resumo: {
+      faturamentoMes: Number(salesData?.resumo?.faturamentoMes ?? 0),
+      despesasMes: Number(salesData?.resumo?.despesasMes ?? 0),
+      lucroLiquidoMes: Number(salesData?.resumo?.lucroLiquidoMes ?? 0),
+      totalVendas: Number(salesData?.resumo?.totalVendas ?? 0),
+    },
+    grafico: Array.isArray(salesData?.grafico) ? salesData.grafico : [],
+    periodo: salesData?.periodo ?? { startDate, endDate },
   }
 }
 

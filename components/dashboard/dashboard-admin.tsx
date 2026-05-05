@@ -174,7 +174,7 @@ export function DashboardAdmin({
     [resumoHoje]
   )
   const lucroBrutoDescricao = useMemo(
-    () => resumoHoje ? `Margem bruta ${resumoHoje.margemBrutaDia.toFixed(2)}%` : "Aguardando dados",
+    () => resumoHoje ? `Margem bruta ${(resumoHoje.margemBrutaDia ?? 0).toFixed(2)}%` : "Aguardando dados",
     [resumoHoje]
   )
 

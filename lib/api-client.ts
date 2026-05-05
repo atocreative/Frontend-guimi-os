@@ -368,12 +368,15 @@ export const api = {
       jobTitle: string
       role: string
       active: boolean
+      password: string
     }>
   ) {
+    console.log("[UPDATE USER PAYLOAD]", payload)
     const data = await apiCall(`/api/users/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     })
+    console.log("[UPDATE USER APPLY]", data)
     return extractUserPayload(data)
   },
 
@@ -467,20 +470,15 @@ export const api = {
     })
   },
 
-  async updateCurrentUserPassword(payload: { currentPassword: string; newPassword: string }) {
-    console.log('[DEBUG PASSWORD API]', {
-      endpoint: '/api/users/me/password',
-      method: 'PATCH',
-      hasCurrentPassword: !!payload.currentPassword,
-      hasNewPassword: !!payload.newPassword,
-    })
+  async updateCurrentUserPassword(newPassword: string) {
+    const body = JSON.stringify({ newPassword })
+    console.log("[REQUEST BODY]", body)
 
     const data = await apiCall("/api/users/me/password", {
       method: "PATCH",
-      body: JSON.stringify(payload),
+      body,
     })
-    
-    console.log('[DEBUG PASSWORD API SUCCESS]', { data })
+
     return data
   },
 }

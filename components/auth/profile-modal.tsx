@@ -21,44 +21,31 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ open, onClose }: ProfileModalProps) {
-  const [senhaAtual, setSenhaAtual] = useState("")
   const [novaSenha, setNovaSenha] = useState("")
   const [confirmarSenha, setConfirmarSenha] = useState("")
   const [salvando, setSalvando] = useState(false)
 
   async function salvar() {
-    // Validação
-    if (!senhaAtual.trim()) {
-      toast.error("Digite sua senha atual")
-      return
-    }
-
-    if (!novaSenha.trim()) {
-      toast.error("Digite a nova senha")
+    if (!novaSenha || !confirmarSenha) {
+      toast.error("Preencha todos os campos")
       return
     }
 
     if (novaSenha.length < 6) {
-      toast.error("Senha deve ter no mínimo 6 caracteres")
+      toast.error("A senha deve ter no mínimo 6 caracteres")
       return
     }
 
     if (novaSenha !== confirmarSenha) {
-      toast.error("Senhas não conferem")
+      toast.error("As senhas não coincidem")
       return
     }
 
     setSalvando(true)
 
     try {
-      // Chama PATCH /api/users/me/password
-      const response = await api.updateCurrentUserPassword({
-        currentPassword: senhaAtual,
-        newPassword: novaSenha,
-      })
-
+      await api.updateCurrentUserPassword(novaSenha)
       toast.success("Senha alterada com sucesso!")
-      setSenhaAtual("")
       setNovaSenha("")
       setConfirmarSenha("")
       onClose()
@@ -76,7 +63,6 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
   }
 
   function handleClose() {
-    setSenhaAtual("")
     setNovaSenha("")
     setConfirmarSenha("")
     onClose()
@@ -84,31 +70,20 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent side="right" className="w-96">
+      <SheetContent side="right" className="w-96 p-6" style={{ willChange: "transform, opacity" }}>
         <SheetHeader>
           <SheetTitle>Alterar Senha</SheetTitle>
           <SheetDescription>Altere sua senha com segurança</SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-6 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="senha-atual">Senha Atual</Label>
-            <Input
-              id="senha-atual"
-              type="password"
-              placeholder="Digite sua senha atual"
-              value={senhaAtual}
-              onChange={(e) => setSenhaAtual(e.target.value)}
-              disabled={salvando}
-            />
-          </div>
-
+        <div className="space-y-4 py-6">
           <div className="space-y-2">
             <Label htmlFor="nova-senha">Nova Senha</Label>
             <Input
               id="nova-senha"
               type="password"
               placeholder="Digite a nova senha"
+              className="h-11"
               value={novaSenha}
               onChange={(e) => setNovaSenha(e.target.value)}
               disabled={salvando}
@@ -121,6 +96,7 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
               id="confirmar-senha"
               type="password"
               placeholder="Confirme a nova senha"
+              className="h-11"
               value={confirmarSenha}
               onChange={(e) => setConfirmarSenha(e.target.value)}
               disabled={salvando}
@@ -128,12 +104,21 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
           </div>
         </div>
 
-        <SheetFooter>
-          <Button variant="outline" onClick={handleClose} disabled={salvando}>
-            Cancelar
-          </Button>
-          <Button onClick={salvar} disabled={salvando}>
+        <SheetFooter className="flex flex-col gap-2">
+          <Button
+            onClick={salvar}
+            disabled={salvando}
+            className="w-full cursor-pointer hover:opacity-90 transition"
+          >
             {salvando ? "Salvando..." : "Salvar"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            disabled={salvando}
+            className="w-full cursor-pointer hover:bg-gray-100 transition"
+          >
+            Cancelar
           </Button>
         </SheetFooter>
       </SheetContent>

@@ -13,7 +13,7 @@ import { TabelaDespesas } from "@/components/financeiro/tabela-despesas"
 import { GraficoFluxoCaixa } from "@/components/financeiro/grafico-fluxo-caixa"
 import { GraficoCategorias } from "@/components/financeiro/grafico-categorias"
 
-import { getSnapshotFinanceiroServer } from "@/lib/backend-financeiro"
+import { getFinanceiroSummaryServer } from "@/lib/backend-financeiro"
 import { getSessionAccessToken } from "@/lib/backend-api"
 import { getSession } from "@/lib/auth-session"
 
@@ -29,45 +29,41 @@ export default async function FinanceiroPage() {
   const session = await getSession()
   const accessToken = getSessionAccessToken(session)
 
-  // Fetch real data from backend
-  const now = new Date()
-  const month = now.getMonth() + 1
-  const year = now.getFullYear()
+  // Backend retorna tudo calculado e formatado
+  const summary = await getFinanceiroSummaryServer(accessToken).catch(() => null)
 
-  const snapshot = await getSnapshotFinanceiroServer(month, year, accessToken).catch(() => null)
+  console.log("[FRONT FINANCEIRO] summary recebido:", summary)
 
-  // Use real data from snapshot when available
-  const faturamentoMes = snapshot?.receita || snapshot?.totalReceitas || 0
-  const despesasVariaveis = snapshot?.despesasVariaveis || snapshot?.variableExpenses || 0
-  const despesasFixas = snapshot?.fixedExpensesTotal || snapshot?.fixedExpenses || 0
-  const lucroBruto = snapshot?.grossProfit || 0
-  const margemBruta = snapshot?.grossMargin || 0
-  const lucroLiquido = snapshot?.netProfit || 0
-  const vendasMes: any[] = []
+  // Validação de dados críticos
+  if (!summary || !summary?.resumo) {
+    console.warn("[FRONT FINANCEIRO] Dados indisponíveis ou resumo vazio")
+  }
 
-  // Use real data from snapshot
-  const metaMes = 100000 // Set target
-  const percentualMeta = faturamentoMes > 0 ? Math.round((faturamentoMes / metaMes) * 100) : 0
-  const totalDespesas = despesasFixas + despesasVariaveis
-  const margemLiquida = faturamentoMes > 0 ? (lucroLiquido / faturamentoMes * 100) : 0
-  const saldoCaixa = faturamentoMes - totalDespesas
-  const contasPagarMes = despesasFixas * 0.3
+  // KPIs vêm do resumo calculado pelo backend — sempre com fallback
+  const faturamentoMes = Number(summary?.resumo?.faturamentoMes ?? 0)
+  const despesasMes = Number(summary?.resumo?.despesasMes ?? 0)
+  const lucroLiquidoMes = Number(summary?.resumo?.lucroLiquidoMes ?? 0)
+  const quantidadeVendas = Number(summary?.resumo?.totalVendas ?? 0)
 
-  // Convert sales data to table format
-  const entradas = vendasMes.map((venda, idx) => ({
-    id: String(idx),
-    produto: `Venda de ${venda.nomeVendedor}`,
-    categoria: "Realizado",
-    valorVenda: venda.faturamento,
-    custo: venda.faturamento * (1 - venda.margemLucro / 100),
-    lucro: venda.lucro,
-    margem: venda.margemLucro,
-    formaPagamento: "PIX",
-    vendedor: venda.nomeVendedor,
-    cliente: `Cliente ${idx + 1}`,
-    data: new Date().toLocaleDateString("pt-BR"),
-    foneNinjaId: null,
-  }))
+  // Gráfico vem pronto do backend — array vazio se indisponível
+  const fluxoCaixa = Array.isArray(summary?.grafico) ? summary.grafico : []
+
+  // Vendas para tabela — array vazio se indisponível
+  const vendasMes = Array.isArray(summary?.data) ? summary.data : []
+
+  // Categorias de despesas — derivadas do resumo
+  const categorias =
+    despesasMes > 0
+      ? [{ categoria: "Despesas", valor: despesasMes, percentual: 100 }]
+      : []
+
+  // Cálculos auxiliares para KPI cards — sempre com validação
+  const margemLiquida = faturamentoMes > 0 ? (lucroLiquidoMes / faturamentoMes * 100) : 0
+  const saldoCaixa = Math.max(0, faturamentoMes - despesasMes)
+  const contasPagarMes = despesasMes * 0.3
+
+  // Determinar se há dados válidos
+  const temDados = summary !== null && (faturamentoMes > 0 || quantidadeVendas > 0 || fluxoCaixa.length > 0)
 
   return (
     <div className="space-y-6">
@@ -79,11 +75,20 @@ export default async function FinanceiroPage() {
         </p>
       </div>
 
-      {faturamentoMes === 0 && (
+      {!summary && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p className="font-medium">⚠️ Dados indisponíveis</p>
+          <p className="font-medium">⚠️ Aguardando dados...</p>
           <p className="mt-1 text-xs">
-            Não foi possível conectar à API do Fone Ninja. Verifique as variáveis de ambiente.
+            Conectando à API. Por favor, aguarde...
+          </p>
+        </div>
+      )}
+
+      {summary && !temDados && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">⚠️ Nenhum dado disponível</p>
+          <p className="mt-1 text-xs">
+            Não há vendas ou dados no período. Verifique a API do Fone Ninja.
           </p>
         </div>
       )}
@@ -92,29 +97,22 @@ export default async function FinanceiroPage() {
         <KpiCard
           titulo="Faturamento do Mês"
           valor={brl(faturamentoMes)}
-          descricao={`${percentualMeta}% da meta de ${brl(metaMes)}`}
+          descricao={`${quantidadeVendas} vendas`}
           icone={DollarSign}
-          tendencia={percentualMeta > 100 ? "up" : "down"}
+          tendencia={faturamentoMes > 0 ? "up" : "down"}
           destaque
         />
         <KpiCard
           titulo="Lucro Líquido"
-          valor={brl(lucroLiquido)}
+          valor={brl(lucroLiquidoMes)}
           descricao={`Margem líquida ${margemLiquida.toFixed(1)}%`}
           icone={TrendingUp}
-          tendencia="up"
-        />
-        <KpiCard
-          titulo="Lucro Bruto"
-          valor={brl(lucroBruto)}
-          descricao={`Margem bruta ${margemBruta.toFixed(1)}%`}
-          icone={PiggyBank}
-          tendencia="up"
+          tendencia={lucroLiquidoMes > 0 ? "up" : "down"}
         />
         <KpiCard
           titulo="Total Despesas"
-          valor={brl(totalDespesas)}
-          descricao={`Fixas ${brl(despesasFixas)} · Variáveis ${brl(despesasVariaveis)}`}
+          valor={brl(despesasMes)}
+          descricao="Do período"
           icone={Receipt}
           tendencia="down"
         />
@@ -135,11 +133,11 @@ export default async function FinanceiroPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <GraficoFluxoCaixa dados={[]} />
-        <GraficoCategorias dados={[]} />
+        <GraficoFluxoCaixa dados={fluxoCaixa} />
+        <GraficoCategorias dados={categorias} />
       </div>
 
-      <TabelaEntradas entradas={entradas.length > 0 ? entradas : []} />
+      <TabelaEntradas entradas={vendasMes} />
       <TabelaDespesas despesas={[]} />
 
     </div>

@@ -94,26 +94,20 @@ export default async function DashboardPage() {
       console.warn("[Dashboard] ⚠️ /api/financeiro/sales não retornou dados — backend sem vendas no período ou endpoint ausente")
     }
 
-    const faturamentoMes = summary?.receitaMes ?? undefined
-    const despesasMes = summary?.despesasMes ?? undefined
-    const lucroLiquidoMes = summary?.lucroLiquidoMes ?? undefined
-    const metaMes = summary?.metaMes ?? undefined
-    const percentualMeta = summary?.percentualMeta ?? undefined
-
-    const resumoHoje = summary ? {
-      faturamentoDia: summary.receitaHoje,
-      lucroBrutoDia: summary.lucroBrutoHoje,
-      margemBrutaDia: summary.margemBrutoHoje,
-    } : undefined
+    // Backend retorna { data, count, resumo, grafico, periodo }
+    const faturamentoMes = summary?.resumo?.faturamentoMes ?? undefined
+    const despesasMes = summary?.resumo?.despesasMes ?? undefined
+    const lucroLiquidoMes = summary?.resumo?.lucroLiquidoMes ?? undefined
+    const metaMes = undefined
+    const percentualMeta = undefined
+    const resumoHoje = undefined
 
     console.log("[Dashboard] Financeiro:", {
-      fonte: summary ? "sales+snapshot" : "indisponível",
+      fonte: summary ? "sales" : "indisponível",
       erro: summaryError,
       faturamentoMes,
       despesasMes,
       lucroLiquidoMes,
-      metaMes,
-      percentualMeta,
       periodo: summary?.periodo,
     })
 

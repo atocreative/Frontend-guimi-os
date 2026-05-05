@@ -9,6 +9,10 @@ export interface SalesFilters {
 }
 
 export interface SaleItem {
+  valor_total?: number
+  lucro_bruto?: number
+  lucro_financeiro?: number
+  data_saida?: string
   preco?: number
   valor?: number
   amount?: number
