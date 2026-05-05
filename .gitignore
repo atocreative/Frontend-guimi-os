@@ -272,4 +272,8 @@ dist
 # SvelteKit build / generate output
 .svelte-kit
 
+.playwright-mcp/
+.playwright/
+playwright-report/
+
 # End of https://www.toptal.com/developers/gitignore/api/nextjs,node

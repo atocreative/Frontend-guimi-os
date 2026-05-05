@@ -51,20 +51,7 @@ export async function GET(req: NextRequest) {
   // Normaliza: aceita array direto ou { data: [] }
   const raw: any[] = Array.isArray(data) ? data : (data?.data ?? [])
 
-  // Soma total
-  const totalDespesas = raw.reduce((acc, item) => acc + Number(item?.amount ?? item?.valor ?? item?.value ?? 0), 0)
+  const total = raw.reduce((acc, item) => acc + Number(item?.valor || 0), 0)
 
-  // Agrupa por categoria
-  const catMap = new Map<string, number>()
-  for (const item of raw) {
-    const cat = item?.accountPlan ?? item?.categoria ?? item?.category ?? "Outros"
-    catMap.set(cat, (catMap.get(cat) ?? 0) + Number(item?.amount ?? item?.valor ?? item?.value ?? 0))
-  }
-  const categorias = Array.from(catMap.entries()).map(([categoria, valor]) => ({
-    categoria,
-    valor,
-    percentual: totalDespesas > 0 ? Math.round((valor / totalDespesas) * 100) : 0,
-  }))
-
-  return NextResponse.json({ totalDespesas, categorias, raw })
+  return NextResponse.json({ total, raw })
 }

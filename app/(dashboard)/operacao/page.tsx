@@ -1,31 +1,11 @@
 import { ResumoOperacao } from "@/components/operacao/resumo-operacao"
 import { AparelhoCard } from "@/components/operacao/aparelho-card"
-import { InventarioEstoque, type InventarioItem } from "@/components/operacao/inventario-estoque"
-import { headers } from "next/headers"
-import {
-  mockTradeIns,
-  mockResumoOperacao,
-} from "./data/mock"
-
-async function fetchInventario(): Promise<InventarioItem[]> {
-  try {
-    const h = await headers()
-    const host = h.get("host") ?? "localhost:3000"
-    const protocol = process.env.NODE_ENV === "production" ? "https" : "http"
-    const res = await fetch(`${protocol}://${host}/api/operacao/inventory`, {
-      cache: "no-store",
-    })
-    const json = await res.json().catch(() => null)
-    return Array.isArray(json?.itens) ? json.itens : []
-  } catch {
-    return []
-  }
-}
+import { InventarioEstoque } from "@/components/operacao/inventario-estoque"
+import { getInventario } from "@/lib/services/api"
+import { mockTradeIns, mockResumoOperacao } from "./data/mock"
 
 export default async function OperacaoPage() {
-  const inventario: InventarioItem[] = await fetchInventario()
-
-  const temInventario = inventario.length > 0
+  const { itens: inventario } = await getInventario()
 
   return (
     <div className="space-y-6">
@@ -37,21 +17,18 @@ export default async function OperacaoPage() {
         </p>
       </div>
 
-      {!temInventario && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p className="font-medium">⚠️ Inventário indisponível</p>
-          <p className="mt-1 text-xs">
-            Não foi possível carregar dados de <code>/dashboard/inventory</code>.
-            Verifique a conexão com o backend.
-          </p>
-        </div>
-      )}
-
       {/* Resumo operacional (mock enquanto não há endpoint dedicado) */}
       <ResumoOperacao resumo={mockResumoOperacao} />
 
       {/* Inventário real do backend */}
-      {temInventario && <InventarioEstoque itens={inventario} />}
+      {inventario.length > 0 && <InventarioEstoque itens={inventario} />}
+
+      {/* Placeholder quando não há dados */}
+      {inventario.length === 0 && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <p className="font-medium">Aguardando dados de inventário...</p>
+        </div>
+      )}
 
       {/* Trade-ins (mock — endpoint não disponível ainda) */}
       <div>

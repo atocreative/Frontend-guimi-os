@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://backend-guimi-os-production.up.railway.app/" }
+  ]
+}

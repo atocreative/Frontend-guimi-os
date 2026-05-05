@@ -27,43 +27,8 @@ import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
 import { backendService } from "@/lib/services/backend-service"
+import { getDashboardData, type IndicadoresGeral, type OverviewExtra } from "@/lib/services/api"
 import type { TarefaDB } from "@/types/tarefas"
-
-// ─── tipos ────────────────────────────────────────────────────────────────────
-
-interface IndicadoresGeral {
-  faturamento: number
-  despesas: number
-  compras: number
-  lucro: number
-  ticketMedio: number
-  estoqueTotal: number
-  conversao: number
-}
-
-interface OverviewGraficoItem {
-  mes?: string
-  dia?: string
-  receita: number
-  custo: number
-  lucro: number
-}
-
-interface OverviewVendedor {
-  nome?: string
-  name?: string
-  faturamento?: number
-  totalVendas?: number
-  vendas?: number
-  ticketMedio?: number
-  ticket?: number
-}
-
-interface OverviewExtra {
-  grafico: OverviewGraficoItem[]
-  vendedores?: OverviewVendedor[]
-  resumo?: { faturamentoDia?: number }
-}
 
 interface DashboardAdminUser {
   id: string
@@ -145,42 +110,16 @@ export function DashboardAdmin({
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
 
-  // ── fetch consolidado via Promise.all ───────────────────────────────────────
+  // ── fetch consolidado via serviço ────────────────────────────────────────────
   const fetchDados = useCallback(async (m: number, a: number) => {
     setLoadingKpi(true)
     try {
       const { startDate, endDate } = gerarPeriodo(m, a)
-      const qs = `startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
-
-      const [kpiRes, overviewRes] = await Promise.all([
-        fetch(`/api/indicadores/geral?${qs}`),
-        fetch(`/api/financeiro/overview?${qs}`),
-      ])
-
-      if (kpiRes.ok) {
-        const kpi = await kpiRes.json()
-        setIndicadores({
-          faturamento:  Number(kpi.faturamento  ?? 0),
-          despesas:     Number(kpi.despesas     ?? 0),
-          compras:      Number(kpi.compras      ?? 0),
-          lucro:        Number(kpi.lucro        ?? 0),
-          ticketMedio:  Number(kpi.ticketMedio  ?? 0),
-          estoqueTotal: Number(kpi.estoqueTotal ?? 0),
-          conversao:    Number(kpi.conversao    ?? 0),
-        })
-      } else {
-        setIndicadores(INDICADORES_ZERO)
-      }
-
-      if (overviewRes.ok) {
-        const ov = await overviewRes.json()
-        setOverviewExtra({
-          grafico: Array.isArray(ov?.grafico) ? ov.grafico : [],
-          vendedores: ov?.vendedores,
-          resumo: ov?.resumo,
-        })
-      }
-    } catch {
+      const data = await getDashboardData(startDate, endDate)
+      setIndicadores(data.indicadores)
+      setOverviewExtra(data.overview)
+    } catch (error) {
+      console.error("Erro ao carregar dashboard:", error)
       setIndicadores(INDICADORES_ZERO)
     } finally {
       setLoadingKpi(false)

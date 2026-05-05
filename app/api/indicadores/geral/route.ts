@@ -29,40 +29,45 @@ export async function GET(req: NextRequest) {
   const fetchOpts = { headers: authHeader, cache: "no-store" as const, signal: AbortSignal.timeout(10_000) }
 
   // Busca todas as fontes em paralelo
-  const [overviewRes, despesasRes, comprasRes, estoqueRes] = await Promise.allSettled([
+  const [overviewRes, despesasRes, comprasRes, estoqueRes, vendasRes] = await Promise.allSettled([
     fetch(`${BACKEND_URL}/api/financeiro/overview?${periodoStr}`, fetchOpts).then(r => r.ok ? r.json() : null).catch(() => null),
     fetch(`${BACKEND_URL}/payments-by-account-plan/pagar?${periodoStr}`, fetchOpts).then(r => r.ok ? r.json() : null).catch(() => null),
     fetch(`${BACKEND_URL}/dashboard/compras?${periodoStr}`, fetchOpts).then(r => r.ok ? r.json() : null).catch(() => null),
     fetch(`${BACKEND_URL}/dashboard/inventory`, fetchOpts).then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch(`${BACKEND_URL}/vendas?page=1&perPage=100&sort=data_saida:desc&${periodoStr}`, fetchOpts).then(r => r.ok ? r.json() : null).catch(() => null),
   ])
 
   const overview = overviewRes.status === "fulfilled" ? overviewRes.value : null
   const despesasData = despesasRes.status === "fulfilled" ? despesasRes.value : null
   const comprasData = comprasRes.status === "fulfilled" ? comprasRes.value : null
   const estoqueData = estoqueRes.status === "fulfilled" ? estoqueRes.value : null
+  const vendasData = vendasRes.status === "fulfilled" ? vendasRes.value : null
+
+  // ── Vendas reais ─────────────────────────────────────────────────────────────
+  const vendasRaw: any[] = Array.isArray(vendasData) ? vendasData : (vendasData?.data ?? [])
+  const totalVendas = vendasRaw.length
+  const faturamentoVendas = vendasRaw.reduce((acc, item) => acc + Number(item?.valor_total || 0), 0)
 
   // ── Faturamento ─────────────────────────────────────────────────────────────
-  const faturamento = Number(overview?.resumo?.faturamentoMes ?? 0)
-  const countVendas = Number(overview?.count ?? 0)
+  const faturamento = faturamentoVendas || Number(overview?.resumo?.faturamentoMes ?? 0)
+  const countVendas = totalVendas || Number(overview?.count ?? 0)
 
   // ── Conversão ───────────────────────────────────────────────────────────────
-  const vendas: any[] = overview?.data ?? []
-  const completed = vendas.filter((v: any) => v?.status === "completed").length
-  const pending = vendas.filter((v: any) => v?.status === "pending").length
+  const overviewVendas: any[] = overview?.data ?? []
+  const completed = overviewVendas.filter((v: any) => v?.status === "completed").length
+  const pending = overviewVendas.filter((v: any) => v?.status === "pending").length
   const conversao = (completed + pending) > 0 ? completed / (completed + pending) : 0
 
   // ── Despesas ────────────────────────────────────────────────────────────────
   const despesasRaw: any[] = Array.isArray(despesasData) ? despesasData : (despesasData?.data ?? [])
   const despesas = despesasRaw.reduce(
-    (acc, item) => acc + Number(item?.amount ?? item?.valor ?? item?.value ?? 0),
+    (acc, item) => acc + Number(item?.valor || 0),
     0
   )
 
   // ── Compras ─────────────────────────────────────────────────────────────────
   const comprasRaw: any[] = Array.isArray(comprasData) ? comprasData : (comprasData?.data ?? [])
-  const compras =
-    Number(comprasData?.total ?? comprasData?.totalCompras ?? 0) ||
-    comprasRaw.reduce((acc, item) => acc + Number(item?.amount ?? item?.valor ?? item?.value ?? item?.total ?? 0), 0)
+  const compras = comprasRaw.reduce((acc, item) => acc + Number(item?.valor_total || 0), 0)
 
   // ── Estoque ─────────────────────────────────────────────────────────────────
   const estoqueItens: any[] = Array.isArray(estoqueData) ? estoqueData : (estoqueData?.data ?? estoqueData?.items ?? [])
@@ -85,6 +90,7 @@ export async function GET(req: NextRequest) {
     compras,
     lucro,
     ticketMedio,
+    totalVendas: countVendas,
     estoqueTotal,
     conversao,
     _meta: {
@@ -93,6 +99,7 @@ export async function GET(req: NextRequest) {
         despesas: !!despesasData,
         compras: !!comprasData,
         estoque: !!estoqueData,
+        vendas: !!vendasData,
       },
     },
   })

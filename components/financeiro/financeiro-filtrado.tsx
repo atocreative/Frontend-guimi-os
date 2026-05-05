@@ -86,6 +86,10 @@ export function FinanceiroFiltrado({
   const [summary, setSummary] = useState<FinanceiroSummary | null>(initialSummary)
   const [summaryAnterior, setSummaryAnterior] = useState<FinanceiroSummary | null>(initialSummaryAnterior)
   const [despesas, setDespesas] = useState<DespesaItem[]>(initialDespesas)
+  const [totalDespesasApi, setTotalDespesasApi] = useState(
+    () => initialDespesas.reduce((acc, d) => acc + Number((d as any)?.valor || 0), 0)
+  )
+  const [totalComprasApi, setTotalComprasApi] = useState(0)
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState(false)
 
@@ -96,17 +100,19 @@ export function FinanceiroFiltrado({
     setErro(false)
     const ant = mesAnterior(m, a)
     const { startDate, endDate } = gerarPeriodo(m, a)
-    const [atual, anterior, despesasRes] = await Promise.all([
+    const params = `startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
+    const [atual, anterior, despesasRes, comprasRes] = await Promise.all([
       fetchSummaryPeriodo(m, a),
       fetchSummaryPeriodo(ant.mes, ant.ano),
-      fetch(`/api/financeiro/despesas?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`)
-        .then((r) => r.ok ? r.json() : [])
-        .catch(() => []),
+      fetch(`/api/financeiro/despesas?${params}`).then((r) => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch(`/api/financeiro/compras?${params}`).then((r) => r.ok ? r.json() : {}).catch(() => ({})),
     ])
     if (!atual) setErro(true)
     setSummary(atual)
     setSummaryAnterior(anterior)
-    setDespesas(Array.isArray(despesasRes) ? despesasRes : [])
+    setDespesas(Array.isArray(despesasRes?.raw) ? despesasRes.raw : [])
+    setTotalDespesasApi(Number(despesasRes?.total || 0))
+    setTotalComprasApi(Number(comprasRes?.total || 0))
     setLoading(false)
   }, [])
 
@@ -118,12 +124,13 @@ export function FinanceiroFiltrado({
 
   // KPIs mês atual
   const faturamento = Number(summary?.resumo?.faturamentoMes ?? 0)
-  const totalDespesas = Number(summary?.resumo?.despesasMes ?? 0)
-  const lucro = Number(summary?.resumo?.lucroLiquidoMes ?? 0)
+  const totalDespesas = totalDespesasApi
+  const totalCompras = totalComprasApi
+  const lucro = faturamento - totalDespesas - totalCompras
   const totalVendas = Number(summary?.resumo?.totalVendas ?? 0)
   const conversao = Number(summary?.resumo?.conversao ?? 0)
   const margem = faturamento > 0 ? (lucro / faturamento) * 100 : 0
-  const saldoCaixa = Math.max(0, faturamento - totalDespesas)
+  const saldoCaixa = Math.max(0, faturamento - totalDespesas - totalCompras)
 
   // Meta e progresso
   const percentualMeta = META_MES > 0 ? Math.min((faturamento / META_MES) * 100, 999) : 0

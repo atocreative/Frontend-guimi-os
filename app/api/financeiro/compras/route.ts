@@ -51,10 +51,7 @@ export async function GET(req: NextRequest) {
   // Normaliza: aceita array direto, { data: [] } ou { total, data }
   const raw: any[] = Array.isArray(data) ? data : (data?.data ?? [])
 
-  // Se o backend já enviar um total consolidado, usa direto
-  const totalCompras =
-    Number(data?.total ?? data?.totalCompras ?? 0) ||
-    raw.reduce((acc, item) => acc + Number(item?.amount ?? item?.valor ?? item?.value ?? item?.total ?? 0), 0)
+  const total = raw.reduce((acc, item) => acc + Number(item?.valor_total || 0), 0)
 
-  return NextResponse.json({ totalCompras, raw })
+  return NextResponse.json({ total, raw })
 }

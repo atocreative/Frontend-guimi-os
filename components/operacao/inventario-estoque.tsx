@@ -1,18 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, DollarSign, BarChart2 } from "lucide-react"
-
-export interface InventarioItem {
-  id?: string | number
-  product_name?: string
-  nome?: string
-  quantidade?: number
-  stock?: number
-  valorUnitario?: number
-  valor_unitario?: number
-  valor_estoque?: number
-  valorTotal?: number
-  [key: string]: unknown
-}
+import type { InventarioItem } from "@/lib/services/api"
 
 interface ItemNormalizado {
   id: string
