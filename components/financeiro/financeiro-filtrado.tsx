@@ -101,11 +101,12 @@ export function FinanceiroFiltrado({
     const ant = mesAnterior(m, a)
     const { startDate, endDate } = gerarPeriodo(m, a)
     const params = `startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
+    type ApiListResponse = { raw?: DespesaItem[]; total?: number }
     const [atual, anterior, despesasRes, comprasRes] = await Promise.all([
       fetchSummaryPeriodo(m, a),
       fetchSummaryPeriodo(ant.mes, ant.ano),
-      fetch(`/api/financeiro/despesas?${params}`).then((r) => r.ok ? r.json() : {}).catch(() => ({})),
-      fetch(`/api/financeiro/compras?${params}`).then((r) => r.ok ? r.json() : {}).catch(() => ({})),
+      fetch(`/api/financeiro/despesas?${params}`).then((r) => r.ok ? r.json() as Promise<ApiListResponse> : ({} as ApiListResponse)).catch(() => ({} as ApiListResponse)),
+      fetch(`/api/financeiro/compras?${params}`).then((r) => r.ok ? r.json() as Promise<ApiListResponse> : ({} as ApiListResponse)).catch(() => ({} as ApiListResponse)),
     ])
     if (!atual) setErro(true)
     setSummary(atual)
