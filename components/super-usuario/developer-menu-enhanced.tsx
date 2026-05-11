@@ -179,7 +179,7 @@ export function DeveloperMenuEnhanced({
                         <Badge variant="coming-soon" className="text-xs">EM BREVE</Badge>
                       )}
                       {isChanged && (
-                        <Badge className="text-xs bg-blue-500">ALTERADO</Badge>
+                        <Badge className="text-xs bg-blue-500 text-white">ALTERADO</Badge>
                       )}
                     </div>
                     {item.description && (

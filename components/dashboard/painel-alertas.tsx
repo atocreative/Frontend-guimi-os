@@ -1,6 +1,7 @@
 import { AlertTriangle, Info, Zap } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { ALERT_COLORS } from "@/lib/colors-config"
 
 interface Alerta {
   id: string
@@ -10,15 +11,15 @@ interface Alerta {
 
 export function PainelAlertas({ alertas }: { alertas: Alerta[] }) {
   const icones = {
-    urgente: <Zap className="h-3.5 w-3.5 text-red-500" />,
-    atencao: <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />,
-    info: <Info className="h-3.5 w-3.5 text-blue-500" />,
+    urgente: <Zap className={`h-3.5 w-3.5 ${ALERT_COLORS.urgente.icon}`} />,
+    atencao: <AlertTriangle className={`h-3.5 w-3.5 ${ALERT_COLORS.atencao.icon}`} />,
+    info: <Info className={`h-3.5 w-3.5 ${ALERT_COLORS.info.icon}`} />,
   }
 
   const cores = {
-    urgente: "border-red-500/20 bg-red-500/5",
-    atencao: "border-amber-500/20 bg-amber-500/5",
-    info: "border-blue-500/20 bg-blue-500/5",
+    urgente: ALERT_COLORS.urgente.bg,
+    atencao: ALERT_COLORS.atencao.bg,
+    info: ALERT_COLORS.info.bg,
   }
 
   return (

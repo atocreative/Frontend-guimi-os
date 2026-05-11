@@ -6,13 +6,10 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { isTaskAtrasada } from "@/lib/tarefas"
 import { useConfirmDialog } from "@/context/confirm-dialog-context"
+import { PRIORITY_COLORS } from "@/lib/colors-config"
 import type { TarefaDB } from "@/types/tarefas"
 
-const prioridadeCor: Record<Exclude<TarefaDB["priority"], null>, string> = {
-  ALTA: "bg-red-500/10 text-red-600 border-red-500/20",
-  MEDIA: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-  BAIXA: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20",
-}
+const prioridadeCor = PRIORITY_COLORS
 
 interface TarefaCardProps {
   tarefa: TarefaDB

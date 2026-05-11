@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { PERFORMANCE_LEVEL_COLORS } from "@/lib/colors-config"
 
 interface NivelBadgeProps {
   nivel: string
@@ -7,12 +8,7 @@ interface NivelBadgeProps {
   sequencia: number
 }
 
-const nivelCor: Record<string, string> = {
-  "Iniciante": "bg-zinc-500/10 text-zinc-600 border-zinc-500/20",
-  "Avançado": "bg-blue-500/10 text-blue-600 border-blue-500/20",
-  "Expert": "bg-purple-500/10 text-purple-600 border-purple-500/20",
-  "Lenda": "bg-amber-500/10 text-amber-600 border-amber-500/20",
-}
+const nivelCor = PERFORMANCE_LEVEL_COLORS
 
 const nivelBarra: Record<string, string> = {
   "Iniciante": "bg-zinc-500",
