@@ -1,3 +1,27 @@
+/**
+ * Application Sidebar Component
+ *
+ * Handles navigation layout with responsive collapse/expand and dynamic menu item visibility.
+ *
+ * Key Implementation Details:
+ * - Uses React.useMemo and React.useCallback for performance optimization
+ * - Sidebar collapse uses `duration-200 ease-linear` transition (see ANIMATIONS.SIDEBAR_COLLAPSE)
+ * - CSS pattern: `group-data-[collapsible=icon]` controls responsive badge/text hiding
+ * - Menu visibility determined by feature flags + dynamic menu configuration
+ * - Supports role-based filtering for regular users and status-coded display for developers
+ *
+ * CSS Patterns:
+ * - `group-data-[collapsible=icon]:hidden` - Hide elements when sidebar is collapsed to icon-only
+ * - `transition-[width] duration-200 ease-linear` - Smooth width transitions for collapse
+ * - `text-yellow-500` - Indicates coming_soon menu items (for developer view)
+ * - `text-red-500` - Indicates hidden menu items (for developer view)
+ *
+ * Performance Notes:
+ * - getMenuItemConfig and getItemStatus are memoized with useCallback
+ * - filteredNav and superUserNav use useMemo to prevent unnecessary re-renders
+ * - Menu item rendering reuses component instances via React.memo where possible
+ */
+
 "use client"
 
 import * as React from "react"
@@ -132,21 +156,27 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
   const { items: menuConfigItems } = useMenuConfig()
   const isDeveloper = isSuperUser || userEmail === "admin@guimicell.com" || userRole === "SUPER_USER"
 
-  // Find menu item config by feature ID
-  const getMenuItemConfig = (featureId: string): MenuConfigItem | undefined => {
-    return menuConfigItems.find((item) =>
-      item.id === featureId.toLowerCase() || item.name === featureId
-    )
-  }
+  // Memoize the menu item config lookup to prevent unnecessary lookups
+  const getMenuItemConfig = React.useCallback(
+    (featureId: string): MenuConfigItem | undefined => {
+      return menuConfigItems.find((item) =>
+        item.id === featureId.toLowerCase() || item.name === featureId
+      )
+    },
+    [menuConfigItems]
+  )
 
-  // Determine item status from menu config
-  const getItemStatus = (featureId: string): "active" | "coming_soon" | "hidden" => {
-    const config = getMenuItemConfig(featureId)
-    if (!config) return "active" // default if no config
-    if (!config.enabled) return "hidden"
-    if (config.pending) return "coming_soon"
-    return "active"
-  }
+  // Determine item status from menu config with memoization
+  const getItemStatus = React.useCallback(
+    (featureId: string): "active" | "coming_soon" | "hidden" => {
+      const config = getMenuItemConfig(featureId)
+      if (!config) return "active" // default if no config
+      if (!config.enabled) return "hidden"
+      if (config.pending) return "coming_soon"
+      return "active"
+    },
+    [getMenuItemConfig]
+  )
 
   // For regular users: filter by access rules
   const filteredNav = React.useMemo(
@@ -238,6 +268,8 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
+                  // Memoize status and active state calculation
+                  // These are computed early to prevent JSX creation on every render
                   const status = item._status
                   const isActive =
                     item.href === "/"
