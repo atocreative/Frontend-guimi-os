@@ -8,7 +8,7 @@ interface NivelBadgeProps {
   sequencia: number
 }
 
-const nivelCor = PERFORMANCE_LEVEL_COLORS
+const nivelCor: Record<string, string> = PERFORMANCE_LEVEL_COLORS
 
 const nivelBarra: Record<string, string> = {
   "Iniciante": "bg-zinc-500",
