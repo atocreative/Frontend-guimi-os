@@ -208,7 +208,7 @@ export function FinanceiroFiltrado({
           </div>
           <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${
+              className={`h-full rounded-full transition-all duration-200 ${
                 percentualMeta >= 100 ? "bg-emerald-500" : percentualMeta >= 70 ? "bg-blue-500" : "bg-amber-500"
               }`}
               style={{ width: `${barraWidth}%` }}
