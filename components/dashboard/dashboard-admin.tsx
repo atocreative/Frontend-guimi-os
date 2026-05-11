@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { KpiCard } from "@/components/dashboard/kpi-card"
+import { KpiSkeleton } from "@/components/dashboard/kpi-skeleton"
+import { GraficoVazio } from "@/components/dashboard/grafico-vazio"
 import { VendedoresRanking } from "@/components/dashboard/vendedores-ranking"
 import { PainelCompromissos } from "@/components/dashboard/painel-compromissos"
 import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
@@ -236,68 +238,90 @@ export function DashboardAdmin({
 
       {/* KPIs — linha 1: receita */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard
-          titulo="Faturamento do Dia"
-          valor={load(formatBRL(faturamentoDia))}
-          descricao={faturamentoDia > 0 ? "Hoje (real)" : "Aguardando dados"}
-          icone={DollarSign}
-          tendencia="up"
-        />
-        <KpiCard
-          titulo="Faturamento do Mês"
-          valor={load(formatBRL(faturamento))}
-          descricao={`${MESES[mes]} ${ano}`}
-          icone={Target}
-          tendencia="up"
-        />
-        <KpiCard
-          titulo="Lucro Líquido"
-          valor={load(formatBRL(lucro))}
-          descricao="Fat. − despesas − compras"
-          icone={TrendingUp}
-          tendencia={lucro >= 0 ? "up" : "down"}
-          destaque
-        />
-        <KpiCard
-          titulo="Ticket Médio"
-          valor={load(formatBRL(ticketMedio))}
-          descricao="Por venda (real)"
-          icone={ShoppingCart}
-          tendencia="up"
-        />
+        {loadingKpi ? (
+          <>
+            <KpiSkeleton />
+            <KpiSkeleton />
+            <KpiSkeleton destaque />
+            <KpiSkeleton />
+          </>
+        ) : (
+          <>
+            <KpiCard
+              titulo="Faturamento do Dia"
+              valor={load(formatBRL(faturamentoDia))}
+              descricao={faturamentoDia > 0 ? "Hoje (real)" : "Aguardando dados"}
+              icone={DollarSign}
+              tendencia="up"
+            />
+            <KpiCard
+              titulo="Faturamento do Mês"
+              valor={load(formatBRL(faturamento))}
+              descricao={`${MESES[mes]} ${ano}`}
+              icone={Target}
+              tendencia="up"
+            />
+            <KpiCard
+              titulo="Lucro Líquido"
+              valor={load(formatBRL(lucro))}
+              descricao="Fat. − despesas − compras"
+              icone={TrendingUp}
+              tendencia={lucro >= 0 ? "up" : "down"}
+              destaque
+            />
+            <KpiCard
+              titulo="Ticket Médio"
+              valor={load(formatBRL(ticketMedio))}
+              descricao="Por venda (real)"
+              icone={ShoppingCart}
+              tendencia="up"
+            />
+          </>
+        )}
       </div>
 
       {/* KPIs — linha 2: custos e posição */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard
-          titulo="Taxa de Conversão"
-          valor={load((conversao * 100).toFixed(1) + "%")}
-          descricao="Convertidas / Pendentes"
-          icone={Target}
-          tendencia="up"
-        />
-        <KpiCard
-          titulo="Total Despesas"
-          valor={load(formatBRL(despesas))}
-          descricao="Contas a pagar (real)"
-          icone={Receipt}
-          tendencia="down"
-        />
-        <KpiCard
-          titulo="Estoque Total"
-          valor={load(formatBRL(estoqueTotal))}
-          descricao="Valor em estoque (real)"
-          icone={Wallet}
-          tendencia="neutral"
-        />
-        <KpiCard
-          titulo="Saldo em Caixa"
-          valor={load(formatBRL(saldoCaixa))}
-          descricao="Fat. − despesas"
-          icone={PiggyBank}
-          tendencia={saldoCaixa > 0 ? "up" : "down"}
-          destaque
-        />
+        {loadingKpi ? (
+          <>
+            <KpiSkeleton />
+            <KpiSkeleton />
+            <KpiSkeleton />
+            <KpiSkeleton destaque />
+          </>
+        ) : (
+          <>
+            <KpiCard
+              titulo="Taxa de Conversão"
+              valor={load((conversao * 100).toFixed(1) + "%")}
+              descricao="Convertidas / Pendentes"
+              icone={Target}
+              tendencia="up"
+            />
+            <KpiCard
+              titulo="Total Despesas"
+              valor={load(formatBRL(despesas))}
+              descricao="Contas a pagar (real)"
+              icone={Receipt}
+              tendencia="down"
+            />
+            <KpiCard
+              titulo="Estoque Total"
+              valor={load(formatBRL(estoqueTotal))}
+              descricao="Valor em estoque (real)"
+              icone={Wallet}
+              tendencia="neutral"
+            />
+            <KpiCard
+              titulo="Saldo em Caixa"
+              valor={load(formatBRL(saldoCaixa))}
+              descricao="Fat. − despesas"
+              icone={PiggyBank}
+              tendencia={saldoCaixa > 0 ? "up" : "down"}
+              destaque
+            />
+          </>
+        )}
       </div>
 
       {/* Gráfico */}

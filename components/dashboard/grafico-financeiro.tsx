@@ -46,13 +46,20 @@ function tooltipFormatter(
 }
 
 export function GraficoFinanceiro({ dados, titulo }: GraficoFinanceiroProps) {
+  const isEmpty = !dados || dados.length === 0
+
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold">{titulo}</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={240}>
+        {isEmpty ? (
+          <div className="flex h-[240px] items-center justify-center text-muted-foreground">
+            <p className="text-sm">Sem dados para este período</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={240}>
           <ComposedChart data={dados} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
@@ -87,6 +94,7 @@ export function GraficoFinanceiro({ dados, titulo }: GraficoFinanceiroProps) {
             />
           </ComposedChart>
         </ResponsiveContainer>
+        )}
       </CardContent>
     </Card>
   )
