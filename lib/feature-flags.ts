@@ -114,15 +114,9 @@ export function isFeatureEnabled(
   const flag = FEATURE_FLAGS[featureName]
   if (!flag) return false
 
-  // Check if feature is enabled in feature flag manager
-  // Import here to avoid circular dependencies
-  try {
-    const { getFlagState } = require("@/lib/feature-flag-manager")
-    if (!getFlagState(flag.id)) return false
-  } catch (e) {
-    // Fallback to hardcoded enabled state if manager not available
-    if (!flag.enabled) return false
-  }
+  // Check hardcoded feature flag state
+  // (Backend state is now managed via hooks/useFeatureFlags + /api/dev-menu)
+  if (!flag.enabled) return false
 
   // If feature requires a specific role, check user has it
   if (flag.requiredRole && userRole !== flag.requiredRole) {
