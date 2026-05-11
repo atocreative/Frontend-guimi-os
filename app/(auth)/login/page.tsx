@@ -173,10 +173,10 @@ export default function LoginPage() {
         <Image src="/bg.jpg" alt="Background" fill className="object-cover z-0" priority />
         
         {/* Elementos Abstratos */}
-        <div className="absolute inset-0 z-1 pointer-events-none">
+        {/* <div className="absolute inset-0 z-1 pointer-events-none">
           <div className="absolute top-[15%] left-[5%] w-[60vw] h-[60vw] rounded-full bg-secondary/25 blur-[200px] animate-pulse duration-[6s]" />
           <div className="absolute bottom-[5%] right-[20%] w-[30vw] h-[30vw] rounded-full bg-white/10 blur-[100px] animate-pulse duration-[10s]" />
-        </div>
+        </div> */}
 
         {/* Texto Dinâmico */}
         <div className="relative z-10 w-full px-[5vw] pt-[10vh]">

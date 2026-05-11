@@ -36,12 +36,17 @@ export function TokenExpirationModal({ isOpen }: TokenExpirationModalProps) {
 
   return (
     <AlertDialog open={isOpen}>
-      <AlertDialogContent>
+      <AlertDialogContent className="p-6"> {/* p-6 aumenta o respiro interno do modal */}
         <AlertDialogTitle>Sessão Expirada</AlertDialogTitle>
         <AlertDialogDescription>
           Sua sessão expirou. Por favor, faça login novamente.
         </AlertDialogDescription>
-        <AlertDialogAction onClick={handleLogout}>
+        
+        {/* Adicionei mt-6 para empurrar o botão para baixo */}
+        <AlertDialogAction 
+          onClick={handleLogout}
+          className="mt-6 cursor-pointer hover:bg-primary/90 transition-colors"
+        >
           Voltar ao Login
         </AlertDialogAction>
       </AlertDialogContent>
