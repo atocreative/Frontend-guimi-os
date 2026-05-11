@@ -24,15 +24,6 @@ export default async function DashboardPage() {
     redirect("/login")
   }
 
-  console.log("[Dashboard Auth Debug]", {
-    hasSession: !!session,
-    hasUser: !!session?.user,
-    hasAccessToken: !!accessToken,
-    tokenLength: accessToken?.length,
-    tokenPrefix: accessToken?.substring(0, 50),
-    userRole: session?.user?.role,
-  })
-
   const role = session.user.role
   const isColaborador = role === "COLABORADOR"
   const now = new Date()

@@ -162,10 +162,6 @@ async function getAuthToken(): Promise<string | null> {
 
     cachedToken = newTokenStr
     tokenExpiry = now + 50 * 60 * 1000
-    console.log("[getAuthToken] Novo token obtido e validado com sucesso", {
-      tokenLength: newTokenStr.length,
-      expiryIn: "50 minutos",
-    })
     return cachedToken
   } catch (error) {
     if (error instanceof ApiError) {
@@ -192,24 +188,10 @@ async function executeRequest(
   const tokenOrNull = auth === "required" ? await getAuthToken() : undefined
   const token = tokenOrNull || undefined
 
-  console.log('[executeRequest]', {
-    path,
-    method: fetchOptions.method || 'GET',
-    hasToken: !!token,
-    auth,
-    params,
-  })
-
   const { response, data } = await backendFetch(path, {
     ...fetchOptions,
     params,
     token,
-  })
-
-  console.log('[executeRequest response]', {
-    path,
-    status: response.status,
-    statusText: response.statusText,
   })
 
   if (response.status === 401 && auth === "required" && retryUnauthorized) {
@@ -228,12 +210,6 @@ async function executeRequest(
     }
 
     if (response.status === 401 && auth === "required") {
-      console.warn("[api-client] 401 response", {
-        path,
-        hasToken: !!token,
-        tokenPreview: token ? `${token.slice(0, 20)}...` : null,
-        response: data,
-      })
       clearAuthTokenCache()
       // Trigger token expiration modal instead of throwing error
       if (tokenExpirationHandler) {
@@ -371,12 +347,10 @@ export const api = {
       password: string
     }>
   ) {
-    console.log("[UPDATE USER PAYLOAD]", payload)
     const data = await apiCall(`/api/users/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     })
-    console.log("[UPDATE USER APPLY]", data)
     return extractUserPayload(data)
   },
 

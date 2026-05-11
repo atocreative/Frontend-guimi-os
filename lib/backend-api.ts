@@ -181,20 +181,10 @@ export async function backendFetch(path: string, options: BackendFetchOptions = 
     // Validar formato básico do token JWT (deve ter 3 partes separadas por pontos)
     const tokenParts = tokenStr.split('.')
     if (tokenParts.length !== 3) {
-      console.error("[backendFetch] Formato de token inválido para:", path, {
-        tokenLength: tokenStr.length,
-        tokenParts: tokenParts.length,
-      })
+      console.error("[backendFetch] Formato de token inválido fornecido para:", path)
       throw new Error(`Formato de token inválido fornecido para requisição em ${path}`)
     }
 
-    console.log("[backendFetch] Token validado e aplicado:", {
-      path,
-      tokenLength: tokenStr.length,
-      tokenStart: tokenStr.substring(0, 30),
-      tokenEnd: tokenStr.substring(Math.max(0, tokenStr.length - 10)),
-      isJWT: tokenParts.length === 3,
-    })
     requestHeaders.set("Authorization", `Bearer ${tokenStr}`)
   } else if (!isPublicRoute) {
     console.warn("[backendFetch] Nenhum token fornecido para:", path)
