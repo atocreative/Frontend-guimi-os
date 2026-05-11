@@ -86,6 +86,14 @@ export const FEATURE_FLAGS: Record<string, FeatureFlag> = {
     enabled: true,
   },
 
+  // Integrations module
+  INTEGRACOES: {
+    id: 'integracoes',
+    name: 'Integrações',
+    description: 'Integration management and synchronization',
+    enabled: true,
+  },
+
   // Configuration/Settings module
   CONFIGURACOES: {
     id: 'configuracoes',
@@ -154,6 +162,7 @@ export const PAGE_ROUTES: Record<string, PageRoute> = {
   PROCESSOS: { href: '/processos', title: 'Processos', enabled: true, featureId: 'PROCESSOS' },
   COLABORADORES: { href: '/colaboradores', title: 'Colaboradores', enabled: true, featureId: 'COLABORADORES' },
   INDICADORES: { href: '/indicadores', title: 'Indicadores', enabled: true, featureId: 'INDICADORES' },
+  INTEGRACOES: { href: '/integracoes', title: 'Integrações', enabled: true, featureId: 'INTEGRACOES' },
   SUPORTE: { href: '/suporte', title: 'Suporte', enabled: true, featureId: 'SUPORTE' },
   CONFIGURACOES: { href: '/configuracoes', title: 'Configurações', enabled: true, featureId: 'CONFIGURACOES' },
   SUPER_USER: { href: '/super-usuario', title: 'Developer', enabled: true, featureId: 'SUPER_USER_DASHBOARD' },

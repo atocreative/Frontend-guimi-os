@@ -42,6 +42,7 @@ import {
   Sun,
   Code2,
   Moon,
+  Plug,
   type LucideIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -106,6 +107,7 @@ const navItems: NavGroup[] = [
     items: [
       { title: "Colaboradores", href: "/colaboradores", icon: Users, featureId: "COLABORADORES" },
       { title: "Indicadores", href: "/indicadores", icon: BarChart3, featureId: "INDICADORES" },
+      { title: "Integrações", href: "/integracoes", icon: Plug, featureId: "INTEGRACOES" },
       { title: "Configurações", href: "/configuracoes", icon: Settings, featureId: "CONFIGURACOES" },
     ],
   },
