@@ -176,7 +176,7 @@ export function DeveloperMenuEnhanced({
                         </Badge>
                       )}
                       {isDisabled && (
-                        <Badge variant="secondary" className="text-xs">EM BREVE</Badge>
+                        <Badge variant="coming-soon" className="text-xs">EM BREVE</Badge>
                       )}
                       {isChanged && (
                         <Badge className="text-xs bg-blue-500">ALTERADO</Badge>

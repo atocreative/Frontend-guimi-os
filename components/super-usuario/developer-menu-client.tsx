@@ -104,7 +104,7 @@ export function DeveloperMenuClient({ initialMenu }: DeveloperMenuClientProps) {
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-base">{item.name}</CardTitle>
                     {item.pending && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="coming-soon" className="text-xs">
                         EM BREVE
                       </Badge>
                     )}

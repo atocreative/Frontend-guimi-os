@@ -34,6 +34,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { Badge } from "@/components/ui/badge"
 import { FEATURE_FLAGS, isFeatureEnabled } from "@/lib/feature-flags"
 import { useMenuConfig, type MenuConfigItem } from "@/lib/menu-config-context"
 import { canAccessMenuItem } from "@/hooks/use-menu-visibility"
@@ -264,14 +265,14 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
                             <item.icon className="h-4 w-4" />
                             <span>{item.title}</span>
                             {status === "hidden" && (
-                              <span className="ml-auto text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded group-data-[collapsible=icon]:hidden">
+                              <Badge variant="destructive" className="text-[10px] group-data-[collapsible=icon]:hidden">
                                 oculto
-                              </span>
+                              </Badge>
                             )}
                             {status === "coming_soon" && (
-                              <span className="ml-auto text-[10px] bg-yellow-100 text-yellow-700 px-1 py-0.5 rounded group-data-[collapsible=icon]:hidden">
+                              <Badge variant="coming-soon" className="text-[10px] group-data-[collapsible=icon]:hidden">
                                 em breve
-                              </span>
+                              </Badge>
                             )}
                           </Link>
                         </SidebarMenuButton>
@@ -290,9 +291,9 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
                         >
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
-                          <span className="ml-auto text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded font-medium group-data-[collapsible=icon]:hidden">
+                          <Badge variant="coming-soon" className="text-xs group-data-[collapsible=icon]:hidden">
                             Em breve
-                          </span>
+                          </Badge>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     )

@@ -38,19 +38,17 @@ export function MenuConfigProvider({
   const [isLoading, setIsLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date>()
 
+  // Single consolidated effect for initialization to prevent race conditions
   useEffect(() => {
-    setItemsState(baseItems)
-  }, [baseItems])
-
-  // Keep server-provided items authoritative on initial dashboard load.
-  useEffect(() => {
+    // Case 1: Server-provided items are authoritative
     if (initialItems.length > 0) {
+      setItemsState(initialItems)
       setLastUpdated(new Date())
       return
     }
 
+    // Case 2: Try to load from localStorage
     const stored = loadMenuConfigFromStorage()
-
     if (stored && stored.length > 0) {
       const storedMap = new Map(stored.map((item) => [item.id, item]))
       const merged = baseItems.map((baseItem) => {
@@ -62,6 +60,8 @@ export function MenuConfigProvider({
       return
     }
 
+    // Case 3: Use default baseItems
+    setItemsState(baseItems)
     setLastUpdated(new Date())
   }, [baseItems, initialItems.length])
 
@@ -86,6 +86,8 @@ export function MenuConfigProvider({
         }
         return updated
       })
+      // Update timestamp on item change to track state mutations
+      setLastUpdated(new Date())
     },
     []
   )
