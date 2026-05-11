@@ -38,7 +38,7 @@ export function MenuConfigProvider({
   const [isLoading, setIsLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date>()
 
-  // Single consolidated effect for initialization to prevent race conditions
+  // Single consolidated effect for initialization with API validation
   useEffect(() => {
     // Case 1: Server-provided items are authoritative
     if (initialItems.length > 0) {
@@ -64,6 +64,41 @@ export function MenuConfigProvider({
     setItemsState(baseItems)
     setLastUpdated(new Date())
   }, [baseItems, initialItems.length])
+
+  // Fetch from API in background to validate/update state if stale
+  useEffect(() => {
+    if (typeof window === "undefined") return // SSR guard
+
+    const validateFromAPI = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch("/api/dev-menu", { cache: "no-store" })
+        if (response.ok) {
+          const apiItems = await response.json()
+          // Merge API response with current state (prefer API if response is valid)
+          if (Array.isArray(apiItems) && apiItems.length > 0) {
+            const apiMap = new Map(apiItems.map((item: any) => [item.id, item]))
+            const updated = items.map((item) =>
+              apiMap.get(item.id) ? { ...item, ...apiMap.get(item.id) } : item
+            )
+            setItemsState(updated)
+            saveMenuConfigToStorage(updated)
+            setLastUpdated(new Date())
+          }
+        }
+      } catch (error) {
+        // Silent fail: keep current state if API is down
+        console.debug("[MenuConfigProvider] API validation skipped:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    // Only validate after initial setup
+    if (items.length > 0) {
+      validateFromAPI()
+    }
+  }, []) // Run once on mount
 
   const setItems = useCallback((newItems: MenuConfigItem[]) => {
     setItemsState(newItems)

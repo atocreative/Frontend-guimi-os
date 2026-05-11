@@ -92,7 +92,7 @@ export function DeveloperMenuEnhanced({
 
       const promises = Object.keys(changes).map((itemId) => {
         const item = items.find((i) => i.id === itemId)
-        if (!item) return Promise.resolve()
+        if (!item) return Promise.resolve({ ok: true })
 
         // Use featureId for the API endpoint (e.g. COMERCIAL, not comercial)
         const featureId = ID_TO_FEATURE_ID.get(itemId) ?? itemId.toUpperCase()
@@ -103,11 +103,19 @@ export function DeveloperMenuEnhanced({
           allowedRoles: item.allowedRoles,
         }).catch((err) => {
           console.error(`Erro ao salvar ${featureId}:`, err)
-          // continue saving others even if one fails
+          return { ok: false, error: err }
         })
       })
 
-      await Promise.all(promises)
+      const results = await Promise.all(promises)
+      const hasErrors = results.some((r) => !r.ok)
+
+      if (hasErrors) {
+        toast.error("Erro ao salvar algumas alterações. Verifique a conexão.")
+        // Keep changes in UI so user can retry
+        return
+      }
+
       toast.success("Alterações salvas com sucesso!")
       setChanges({})
     } catch (error) {

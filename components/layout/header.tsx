@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { usePathname } from "next/navigation"
-import { signOut } from "next-auth/react"
+import { signOut } from "@/lib/logout-helper"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
