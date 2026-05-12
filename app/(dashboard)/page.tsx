@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth-session"
 import { DashboardAdmin } from "@/components/dashboard/dashboard-admin"
+import { DashboardGerente } from "@/components/dashboard/dashboard-gerente"
 import { DashboardColaborador } from "@/components/dashboard/dashboard-colaborador"
 import { backendFetch, extractTasksPayload, getSessionAccessToken } from "@/lib/backend-api"
 import {
@@ -26,6 +27,7 @@ export default async function DashboardPage() {
 
   const role = session.user.role
   const isColaborador = role === "COLABORADOR"
+  const isGerente = role === "GESTOR"
   const now = new Date()
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
@@ -79,7 +81,8 @@ export default async function DashboardPage() {
     now
   ).slice(0, 5)
 
-  if (!isColaborador) {
+  // Admin/SUPER_USER dashboard
+  if (!isColaborador && !isGerente) {
     return (
       <DashboardAdmin
         tarefasHoje={tarefasHoje}
@@ -92,6 +95,21 @@ export default async function DashboardPage() {
     )
   }
 
+  // Gerente dashboard
+  if (isGerente) {
+    return (
+      <DashboardGerente
+        tarefasHoje={tarefasHoje}
+        tarefasPendentes={tarefasPendentes}
+        currentUser={{ id: session.user.id }}
+        mes={currentMonth}
+        ano={currentYear}
+        availableYears={availableYears}
+      />
+    )
+  }
+
+  // Colaborador dashboard
   const { startDate, endDate } = getMonthRange()
   const start = new Date(startDate)
   const end = new Date(endDate)
