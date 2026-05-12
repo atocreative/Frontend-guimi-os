@@ -10,6 +10,7 @@ import {
   Target,
   TrendingUp,
   Wallet,
+  RefreshCw,
 } from "lucide-react"
 import {
   Select,
@@ -18,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { KpiSkeleton } from "@/components/dashboard/kpi-skeleton"
 import { GraficoVazio } from "@/components/dashboard/grafico-vazio"
@@ -26,6 +28,7 @@ import { PainelCompromissos } from "@/components/dashboard/painel-compromissos"
 import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
 import { Leaderboard } from "@/components/gamificacao/leaderboard"
 import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
+import { useIntegrationStatus } from "@/hooks/use-integration-status"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
 import { backendService } from "@/lib/services/backend-service"
@@ -55,7 +58,13 @@ const formatBRL = (valor: number) =>
     maximumFractionDigits: 2,
   }).format(valor)
 
-function gerarPeriodo(mes: number, ano: number) {
+function gerarPeriodo(mes: number, ano: number, dia?: number) {
+  if (dia) {
+    const start = new Date(Date.UTC(ano, mes, dia))
+    const end = new Date(Date.UTC(ano, mes, dia + 1) - 1)
+    return { startDate: start.toISOString(), endDate: end.toISOString() }
+  }
+
   const start = new Date(Date.UTC(ano, mes, 1))
   const end = new Date(Date.UTC(ano, mes + 1, 1) - 1)
   return { startDate: start.toISOString(), endDate: end.toISOString() }
@@ -104,41 +113,65 @@ export function DashboardAdmin({
   ano: anoProp,
   availableYears,
 }: DashboardAdminProps) {
-  const [mes, setMes] = useState(mesProp ?? 0)
-  const [ano, setAno] = useState(anoProp ?? availableYears[availableYears.length - 1] ?? 2024)
-
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth()
+  const currentDay = now.getDate()
+  const defaultYear = availableYears.filter((year) => year <= currentYear)
+  const initialYear = anoProp && anoProp <= currentYear
+    ? anoProp
+    : defaultYear[defaultYear.length - 1] ?? currentYear
+  const [mes, setMes] = useState(mesProp ?? currentMonth)
+  const [ano, setAno] = useState(initialYear)
+  const [dia, setDia] = useState<number | "">(mesProp === undefined && anoProp === undefined && initialYear === currentYear ? currentDay : "")
   const [indicadores, setIndicadores] = useState<IndicadoresGeral>(INDICADORES_ZERO)
   const [loadingKpi, setLoadingKpi] = useState(true)
   const [overviewExtra, setOverviewExtra] = useState<OverviewExtra | null>(null)
+  const [faturamentoDiaSelecionado, setFaturamentoDiaSelecionado] = useState<number | null>(null)
 
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
+  const { status: integrationStatus, refetch: refetchIntegrationStatus } = useIntegrationStatus()
+  const yearsDisponiveis = useMemo(() => availableYears.filter((year) => year <= currentYear), [availableYears, currentYear])
+  const mesesDisponiveis = useMemo(() => {
+    if (ano < currentYear) return MESES.map((nome, i) => ({ nome, value: i }))
+    return MESES.slice(0, currentMonth + 1).map((nome, i) => ({ nome, value: i }))
+  }, [ano, currentMonth, currentYear])
+  const diasDisponiveis = useMemo(() => {
+    const total = new Date(ano, mes + 1, 0).getDate()
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }, [ano, mes])
+  const diaValido = dia !== "" && dia <= diasDisponiveis.length ? dia : ""
 
+  useEffect(() => {
+    if (dia !== "" && dia > diasDisponiveis.length) {
+      setDia("")
+    }
+  }, [dia, diasDisponiveis.length])
   // ── fetch via /api/dashboard/summary ────────────────────────────────────────
-  const fetchDados = useCallback(async (m: number, a: number) => {
+  const fetchMensal = useCallback(async (m: number, a: number) => {
     setLoadingKpi(true)
     try {
-      const { startDate, endDate } = gerarPeriodo(m, a)
-      const summary = await getDashboardSummary({ startDate, endDate })
-      if (summary) {
+      const monthlySummary = await getDashboardSummary({ year: a, month: m })
+      if (monthlySummary) {
         setIndicadores({
-          faturamento: toNum(summary.faturamentoMes ?? summary.financeiro?.receita),
-          despesas:    toNum(summary.despesasMes ?? summary.financeiro?.despesasVariaveis),
-          compras:     toNum(summary.comprasMes),
-          lucro:       toNum(summary.lucroLiquidoMes ?? summary.financeiro?.netProfit),
-          ticketMedio: toNum(summary.ticketMedio),
+          faturamento: toNum(monthlySummary.faturamentoMes ?? monthlySummary.financeiro?.receita),
+          despesas:    toNum(monthlySummary.despesasMes ?? monthlySummary.financeiro?.despesasVariaveis),
+          compras:     toNum(monthlySummary.comprasMes),
+          lucro:       toNum(monthlySummary.lucroLiquidoMes ?? monthlySummary.financeiro?.netProfit),
+          ticketMedio: toNum(monthlySummary.ticketMedio),
           estoqueTotal: 0,
           conversao:   0,
         })
         setOverviewExtra({
-          grafico: (summary.grafico ?? []).map((item) => ({
+          grafico: (monthlySummary.grafico ?? []).map((item) => ({
             dia:     item.data,
             receita: item.entradas,
             custo:   item.saidas,
             lucro:   item.saldo,
           })),
-          resumo: { faturamentoDia: toNum(summary.faturamentoDia) },
+          resumo: { faturamentoDia: toNum(monthlySummary.faturamentoDia) },
         })
       } else {
         setIndicadores(INDICADORES_ZERO)
@@ -147,16 +180,39 @@ export function DashboardAdmin({
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error)
       setIndicadores(INDICADORES_ZERO)
+      setOverviewExtra(null)
     } finally {
       setLoadingKpi(false)
     }
   }, [])
 
-  useEffect(() => { fetchDados(mes, ano) }, [mes, ano, fetchDados])
+  const fetchDiario = useCallback(async (m: number, a: number, d: number | "") => {
+    if (d === "") {
+      setFaturamentoDiaSelecionado(null)
+      return
+    }
+
+    try {
+      const dailySummary = await getDashboardSummary({ year: a, month: m, day: d })
+      setFaturamentoDiaSelecionado(dailySummary ? toNum(dailySummary.faturamentoDia) : null)
+    } catch (error) {
+      console.error("Erro ao carregar resumo diário:", error)
+      setFaturamentoDiaSelecionado(null)
+    }
+  }, [])
+
+  useEffect(() => { fetchMensal(mes, ano) }, [mes, ano, fetchMensal])
+  useEffect(() => { fetchDiario(mes, ano, diaValido === "" ? "" : diaValido) }, [mes, ano, diaValido, fetchDiario])
+
+  // ── auto-refresh integration status após cada atualização de dados ──────────
+  useEffect(() => {
+    const timer = setTimeout(() => refetchIntegrationStatus(), 500)
+    return () => clearTimeout(timer)
+  }, [indicadores, refetchIntegrationStatus])
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
   const { faturamento, despesas, lucro, ticketMedio, estoqueTotal, conversao } = indicadores
-  const faturamentoDia = Number(overviewExtra?.resumo?.faturamentoDia ?? 0)
+  const faturamentoDia = diaValido !== "" ? Number(faturamentoDiaSelecionado ?? 0) : Number(overviewExtra?.resumo?.faturamentoDia ?? 0)
   const saldoCaixa = Math.max(0, faturamento - despesas)
 
   const dadosGrafico = useMemo(() =>
@@ -209,27 +265,54 @@ export function DashboardAdmin({
     <div className="space-y-6">
 
       {/* Cabeçalho + filtro de período */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold">Dashboard</h2>
           <p className="text-sm text-muted-foreground">Visão geral da operação Guimicell</p>
+          {integrationStatus?.lastSync && (
+            <Badge className="mt-2 bg-green-100 text-green-800">
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Sincronizado às {new Date(integrationStatus.lastSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </Badge>
+          )}
+          {integrationStatus.status === "concluido" && (
+            <Badge className="mt-2 ml-2 bg-emerald-100 text-emerald-800">
+              Dados históricos sincronizados
+            </Badge>
+          )}
         </div>
 
         <div className="flex gap-2">
-          <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
+          <Select value={String(mes)} onValueChange={(v) => {
+            setMes(Number(v))
+            setDia("")
+          }}>
             <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {MESES.map((nome, i) => (
-                <SelectItem key={i} value={String(i)}>{nome}</SelectItem>
+              {mesesDisponiveis.map((item) => (
+                <SelectItem key={item.value} value={String(item.value)}>{item.nome}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          <Select value={String(ano)} onValueChange={(v) => setAno(Number(v))}>
+          <Select value={String(ano)} onValueChange={(v) => {
+            setAno(Number(v))
+            setDia("")
+          }}>
             <SelectTrigger className="w-[90px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {availableYears.map((a) => (
+              {yearsDisponiveis.map((a) => (
                 <SelectItem key={a} value={String(a)}>{a}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={dia === "" ? "all" : String(dia)} onValueChange={(v) => setDia(v === "all" ? "" : Number(v))}>
+            <SelectTrigger className="w-[90px]"><SelectValue placeholder="Dia" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todo o mês</SelectItem>
+              {diasDisponiveis.map((d) => (
+                <SelectItem key={d} value={String(d)}>{d}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -250,7 +333,7 @@ export function DashboardAdmin({
             <KpiCard
               titulo="Faturamento do Dia"
               valor={load(formatBRL(faturamentoDia))}
-              descricao={faturamentoDia > 0 ? "Hoje (real)" : "Aguardando dados"}
+              descricao={diaValido ? `Dia ${diaValido}` : faturamentoDia > 0 ? "Hoje (real)" : "Aguardando dados"}
               icone={DollarSign}
               tendencia="up"
             />

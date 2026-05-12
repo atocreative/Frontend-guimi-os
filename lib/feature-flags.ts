@@ -36,6 +36,7 @@ export const FEATURE_FLAGS: Record<string, FeatureFlag> = {
     name: 'Financeiro',
     description: 'Financial data and reports',
     enabled: true,
+    requiredRole: 'ADMIN',
   },
 
   // Operations module

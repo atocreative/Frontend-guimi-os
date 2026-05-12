@@ -1,5 +1,6 @@
 import { getSessionAccessToken } from "@/lib/backend-api"
 import { getSession } from "@/lib/auth-session"
+import { protectPage } from "@/lib/route-protection"
 import { FinanceiroFiltrado } from "@/components/financeiro/financeiro-filtrado"
 import type { DashboardSummary } from "@/lib/types/dashboard"
 
@@ -37,6 +38,8 @@ async function fetchDashboardSummaryServer(
 }
 
 export default async function FinanceiroPage() {
+  await protectPage({ featureId: "FINANCEIRO", requiredRole: "ADMIN" })
+
   const session = await getSession()
   const accessToken = getSessionAccessToken(session)
 

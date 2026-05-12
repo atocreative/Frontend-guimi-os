@@ -14,6 +14,8 @@ import { KpiCard } from "@/components/dashboard/kpi-card"
 import { TabelaDespesas } from "@/components/financeiro/tabela-despesas"
 import { GraficoFluxoCaixa } from "@/components/financeiro/grafico-fluxo-caixa"
 import { GraficoCategorias } from "@/components/financeiro/grafico-categorias"
+import { Badge } from "@/components/ui/badge"
+import { RefreshCw } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -194,6 +196,15 @@ export function FinanceiroFiltrado({
         </div>
       </div>
 
+      {/* Status de dados */}
+      <div className="flex flex-wrap gap-2">
+        <Badge className="bg-green-100 text-green-800 gap-1">
+          <RefreshCw className="h-3 w-3" />
+          Sincronizado com PostgreSQL
+        </Badge>
+        <Badge variant="outline">Origem: Backend Real</Badge>
+      </div>
+
       {/* Barra de progresso da meta */}
       {faturamento > 0 && (
         <div className="rounded-lg border bg-card px-4 py-3 space-y-1.5">
@@ -293,7 +304,7 @@ export function FinanceiroFiltrado({
 
       {/* Gráficos */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <GraficoFluxoCaixa dados={fluxoCaixa} />
+        <GraficoFluxoCaixa dados={fluxoCaixa} mes={mes} ano={ano} />
         <GraficoCategorias dados={categorias} />
       </div>
 

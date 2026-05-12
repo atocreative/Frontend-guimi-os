@@ -1,8 +1,10 @@
 "use client"
 
+import { useMemo } from "react"
 import { useSyncStatus } from "@/hooks/use-sync-status"
+import { useIntegrationStatus } from "@/hooks/use-integration-status"
 import { toast } from "sonner"
-import { RefreshCw, CheckCircle2, AlertCircle, Plug, FileText, Database } from "lucide-react"
+import { RefreshCw, CheckCircle2, AlertCircle, Plug, FileText, Database, Clock } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -37,33 +39,70 @@ const INTEGRATIONS = [
   },
 ]
 
+function formatDateTime(date?: Date) {
+  if (!date) return "Nenhuma sincronização realizada"
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date)
+}
+
+function formatDuration(duration?: number) {
+  if (!duration) return "—"
+  return `${(duration / 1000).toFixed(1)}s`
+}
+
+function getStatusLabel(status?: string) {
+  switch (status) {
+    case "sincronizando_historico":
+      return "Sincronizando histórico"
+    case "processando":
+      return "Processando"
+    case "concluido":
+      return "Concluído"
+    case "erro":
+      return "Erro"
+    default:
+      return "Aguardando"
+  }
+}
+
 export default function IntegracoesPpage() {
   const { state, isLoading, logs, lastSyncTime, sync } = useSyncStatus()
+  const { status: integrationStatus } = useIntegrationStatus(15000)
 
   const handleSync = async () => {
-    await sync()
+    const ok = await sync()
 
-    if (state === "success") {
+    if (ok) {
       toast.success("Sincronização concluída com sucesso!")
-    } else if (state === "error") {
+    } else {
       toast.error("Erro ao sincronizar integrações")
     }
   }
 
-  const formatTime = (date: Date) => {
-    return new Intl.DateTimeFormat("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    }).format(date)
-  }
+  const latestLog = logs[0]
+  const totalImported = useMemo(() => {
+    if (integrationStatus.recordsProcessed) return integrationStatus.recordsProcessed
+    return latestLog?.recordsProcessed ?? 0
+  }, [integrationStatus.recordsProcessed, latestLog?.recordsProcessed])
+  const totalRecords = useMemo(() => {
+    if (integrationStatus.registrosTotal) return integrationStatus.registrosTotal
+    return latestLog?.recordsTotal ?? totalImported
+  }, [integrationStatus.registrosTotal, latestLog?.recordsTotal, totalImported])
+  const progress = totalRecords > 0 ? Math.min((totalImported / totalRecords) * 100, 100) : 0
+  const source = integrationStatus.source ?? "PostgreSQL"
+  const cronStatus = integrationStatus.cronStatus ?? "ativo"
+  const currentStatus = getStatusLabel(integrationStatus.status)
+  const statusTone = integrationStatus.status === "erro" ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Integrações</h1>
         <p className="text-muted-foreground">
@@ -71,17 +110,20 @@ export default function IntegracoesPpage() {
         </p>
       </div>
 
-      {/* Status e Botão de Sincronização */}
       <Card>
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <div>
-              <CardTitle>Status Geral de Sincronização</CardTitle>
-              <CardDescription>
-                {lastSyncTime
-                  ? `Última sincronização: ${formatTime(lastSyncTime)}`
-                  : "Nenhuma sincronização realizada"}
-              </CardDescription>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2">
+              <CardTitle>Status de sincronização</CardTitle>
+              <CardDescription>{formatDateTime(lastSyncTime)}</CardDescription>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Badge className={`gap-1 ${statusTone}`}>
+                  {integrationStatus.status === "erro" ? <AlertCircle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+                  {currentStatus}
+                </Badge>
+                <Badge variant="outline">Origem principal: {source}</Badge>
+                <Badge variant="outline">Cron: {cronStatus}</Badge>
+              </div>
             </div>
             <Button
               onClick={handleSync}
@@ -95,34 +137,59 @@ export default function IntegracoesPpage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Status de carregamento */}
-          {isLoading && (
-            <p className="text-sm text-blue-600 flex items-center gap-2">
-              <span className="inline-block w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
-              Sincronizando integrações...
-            </p>
-          )}
-
-          {/* Status badge */}
-          {state === "success" && (
-            <div className="flex items-center gap-2 text-sm text-green-600">
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Sincronização concluída com sucesso</span>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border bg-background p-3">
+              <p className="text-xs text-muted-foreground">Total registros importados</p>
+              <p className="mt-1 text-2xl font-semibold">{totalImported.toLocaleString("pt-BR")}</p>
             </div>
-          )}
-
-          {state === "error" && (
-            <div className="flex items-center gap-2 text-sm text-red-600">
-              <AlertCircle className="h-4 w-4" />
-              <span>Erro na sincronização. Tente novamente.</span>
+            <div className="rounded-lg border bg-background p-3">
+              <p className="text-xs text-muted-foreground">Registros processados</p>
+              <p className="mt-1 text-2xl font-semibold">{(integrationStatus.recordsProcessed ?? latestLog?.recordsProcessed ?? 0).toLocaleString("pt-BR")}</p>
             </div>
-          )}
+            <div className="rounded-lg border bg-background p-3">
+              <p className="text-xs text-muted-foreground">Tempo</p>
+              <p className="mt-1 text-2xl font-semibold">{formatDuration(latestLog?.duration)}</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Progresso da importação histórica</span>
+              <span className="font-medium">{Math.round(progress)}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+            {isLoading && (
+              <span className="inline-flex items-center gap-2 text-blue-600">
+                <Clock className="h-4 w-4" />
+                Sincronizando histórico
+              </span>
+            )}
+            {!isLoading && integrationStatus.status === "concluido" && (
+              <span className="inline-flex items-center gap-2 text-emerald-600">
+                <CheckCircle2 className="h-4 w-4" />
+                Dados históricos sincronizados
+              </span>
+            )}
+            {integrationStatus.status === "erro" && (
+              <span className="inline-flex items-center gap-2 text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                Erro na sincronização
+              </span>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Grid de Integrações */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Integrações Disponíveis</h2>
+        <h2 className="mb-4 text-lg font-semibold">Integrações Disponíveis</h2>
         <div className="grid gap-4 md:grid-cols-3">
           {INTEGRATIONS.map((integration) => {
             const Icon = integration.icon
@@ -131,7 +198,7 @@ export default function IntegracoesPpage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
-                      <div className="mt-1 p-2 bg-muted rounded-lg">
+                      <div className="mt-1 rounded-lg bg-muted p-2">
                         <Icon className="h-4 w-4" />
                       </div>
                       <div>
@@ -141,21 +208,21 @@ export default function IntegracoesPpage() {
                         </CardDescription>
                       </div>
                     </div>
-                    <Badge className="bg-green-100 text-green-800 text-xs">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                    <Badge className="bg-green-100 text-xs text-green-800">
+                      <CheckCircle2 className="mr-1 h-3 w-3" />
                       Conectado
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">
                       Última sincronização
                     </p>
                     <p className="text-sm">{integration.lastSync}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">
                       Dados sincronizados
                     </p>
                     <div className="flex flex-wrap gap-1">
@@ -173,7 +240,6 @@ export default function IntegracoesPpage() {
         </div>
       </div>
 
-      {/* Histórico de Sincronizações */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Histórico de Sincronizações</CardTitle>
@@ -187,26 +253,28 @@ export default function IntegracoesPpage() {
           ) : (
             <div className="space-y-2">
               {logs.map((log) => (
-                <div key={log.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3 flex-1">
+                <div key={log.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex flex-1 items-center gap-3">
                     {log.status === "success" ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-green-600" />
                     ) : (
-                      <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                      <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-600" />
                     )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{log.message}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{log.message}</p>
                       <p className="text-xs text-muted-foreground">
-                        {formatTime(log.timestamp)}
-                        {log.duration && ` • ${(log.duration / 1000).toFixed(1)}s`}
+                        {formatDateTime(log.timestamp)}
+                        {log.duration && ` • ${formatDuration(log.duration)}`}
+                        {(log.recordsProcessed || log.recordsTotal) &&
+                          ` • ${log.recordsProcessed?.toLocaleString("pt-BR") ?? 0}/${log.recordsTotal?.toLocaleString("pt-BR") ?? 0}`}
                       </p>
                     </div>
                   </div>
                   <Badge
                     className={
                       log.status === "success"
-                        ? "bg-green-100 text-green-800 ml-2"
-                        : "bg-red-100 text-red-800 ml-2"
+                        ? "ml-2 bg-green-100 text-green-800"
+                        : "ml-2 bg-red-100 text-red-800"
                     }
                   >
                     {log.status === "success" ? "Sucesso" : "Erro"}

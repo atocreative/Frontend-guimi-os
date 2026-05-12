@@ -49,9 +49,41 @@ export async function syncFoneNinja(): Promise<SyncResponse> {
   }
 }
 
-export async function getIntegrationStatus() {
+export interface IntegrationStatusResponse {
+  status:
+    | "sincronizando"
+    | "sincronizando_historico"
+    | "processando"
+    | "concluido"
+    | "atualizado"
+    | "erro"
+    | "aguardando"
+  lastSync?: string // ISO timestamp
+  recordsProcessed?: number
+  registrosTotal?: number
+  nextSyncIn?: number // milliseconds
+  backendStatus?: "online" | "offline"
+  dbStatus?: "online" | "offline"
+  foneninjaStatus?: "online" | "offline"
+  message?: string
+  _meta?: {
+    source?: "PostgreSQL" | "FoneNinja" | string
+    cronStatus?: "ativo" | "parado" | "atrasado" | string
+  }
+}
+
+export async function getIntegrationStatus(): Promise<IntegrationStatusResponse | null> {
   try {
-    const res = await fetch(`${BACKEND_URL}/integrations/status`)
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("__session_token")
+      : null
+
+    const res = await fetch(`${BACKEND_URL}/integrations/status`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    })
+
     if (!res.ok) return null
     return await res.json()
   } catch {

@@ -1,11 +1,17 @@
 import type { DashboardSummary } from "@/lib/types/dashboard"
 
 export async function getDashboardSummary(params: {
-  startDate: string
-  endDate: string
+  year: number
+  month: number
+  day?: number
 }): Promise<DashboardSummary | null> {
   try {
-    const qs = new URLSearchParams(params).toString()
+    const qs = new URLSearchParams(
+      Object.entries(params).reduce<Record<string, string>>((acc, [key, value]) => {
+        if (value !== undefined) acc[key] = String(value)
+        return acc
+      }, {}),
+    ).toString()
     const res = await fetch(`/api/dashboard/summary?${qs}`, { cache: "no-store" })
 
     if (!res.ok) {

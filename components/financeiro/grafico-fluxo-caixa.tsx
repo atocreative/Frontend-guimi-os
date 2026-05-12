@@ -19,6 +19,8 @@ interface GraficoFluxoCaixaProps {
     saidas: number
     saldo: number
   }>
+  mes?: number
+  ano?: number
 }
 
 function brl(valor: number) {
@@ -40,13 +42,18 @@ function tooltipFormatter(
   return brl(value)
 }
 
-export function GraficoFluxoCaixa({ dados }: GraficoFluxoCaixaProps) {
+const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+
+export function GraficoFluxoCaixa({ dados, mes = new Date().getMonth(), ano = new Date().getFullYear() }: GraficoFluxoCaixaProps) {
+  const mesNome = MESES[mes] || "Mês"
+  const titulo = `Fluxo de Caixa — ${mesNome} ${ano}`
+
   if (dados.length === 0) {
     return (
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">
-            Fluxo de Caixa — Março 2026
+            {titulo}
           </CardTitle>
           <p className="text-xs text-muted-foreground">
             Realizado + projeção até fim do mês
@@ -63,7 +70,7 @@ export function GraficoFluxoCaixa({ dados }: GraficoFluxoCaixaProps) {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold">
-          Fluxo de Caixa — Março 2026
+          {titulo}
         </CardTitle>
         <p className="text-xs text-muted-foreground">
           Realizado + projeção até fim do mês
