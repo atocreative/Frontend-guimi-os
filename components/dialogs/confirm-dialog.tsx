@@ -83,7 +83,7 @@ export const ConfirmDialog = ({ ref }: ConfirmDialogProps) => {
           </Button>
           <AlertDialogAction
             onClick={handleConfirm}
-            className={isDangerous ? "bg-destructive hover:bg-destructive/90" : ""}
+            className={isDangerous ? "cursor-pointer rounded-md p-3 bg-destructive hover:bg-destructive/90" : ""}
           >
             {confirmText}
           </AlertDialogAction>
