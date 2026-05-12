@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
-interface SaleRow {
+export interface SaleRow {
   id?: string | number
   produto?: string
   nome_produto?: string

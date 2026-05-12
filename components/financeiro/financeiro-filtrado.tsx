@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { TabelaDespesas } from "@/components/financeiro/tabela-despesas"
+import { TabelaEntradas } from "@/components/financeiro/tabela-entradas"
 import { GraficoFluxoCaixa } from "@/components/financeiro/grafico-fluxo-caixa"
 import { GraficoCategorias } from "@/components/financeiro/grafico-categorias"
 import { Badge } from "@/components/ui/badge"
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/select"
 import type { DashboardSummary } from "@/lib/types/dashboard"
 import type { DespesaItem } from "@/components/financeiro/tabela-despesas"
+import type { SaleRow } from "@/components/financeiro/tabela-entradas"
 
 const META_MES = 100_000
 
@@ -93,6 +95,7 @@ export function FinanceiroFiltrado({
   const [summary, setSummary] = useState<DashboardSummary | null>(initialSummary)
   const [summaryAnterior, setSummaryAnterior] = useState<DashboardSummary | null>(initialSummaryAnterior)
   const [despesas, setDespesas] = useState<DespesaItem[]>([])
+  const [entradas, setEntradas] = useState<SaleRow[]>([])
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState(false)
 
@@ -106,10 +109,13 @@ export function FinanceiroFiltrado({
     const params = `startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
     type ApiListResponse = { raw?: DespesaItem[]; total?: number }
 
-    const [atual, anterior, despesasRes] = await Promise.all([
+    const [atual, anterior, despesasRes, entradasRes] = await Promise.all([
       fetchSummaryPeriodo(m, a),
       fetchSummaryPeriodo(ant.mes, ant.ano),
       fetch(`/api/financeiro/despesas?${params}`)
+        .then((r) => r.ok ? r.json() as Promise<ApiListResponse> : ({} as ApiListResponse))
+        .catch(() => ({} as ApiListResponse)),
+      fetch(`/api/financeiro/compras?${params}`)
         .then((r) => r.ok ? r.json() as Promise<ApiListResponse> : ({} as ApiListResponse))
         .catch(() => ({} as ApiListResponse)),
     ])
@@ -118,6 +124,7 @@ export function FinanceiroFiltrado({
     setSummary(atual)
     setSummaryAnterior(anterior)
     setDespesas(Array.isArray(despesasRes?.raw) ? despesasRes.raw : [])
+    setEntradas(Array.isArray(entradasRes?.raw) ? entradasRes.raw : [])
     setLoading(false)
   }, [])
 
@@ -308,7 +315,10 @@ export function FinanceiroFiltrado({
         <GraficoCategorias dados={categorias} />
       </div>
 
-      <TabelaDespesas despesas={despesas} />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <TabelaDespesas despesas={despesas} />
+        <TabelaEntradas entradas={entradas} />
+      </div>
     </div>
   )
 }
