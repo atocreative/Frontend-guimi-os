@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { syncFoneNinja } from "@/lib/services/integrations-service"
 
 export type SyncState = "idle" | "syncing" | "success" | "error"
 
@@ -53,36 +54,33 @@ export function useSyncStatus(): UseSyncStatusReturn {
     const startTime = Date.now()
 
     try {
-      // Simular chamada para API de sync
-      // Em produção: await fetch("/api/sync", { method: "POST" })
-      await new Promise((resolve) => setTimeout(resolve, 2000 + Math.random() * 2000))
+      const result = await syncFoneNinja()
+      const duration = Date.now() - startTime
 
-      const newLog: SyncLog = {
-        id: Date.now().toString(),
-        timestamp: new Date(),
-        status: "success",
-        message: "Sincronização manual concluída",
-        duration: Date.now() - startTime,
+      if (result.success) {
+        const newLog: SyncLog = {
+          id: Date.now().toString(),
+          timestamp: new Date(),
+          status: "success",
+          message: `Sincronização concluída: ${result.data?.recordsProcessed || 0} registros`,
+          duration,
+        }
+        setLogs((prev) => [newLog, ...prev])
+        setState("success")
+        setTimeout(() => setState("idle"), 3000)
+      } else {
+        throw new Error(result.message)
       }
-
-      setLogs((prev) => [newLog, ...prev])
-      setState("success")
-
-      // Reset ao sucesso após 3s
-      setTimeout(() => setState("idle"), 3000)
     } catch (error) {
       const newLog: SyncLog = {
         id: Date.now().toString(),
         timestamp: new Date(),
         status: "error",
-        message: "Falha na sincronização",
+        message: error instanceof Error ? error.message : "Erro desconhecido",
         duration: Date.now() - startTime,
       }
-
       setLogs((prev) => [newLog, ...prev])
       setState("error")
-
-      // Reset ao erro após 5s
       setTimeout(() => setState("idle"), 5000)
     }
   }, [])
