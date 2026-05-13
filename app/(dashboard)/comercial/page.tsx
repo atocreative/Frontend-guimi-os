@@ -2,21 +2,43 @@ import { Clock, CheckCircle2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { MetricasComercial } from "@/components/comercial/metricas-comercial"
 import { LeadCard } from "@/components/comercial/lead-card"
-import { getComercialDashboard, getComercialLeads, getComercialConversations, getKommoStatus } from "@/lib/services/comercial-service"
+import { getComercialLeads } from "@/lib/services/comercial-service"
 import { mockLeads, mockMetricas } from "./data/mock"
 
-export default async function ComercialPage() {
-  const [dashboard, leads, conversas, kommoStatus] = await Promise.all([
-    getComercialDashboard(),
-    getComercialLeads(),
-    getComercialConversations(),
-    getKommoStatus(),
-  ]).catch(() => [null, null, null, null])
+function calcularMetricas(leads: any[]) {
+  if (!leads || leads.length === 0) return mockMetricas
 
-  const metricas = dashboard?.metricas || mockMetricas
+  const totalLeads = leads.length
+  const leadsAtivos = leads.filter((l) => l.etapa !== "fechado_ganho" && l.etapa !== "fechado_perdido").length
+  const leadsSemFollowUp = leads.filter((l) => !l.proximoFollowUp && (l.diasParado || 0) >= 3).length
+  const leadsGanhos = leads.filter((l) => l.etapa === "fechado_ganho").length
+  const taxaConversao = totalLeads > 0 ? Math.round((leadsGanhos / totalLeads) * 100) : 0
+  const ticketMedio = totalLeads > 0 ? Math.round(leads.reduce((acc, l) => acc + (l.valor || 0), 0) / totalLeads) : 0
+  const volumePipeline = leads.reduce((acc, l) => acc + (l.valor || 0), 0)
+
+  return {
+    totalLeads,
+    leadsAtivos,
+    leadsSemFollowUp,
+    taxaConversao,
+    ticketMedio,
+    volumePipeline,
+    leadsPorEtapa: {
+      novo_contato: leads.filter((l) => l.etapa === "novo_contato").length,
+      em_negociacao: leads.filter((l) => l.etapa === "em_negociacao").length,
+      proposta_enviada: leads.filter((l) => l.etapa === "proposta_enviada").length,
+      fechado_ganho: leadsGanhos,
+      fechado_perdido: leads.filter((l) => l.etapa === "fechado_perdido").length,
+    },
+  }
+}
+
+export default async function ComercialPage() {
+  const leads = await getComercialLeads().catch(() => null)
 
   const leadsData = leads || mockLeads
-  const lastSync = dashboard?.lastSync || new Date().toISOString()
+  const metricas = calcularMetricas(leadsData)
+  const lastSync = new Date().toISOString()
 
   return (
     <div className="space-y-6">
@@ -67,15 +89,6 @@ export default async function ComercialPage() {
         </div>
       </div>
 
-      {/* Conversas abertas */}
-      {conversas && conversas.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold mb-3">Conversas Ativas</h3>
-          <p className="text-sm text-muted-foreground">
-            {conversas.length} conversa(s) ativa(s)
-          </p>
-        </div>
-      )}
     </div>
   )
 }
