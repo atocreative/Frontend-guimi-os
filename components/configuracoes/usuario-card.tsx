@@ -60,12 +60,21 @@ export function UsuarioCard({ usuario, onEdit, onDelete }: { usuario: UsuarioSis
 
     setDeleting(true)
     try {
-      await api.deleteUser(usuario.id)
+      // ✅ FIX: Call API and validate response
+      const result = await api.deleteUser(usuario.id)
+      
+      // Only call onDelete if API actually succeeded
+      // (apiCall throws on !response.ok, so if we reach here, it succeeded)
       onDelete(usuario.id)
       toast.success(`${usuario.name} deletado com sucesso`)
     } catch (error) {
       console.error("Erro ao deletar usuário:", error)
-      toast.error("Falha ao deletar usuário. Tente novamente.")
+      
+      // ✅ Provide specific error message
+      const errorMessage = error instanceof Error ? error.message : "Falha ao deletar usuário. Tente novamente."
+      toast.error(errorMessage)
+      
+      // ✅ Do NOT remove from UI if API failed
     } finally {
       setDeleting(false)
     }

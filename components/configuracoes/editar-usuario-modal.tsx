@@ -117,15 +117,28 @@ export function EditarUsuarioModal({
       console.log("[EditarUsuarioModal] updatePayload:", updatePayload)
 
       const usuarioAtualizado = await api.updateUser(usuario.id, updatePayload)
+      
+      // ✅ FIX: Detect role change and warn about session
+      const roleChanged = usuario.role !== usuarioAtualizado.role
+      
       onSaved(usuarioAtualizado)
-      toast.success(`${usuarioAtualizado.name} atualizado com sucesso`)
+      
+      // Show different message if role changed
+      if (roleChanged) {
+        toast.success(
+          `${usuarioAtualizado.name} atualizado! ${usuarioAtualizado.name === usuario.name ? "Usuário precisa fazer logout/login para ver novo nível de acesso." : ""}`
+        )
+      } else {
+        toast.success(`${usuarioAtualizado.name} atualizado com sucesso`)
+      }
+      
       onClose()
     } catch (error) {
       console.error("Erro ao atualizar usuário:", error)
       if (error instanceof ApiError) {
         setErro(error.message)
       } else {
-        setErro("Erro ao atualizar usuário.")
+        setErro("Erro ao atualizar usuário. Verifique os dados e tente novamente.")
       }
     } finally {
       setSalvando(false)
@@ -149,6 +162,15 @@ export function EditarUsuarioModal({
           {erro && (
             <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-600">
               {erro}
+            </div>
+          )}
+
+          {usuario && form.role !== usuario.role && (
+            <div className="rounded-lg bg-amber-500/10 p-3 text-sm text-amber-700">
+              <p className="font-medium">⚠️ Nível de acesso será alterado</p>
+              <p className="text-xs mt-1">
+                Se o usuário está logado, ele precisará fazer logout e login novamente para ver o novo nível de acesso.
+              </p>
             </div>
           )}
 
