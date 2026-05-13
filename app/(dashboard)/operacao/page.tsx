@@ -22,7 +22,7 @@ export default async function OperacaoPage() {
         </p>
       </div>
 
-      {/* Resumo operacional (mock enquanto não há endpoint dedicado) */}
+      {/* Resumo operacional */}
       <ResumoOperacao resumo={mockResumoOperacao} />
 
       {/* Inventário real do backend */}
@@ -43,7 +43,7 @@ export default async function OperacaoPage() {
         </div>
       )}
 
-      {/* Trade-ins (mock — endpoint não disponível ainda) */}
+      {/* Trade-ins (mock) */}
       <div>
         <h3 className="text-sm font-semibold mb-3">
           Trade-ins Recebidos
