@@ -28,7 +28,7 @@ export const FEATURE_FLAGS: Record<string, FeatureFlag> = {
     name: 'Comercial',
     description: 'Sales and leads management (Kommo CRM integration)',
     enabled: true,
-    requiredRole: 'GERENTE', // Available for GERENTE, ADMIN, SUPER_USER
+    requiredRole: 'GESTOR', // Available for GESTOR, ADMIN, SUPER_USER
   },
 
   // Financial module

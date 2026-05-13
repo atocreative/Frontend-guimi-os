@@ -1,10 +1,19 @@
 'use client'
 
 export interface ComercialMetricas {
+  totalLeads: number
   leadsAtivos: number
   leadsSemFollowUp: number
   taxaConversao: number
+  ticketMedio: number
   volumePipeline: number
+  leadsPorEtapa: {
+    novo_contato: number
+    em_negociacao: number
+    proposta_enviada: number
+    fechado_ganho: number
+    fechado_perdido: number
+  }
 }
 
 export interface ComercialDashboard {

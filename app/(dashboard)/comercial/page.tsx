@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { MetricasComercial } from "@/components/comercial/metricas-comercial"
 import { LeadCard } from "@/components/comercial/lead-card"
 import { getComercialDashboard, getComercialLeads, getComercialConversations, getKommoStatus } from "@/lib/services/comercial-service"
-import { mockLeads } from "./data/mock"
+import { mockLeads, mockMetricas } from "./data/mock"
 
 export default async function ComercialPage() {
   const [dashboard, leads, conversas, kommoStatus] = await Promise.all([
@@ -13,12 +13,7 @@ export default async function ComercialPage() {
     getKommoStatus(),
   ]).catch(() => [null, null, null, null])
 
-  const metricas = dashboard?.metricas || {
-    leadsAtivos: 0,
-    leadsSemFollowUp: 0,
-    taxaConversao: 0,
-    volumePipeline: 0,
-  }
+  const metricas = dashboard?.metricas || mockMetricas
 
   const leadsData = leads || mockLeads
   const lastSync = dashboard?.lastSync || new Date().toISOString()
