@@ -1,5 +1,3 @@
-'use client'
-
 import { getSessionAccessToken } from '@/lib/backend-api'
 import { getSession } from '@/lib/auth-session'
 

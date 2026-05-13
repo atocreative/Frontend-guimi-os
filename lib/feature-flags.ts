@@ -126,12 +126,25 @@ export function isFeatureEnabled(
   if (!flag) return false
 
   // Check hardcoded feature flag state
-  // (Backend state is now managed via hooks/useFeatureFlags + /api/dev-menu)
   if (!flag.enabled) return false
 
   // If feature requires a specific role, check user has it
-  if (flag.requiredRole && userRole !== flag.requiredRole) {
-    return false
+  if (flag.requiredRole && userRole) {
+    // Role hierarchy: SUPER_USER > DEVELOPER > ADMIN > GESTOR > COLABORADOR
+    const roleHierarchy: Record<UserRole, number> = {
+      SUPER_USER: 5,
+      DEVELOPER: 4,
+      ADMIN: 3,
+      GESTOR: 2,
+      COLABORADOR: 1,
+    }
+
+    const requiredLevel = roleHierarchy[flag.requiredRole as UserRole] || 0
+    const userLevel = roleHierarchy[userRole] || 0
+
+    if (userLevel < requiredLevel) {
+      return false
+    }
   }
 
   return true

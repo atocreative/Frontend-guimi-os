@@ -140,8 +140,10 @@ export function DashboardAdmin({
   }, [ano, currentMonth, currentYear])
   const diasDisponiveis = useMemo(() => {
     const total = new Date(ano, mes + 1, 0).getDate()
-    return Array.from({ length: total }, (_, i) => i + 1)
-  }, [ano, mes])
+    // Limit to current day if viewing current month/year
+    const maxDay = ano === currentYear && mes === currentMonth ? currentDay : total
+    return Array.from({ length: maxDay }, (_, i) => i + 1)
+  }, [ano, mes, currentYear, currentMonth, currentDay])
   const diaValido = dia !== "" && dia <= diasDisponiveis.length ? dia : ""
 
   useEffect(() => {
