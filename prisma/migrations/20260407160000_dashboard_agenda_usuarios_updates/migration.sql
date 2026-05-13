@@ -1,8 +1,0 @@
-ALTER TABLE "User"
-ADD COLUMN "jobTitle" TEXT;
-
-ALTER TABLE "Task"
-ADD COLUMN "horario" TEXT;
-
-ALTER TABLE "Task"
-ALTER COLUMN "priority" DROP NOT NULL;

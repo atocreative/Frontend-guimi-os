@@ -262,10 +262,19 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
-
+.kilocode/
+_prisma/
+prisma/
 ### Node Patch ###
 # Serverless Webpack directories
 .webpack/
+
+# Cache do Claude Agent e ferramentas de IA
+.claude/
+
+# Caches e builds do Next.js (caso ainda não estejam lá)
+.next/
+
 
 # Optional stylelint cache
 
