@@ -27,7 +27,8 @@ export const FEATURE_FLAGS: Record<string, FeatureFlag> = {
     id: 'comercial',
     name: 'Comercial',
     description: 'Sales and leads management (Kommo CRM integration)',
-    enabled: false, // Disabled until Kommo CRM data is properly integrated
+    enabled: true,
+    requiredRole: 'GERENTE', // Available for GERENTE, ADMIN, SUPER_USER
   },
 
   // Financial module
@@ -44,7 +45,8 @@ export const FEATURE_FLAGS: Record<string, FeatureFlag> = {
     id: 'operacao',
     name: 'Operação',
     description: 'Operations and inventory management',
-    enabled: false, // Disabled until inventory API is integrated
+    enabled: true,
+    requiredRole: 'COLABORADOR', // Available for all roles
   },
 
   // Agenda/Tasks module

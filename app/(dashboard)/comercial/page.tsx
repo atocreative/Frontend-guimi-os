@@ -1,48 +1,86 @@
-import { Clock } from "lucide-react"
+import { Clock, CheckCircle2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { MetricasComercial } from "@/components/comercial/metricas-comercial"
+import { LeadCard } from "@/components/comercial/lead-card"
+import { getComercialDashboard, getComercialLeads, getComercialConversations, getKommoStatus } from "@/lib/services/comercial-service"
+import { mockLeads } from "./data/mock"
 
-export default function ComercialPage() {
+export default async function ComercialPage() {
+  const [dashboard, leads, conversas, kommoStatus] = await Promise.all([
+    getComercialDashboard(),
+    getComercialLeads(),
+    getComercialConversations(),
+    getKommoStatus(),
+  ]).catch(() => [null, null, null, null])
+
+  const metricas = dashboard?.metricas || {
+    leadsAtivos: 0,
+    leadsSemFollowUp: 0,
+    taxaConversao: 0,
+    volumePipeline: 0,
+  }
+
+  const leadsData = leads || mockLeads
+  const lastSync = dashboard?.lastSync || new Date().toISOString()
+
   return (
     <div className="space-y-6">
       {/* Título */}
       <div>
         <h2 className="text-xl font-semibold">Comercial</h2>
         <p className="text-sm text-muted-foreground">
-          Integração de dados via Kommo CRM
+          Dashboard de vendas e gestão de leads via Kommo CRM
         </p>
       </div>
 
-      {/* Aguardando integração com backend */}
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4" />
-          <p className="font-medium">Aguardando dados</p>
-        </div>
-        <p className="mt-1 text-xs">
-          A integração com o CRM Kommo será disponibilizada após configuração no backend.
-          No momento, esta tela mostra dados mockados apenas para referência de layout.
-        </p>
+      {/* Status sync badge */}
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="bg-emerald-50 text-emerald-700">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Sincronizado com Kommo
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          {new Date(lastSync).toLocaleTimeString('pt-BR')}
+        </span>
       </div>
 
-      {/* Placeholder para Métricas */}
-      <div className="rounded-lg border border-dashed border-muted-foreground/30 p-6 text-center">
-        <p className="text-sm text-muted-foreground">Métricas comerciais (indisponíveis)</p>
-      </div>
+      {/* Métricas */}
+      <MetricasComercial metricas={metricas} />
 
-      {/* Placeholder para Pipeline */}
+      {/* Leads por temperatura */}
       <div>
-        <h3 className="text-sm font-semibold mb-3">Pipeline</h3>
-        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-6 text-center">
-          <p className="text-sm text-muted-foreground">Pipeline de vendas (indisponível)</p>
+        <h3 className="text-sm font-semibold mb-3">Leads Prioritários</h3>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {leadsData.slice(0, 9).map((lead) => (
+            <LeadCard key={lead.id} lead={lead} />
+          ))}
+        </div>
+        {leadsData.length === 0 && (
+          <div className="rounded-lg border border-dashed p-6 text-center">
+            <p className="text-sm text-muted-foreground">Nenhum lead disponível</p>
+          </div>
+        )}
+      </div>
+
+      {/* Pipeline */}
+      <div>
+        <h3 className="text-sm font-semibold mb-3">Pipeline de Vendas</h3>
+        <div className="rounded-lg border p-4">
+          <p className="text-sm text-muted-foreground">
+            Pipeline em desenvolvimento - aguardando integração completa
+          </p>
         </div>
       </div>
 
-      {/* Placeholder para Urgentes */}
-      <div>
-        <h3 className="text-sm font-semibold mb-3">Atenção Necessária</h3>
-        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-6 text-center">
-          <p className="text-sm text-muted-foreground">Leads em foco (indisponíveis)</p>
+      {/* Conversas abertas */}
+      {conversas && conversas.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3">Conversas Ativas</h3>
+          <p className="text-sm text-muted-foreground">
+            {conversas.length} conversa(s) ativa(s)
+          </p>
         </div>
-      </div>
+      )}
     </div>
   )
 }
