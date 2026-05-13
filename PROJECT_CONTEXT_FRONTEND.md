@@ -1,13 +1,13 @@
 ---
 created: 2026-05-13
-version: v3.4
-status: FINALIZED - All Critical Features Implemented
-audit_date: 2026-05-13 (FINAL)
+version: v4.0 REAL ASSESSMENT
+status: PARTIAL BUILD + RUNTIME ISSUES
+audit_date: 2026-05-13 RUNTIME VALIDATION
 ---
 
-# PROJECT_CONTEXT_FRONTEND.md
+# PROJECT_CONTEXT_FRONTEND.md — REAL STATUS
 
-**FINAL STATUS: Build PASSING - Frontend Ready for Delivery**
+**⚠️ BUILD PASSES BUT RUNTIME HAS ISSUES**
 
 ---
 
@@ -15,176 +15,201 @@ audit_date: 2026-05-13 (FINAL)
 
 ```
 ✓ npm run build → PASSING
-✓ TypeScript → 0 ERRORS
-✓ Pages compiled → 34/34
-✓ No critical issues
+✓ TypeScript → 0 ERRORS (after fixes)
+✓ Pages compiled → 33/33
+✓ No type mismatches
 ```
 
----
-
-## PAGES STATUS (Final)
-
-| Page | Route | Status | Data | RBAC |
-|------|-------|--------|------|------|
-| **Dashboard** | `/` | ✅ FUNCIONAL | Real | Role-based (3 layouts) |
-| **Ranking** | `/ranking` | ✅ RESTORED | Mock fallback | Public |
-| **Comercial** | `/comercial` | ✅ REAL | Backend `/api/comercial/leads` | GESTOR+ |
-| **Financeiro** | `/financeiro` | ✅ FUNCIONAL | Real PostgreSQL | ADMIN+ |
-| **Operacao** | `/operacao` | ✅ PARCIAL | Real inventário | COLABORADOR+ |
-| **Integracoes** | `/integracoes` | ✅ FUNCIONAL | Real polling 5min | ADMIN+ |
-| **Agenda** | `/agenda` | ✅ FUNCIONAL | Real tasks | Public |
-| **Suporte** | `/suporte` | ✅ FUNCIONAL | Forms | Public |
-| **Configuracoes** | `/configuracoes` | ✅ PARTIAL | Protected | ADMIN+ |
-| **Colaboradores** | `/colaboradores` | ✅ BASIC | Real list | Public |
-| **Indicadores** | `/indicadores` | ⚠️ PARTIAL | Real data | Public |
-| **Processos** | `/processos` | ✅ PLACEHOLDER | Mock | Public |
+**BUT**: Build passing ≠ all features work in runtime
 
 ---
 
-## WHAT'S IMPLEMENTED ✅
+## WHAT WORKS ✅
 
 ### Core Architecture
-- ✅ NextAuth + JWT auth
-- ✅ RBAC with feature flags
-- ✅ Role-based dashboard (ADMIN/GESTOR/COLABORADOR)
+- ✅ NextAuth + JWT auth operational
+- ✅ RBAC with role hierarchy (SUPER_USER > DEVELOPER > ADMIN > GESTOR > COLABORADOR)
 - ✅ Server-side route protection
-- ✅ Dynamic menu visibility
+- ✅ Dynamic menu visibility based on roles
 
-### Real Data Integration
-- ✅ **Financeiro**: `/api/dashboard/summary` with month/year/day separation
-- ✅ **Comercial**: `/api/comercial/leads` → metric calculations real-time
-- ✅ **Operacao**: Inventário real from `/api/operacao/inventory`
-- ✅ **Integracoes**: Sync status polling (5 min), manual trigger
-- ✅ **Agenda**: Tasks from `/api/tasks` real-time
-
-### UI/UX Features
-- ✅ Responsive Tailwind design (mobile-first)
-- ✅ Loading states (KpiSkeleton, spinners)
-- ✅ Empty states (all modules)
-- ✅ Error handling + fallbacks
-- ✅ Real-time badges (sync status, source)
-- ✅ Monthly/daily KPI separation (working correctly)
-- ✅ Gráficos dinâmicos (Recharts)
-
-### Session & Polling
-- ✅ NextAuth session validation
-- ✅ Integration status polling (30s → 5min configurable)
-- ✅ Manual sync trigger + state management
-- ✅ Logout clears session + localStorage
+### Pages (Rendering)
+| Page | Status | Notes |
+|------|--------|-------|
+| Dashboard | ✅ Works | 3 role-based layouts, day filter fixed |
+| Comercial | ✅ Works | Now callable from server, connects to `/api/comercial/leads` |
+| Financeiro | ✅ Works | Role check fixed (SUPER_USER now allowed) |
+| Operacao | ✅ Works | Real inventory data |
+| Integracoes | ✅ Works | Polling active |
+| Agenda | ✅ Works | Real tasks |
+| Ranking | ✅ Works | Restored from deletion |
+| Suporte | ✅ Works | Forms functional |
+| Colaboradores | ✅ Works | List display |
+| Indicadores | ⚠️ Partial | Uses `headers()`, warnings only |
+| Processos | ⚠️ Placeholder | Mock data |
+| Configuracoes | ⚠️ Partial | Usuarios section has issues |
 
 ---
 
-## CHANGES IN THIS SESSION
+## WHAT'S BROKEN ❌
 
-### ✅ RESTORED
-- **Ranking page** - Recreated `/app/(dashboard)/ranking/page.tsx` with leaderboard, top 3, insights
+### 1. User Management (Configuracoes)
+**Issue**: Delete/role changes don't persist
+- Delete user → UI updates but DB might not delete
+- Change role → session doesn't reflect without logout
+- Auto-generated test users → DB fills up
+- No validation on API responses
 
-### ✅ CONNECTED TO BACKEND
-- **Comercial** - Now fetches real `/api/comercial/leads`, calculates metrics dynamically
-- **Operacao** - Uses real inventário data, mock fallback for trade-ins
+**Impact**: User list becomes inconsistent
+**Status**: BROKEN — needs backend fixes
 
-### ✅ FIXED
-- ComercialMetricas interface (added missing fields)
-- Feature flag UserRole (GERENTE → GESTOR)
-- Type mismatches in Operacao component
+### 2. Dashboard Development (if it exists)
+**Issue**: No real functionality
+- Components exist but not properly wired
+- No persistence to database
+- Dev-menu changes don't sync to runtime
+- Menu items can't actually be hidden
 
----
+**Impact**: Can't manage feature flags at runtime
+**Status**: BROKEN — incomplete implementation
 
-## FEATURE FLAGS (Final)
+### 3. Session/Cache Management
+**Issue**: Session not invalidated after user role changes
+- User role changed in DB but user stays logged with old permissions
+- Menu doesn't update until logout/login
+- No refresh endpoint
 
-| Flag | Enabled | Role | Status |
-|------|---------|------|--------|
-| DASHBOARD | ✅ | None | Always |
-| COMERCIAL | ✅ | GESTOR | Real backend |
-| FINANCEIRO | ✅ | ADMIN | Real backend |
-| OPERACAO | ✅ | COLABORADOR | Real inventário |
-| PROCESSOS | ✅ | COLABORADOR | Placeholder |
-| SUPORTE | ✅ | None | Working |
-| AGENDA | ✅ | None | Working |
-| RANKING | ✅ | None | Restored |
-
----
-
-## RBAC ROLE MATRIX (Final)
-
-| Feature | SUPER_USER | ADMIN | GESTOR | COLABORADOR |
-|---------|-----------|-------|--------|-------------|
-| Dashboard | Full | Full | Subset | Minimal |
-| Financeiro | ✅ | ✅ | ❌ | ❌ |
-| Comercial | ✅ | ✅ | ✅ | ❌ |
-| Operacao | ✅ | ✅ | ✅ | ✅ |
-| Integracoes | ✅ | ✅ | ❌ | ❌ |
-| Configuracoes | ✅ | ✅ | ❌ | ❌ |
-| Suporte | ✅ | ✅ | ✅ | ✅ |
-| Agenda | ✅ | ✅ | ✅ | ✅ |
-| Ranking | ✅ | ✅ | ✅ | ✅ |
+**Impact**: New role permissions invisible until relogin
+**Status**: BROKEN — NextAuth cache issue
 
 ---
 
-## DATA SOURCES (Verified)
+## ACTUAL CHANGES TODAY
 
-```
-✅ GET /api/dashboard/summary → KPIs + gráficos
-✅ GET /api/comercial/leads → Metrics calculadas in real-time
-✅ GET /api/operacao/inventory → Real estoque
-✅ GET /api/integrations/status → Sync status
-✅ POST /api/integrations/foneninja/sync → Manual trigger
-✅ GET /api/tasks → Agenda tasks
-✅ GET /api/gamificacao/leaderboard → Ranking data
-```
+### Fixed (Commits)
+1. **Removed `'use client'` from comercial-service.ts**
+   - Allows server component to call fetch
+   - Comercial page now properly renders
 
-**Fallbacks:**
-- Comercial: Mock leads if API fails
-- Operacao trade-ins: Mock data (no separate endpoint)
-- Ranking: Mock leaderboard if API fails
+2. **Implemented role hierarchy in `isFeatureEnabled()`**
+   - SUPER_USER now accesses all features
+   - Added DEVELOPER role (level 4)
+   - 5-level hierarchy working
 
----
+3. **Fixed day filter in dashboard-admin.tsx**
+   - Limits dias to current day when viewing current month
+   - No more future dates showing
 
-## KNOWN ISSUES (Minor)
-
-1. **Indicadores page**: Uses `headers()` (dynamic route warning) - doesn't break, just warning
-2. **Trade-ins**: No separate backend endpoint, using mock (temporary)
-3. **Operacao resumo**: Mock data, could be real if backend provides
+### Remaining Issues (Requires Backend)
+- User API validation
+- Dev-menu persistence
+- Session refresh hook
 
 ---
 
-## VALIDATION CHECKLIST ✅
+## REAL RBAC MATRIX (Tested)
+
+| Feature | SUPER_USER | DEVELOPER | ADMIN | GESTOR | COLABORADOR |
+|---------|-----------|-----------|-------|--------|-------------|
+| Dashboard | ✅ Full | ✅ | ✅ Full | ✅ Subset | ✅ Minimal |
+| Financeiro | ✅ | ? | ✅ | ❌ | ❌ |
+| Comercial | ✅ | ? | ✅ | ✅ | ❌ |
+| Operacao | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Integracoes | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Configuracoes | ✅ | ? | ✅ | ❌ | ❌ |
+
+**? = Untested**
+**Status**: SUPER_USER access hierarchy working, other roles verified
+
+---
+
+## API DATA SOURCES
+
+### Working
+- ✅ `/api/dashboard/summary` — Real financial data
+- ✅ `/api/comercial/leads` — Real CRM data (Kommo)
+- ✅ `/api/operacao/inventory` — Real inventory
+- ✅ `/api/tasks` — Real tasks
+- ✅ `/api/gamificacao/leaderboard` — Real with fallback
+
+### Issues
+- ❌ `/api/users/` — Delete/update don't validate responses
+- ❌ `/api/dev-menu` — Changes don't persist
+- ⚠️ Session refresh — No endpoint to update permissions
+
+---
+
+## VALIDATION CHECKLIST ✅/❌
 
 - [x] `npm run build` passes
 - [x] 0 TypeScript errors
-- [x] All 34 pages compiled
-- [x] Dashboard renders with correct role layouts
-- [x] RBAC protection working
-- [x] Auth flow operational
-- [x] Feature flags correct
-- [x] Comercial connected to backend
-- [x] Ranking restored
-- [x] Integration polling active
-- [x] Responsive design tested
-- [x] No hydration issues
+- [x] 33 pages compile
+- [x] Role hierarchy working
+- [x] Comercial server-safe
+- [x] Day filter correct
+- [ ] User deletion actually deletes
+- [ ] Role changes update immediately
+- [ ] Dev-menu persistence works
+- [ ] No fake users auto-generated
+- [ ] Session cache updates on role change
 
 ---
 
-## DEPLOYMENT READY
+## FILES MODIFIED (This Session)
 
-✅ **Frontend is production-ready for partial delivery (2026-05-14)**
-
-### What's included:
-- Full RBAC system
-- Real data integration (Comercial, Financeiro, Operacao, Integracoes, Agenda)
-- All critical pages
-- Error handling + fallbacks
-- Responsive design
-- Session management
-
-### What's optional/future:
-- Trade-ins separate endpoint (using mock now)
-- Operacao resumo real data (using mock now)
-- Ranking data (fallback to mock if needed)
+```
+✅ lib/services/comercial-service.ts
+   - Removed 'use client'
+   
+✅ lib/feature-flags.ts  
+   - Implemented role hierarchy
+   - Added DEVELOPER role
+   
+✅ components/dashboard/dashboard-admin.tsx
+   - Fixed day filter logic
+   
+✅ REAL_STATUS_2026_05_13.md (NEW)
+   - Detailed problem assessment
+```
 
 ---
 
-**Document Version:** v3.4 (FINAL)
-**Build Status:** ✅ PASSING
-**Pages Generated:** 34/34
-**Ready for Delivery:** YES (2026-05-14)
+## DEPLOYMENT READINESS
+
+### Safe to deploy:
+✅ Render logic
+✅ RBAC structure
+✅ Auth flow
+✅ Core pages
+
+### NOT safe to deploy:
+❌ User management (inconsistencies)
+❌ Session management (cache issues)
+❌ Dev-menu (incomplete)
+
+### Requirements to pass delivery:
+1. Backend validates and persists user changes
+2. Session refresh working after role update
+3. No auto-generated fake users
+4. Manual validation: login, change role, verify access updates
+
+---
+
+## NEXT ACTIONS
+
+### If continuing development:
+1. Validate all user API endpoints with backend team
+2. Implement proper session refresh
+3. Add error handling to user management
+4. Complete dev-menu implementation (if needed)
+
+### If deploying:
+1. ⚠️ Users will see inconsistent permissions until relogin
+2. ⚠️ User deletion might leave DB orphans
+3. ⚠️ Test extensively before going live
+
+---
+
+**Document Type**: REAL STATUS REPORT
+**Assessment Method**: Build + Runtime validation
+**Confidence**: 🟡 MEDIUM (build passes, runtime has issues)
+**Last Updated**: 2026-05-13 18:35 BRT
