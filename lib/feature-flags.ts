@@ -3,7 +3,7 @@
  * Manage feature availability across the application
  */
 
-export type UserRole = 'ADMIN' | 'GESTOR' | 'COLABORADOR' | 'SUPER_USER' | 'DEVELOPER'
+export type UserRole = 'ADMIN' | 'GERENTE' | 'COLABORADOR' | 'SUPER_USER' | 'GESTOR'
 
 export interface FeatureFlag {
   id: string
@@ -28,7 +28,7 @@ export const FEATURE_FLAGS: Record<string, FeatureFlag> = {
     name: 'Comercial',
     description: 'Sales and leads management (Kommo CRM integration)',
     enabled: true,
-    requiredRole: 'GESTOR', // Available for GESTOR, ADMIN, SUPER_USER
+    requiredRole: 'GERENTE', // Available for GERENTE, ADMIN, SUPER_USER
   },
 
   // Financial module
@@ -65,19 +65,11 @@ export const FEATURE_FLAGS: Record<string, FeatureFlag> = {
     enabled: false, // Coming soon - not implemented
   },
 
-  // Employees/Collaborators module
-  COLABORADORES: {
-    id: 'colaboradores',
-    name: 'Colaboradores',
-    description: 'Employee management and directory',
-    enabled: true,
-  },
-
-  // Indicators/KPIs module
-  INDICADORES: {
-    id: 'indicadores',
-    name: 'Indicadores',
-    description: 'Performance indicators and analytics',
+  // Ranking module (formerly Colaboradores - Scope 2 section 5.6)
+  RANKING: {
+    id: 'ranking',
+    name: 'Ranking',
+    description: 'Employee ranking and gamification',
     enabled: true,
   },
 
@@ -130,12 +122,12 @@ export function isFeatureEnabled(
 
   // If feature requires a specific role, check user has it
   if (flag.requiredRole && userRole) {
-    // Role hierarchy: SUPER_USER > DEVELOPER > ADMIN > GESTOR > COLABORADOR
+    // Role hierarchy: SUPER_USER > ADMIN > GERENTE > COLABORADOR
     const roleHierarchy: Record<UserRole, number> = {
       SUPER_USER: 5,
-      DEVELOPER: 4,
       ADMIN: 3,
-      GESTOR: 2,
+      GERENTE: 2,
+      GESTOR: 2, // Backward compat with backend
       COLABORADOR: 1,
     }
 
@@ -176,12 +168,11 @@ export const PAGE_ROUTES: Record<string, PageRoute> = {
   OPERACAO: { href: '/operacao', title: 'Operação', enabled: true, featureId: 'OPERACAO' },
   AGENDA: { href: '/agenda', title: 'Agenda e Tarefas', enabled: true, featureId: 'AGENDA' },
   PROCESSOS: { href: '/processos', title: 'Processos', enabled: true, featureId: 'PROCESSOS' },
-  COLABORADORES: { href: '/colaboradores', title: 'Colaboradores', enabled: true, featureId: 'COLABORADORES' },
-  INDICADORES: { href: '/indicadores', title: 'Indicadores', enabled: true, featureId: 'INDICADORES' },
+  RANKING: { href: '/colaboradores', title: 'Ranking', enabled: true, featureId: 'RANKING' },
   INTEGRACOES: { href: '/integracoes', title: 'Integrações', enabled: true, featureId: 'INTEGRACOES' },
   SUPORTE: { href: '/suporte', title: 'Suporte', enabled: true, featureId: 'SUPORTE' },
   CONFIGURACOES: { href: '/configuracoes', title: 'Configurações', enabled: true, featureId: 'CONFIGURACOES' },
-  SUPER_USER: { href: '/super-usuario', title: 'Developer', enabled: true, featureId: 'SUPER_USER_DASHBOARD' },
+  SUPER_USER: { href: '/dashboard-development', title: 'Dashboard Development', enabled: true, featureId: 'SUPER_USER_DASHBOARD' },
 }
 
 /**

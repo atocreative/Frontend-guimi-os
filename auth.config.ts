@@ -9,8 +9,12 @@ export const authConfig = {
       if (user) {
 
         token.id = user.id
-        token.role = user.role
-        token.isSuperUser = Boolean((user as any).isSuperUser)
+        // Map roles to Scope 2: SUPER_USER, ADMIN, GERENTE, COLABORADOR
+        let normalizedRole = user.role
+        if (normalizedRole === "Developer") normalizedRole = "SUPER_USER"
+        if (normalizedRole === "GESTOR") normalizedRole = "GERENTE" // Backend might send GESTOR
+        token.role = normalizedRole
+        token.isSuperUser = Boolean((user as any).isSuperUser || normalizedRole === "SUPER_USER")
         token.jobTitle = user.jobTitle ?? null
         token.accessToken = String((user as any).accessToken || "")
         token.raw_token = String((user as any).accessToken || "")

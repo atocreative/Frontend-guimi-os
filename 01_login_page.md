@@ -1,0 +1,254 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e5]:
+      - list [ref=e7]:
+        - listitem [ref=e8]:
+          - generic [ref=e9]:
+            - img "GuimiCell OS" [ref=e11]
+            - generic [ref=e13]: GuimiCell OS
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]: Principal
+          - list [ref=e18]:
+            - listitem [ref=e19]:
+              - link "Dashboard" [ref=e20] [cursor=pointer]:
+                - /url: /
+                - img [ref=e21]
+                - generic [ref=e26]: Dashboard
+            - listitem [ref=e27]:
+              - link "Comercial" [ref=e28] [cursor=pointer]:
+                - /url: /comercial
+                - img [ref=e29]
+                - generic [ref=e32]: Comercial
+            - listitem [ref=e33]:
+              - link "Financeiro" [ref=e34] [cursor=pointer]:
+                - /url: /financeiro
+                - img [ref=e35]
+                - generic [ref=e37]: Financeiro
+        - generic [ref=e38]:
+          - generic [ref=e39]: Operação
+          - list [ref=e41]:
+            - listitem [ref=e42]:
+              - link "Agenda e Tarefas" [ref=e43] [cursor=pointer]:
+                - /url: /agenda
+                - img [ref=e44]
+                - generic [ref=e47]: Agenda e Tarefas
+            - listitem [ref=e48]:
+              - link "Operação" [ref=e49] [cursor=pointer]:
+                - /url: /operacao
+                - img [ref=e50]
+                - generic [ref=e52]: Operação
+            - listitem [ref=e53]:
+              - link "Processos" [ref=e54] [cursor=pointer]:
+                - /url: /processos
+                - img [ref=e55]
+                - generic [ref=e57]: Processos
+        - generic [ref=e58]:
+          - generic [ref=e59]: Gestão
+          - list [ref=e61]:
+            - listitem [ref=e62]:
+              - link "Colaboradores" [ref=e63] [cursor=pointer]:
+                - /url: /colaboradores
+                - img [ref=e64]
+                - generic [ref=e69]: Colaboradores
+            - listitem [ref=e70]:
+              - link "Indicadores" [ref=e71] [cursor=pointer]:
+                - /url: /indicadores
+                - img [ref=e72]
+                - generic [ref=e74]: Indicadores
+            - listitem [ref=e75]:
+              - link "Integrações" [ref=e76] [cursor=pointer]:
+                - /url: /integracoes
+                - img [ref=e77]
+                - generic [ref=e79]: Integrações
+            - listitem [ref=e80]:
+              - link "Configurações" [ref=e81] [cursor=pointer]:
+                - /url: /configuracoes
+                - img [ref=e82]
+                - generic [ref=e85]: Configurações
+        - generic [ref=e86]:
+          - generic [ref=e87]: Ajuda
+          - list [ref=e89]:
+            - listitem [ref=e90]:
+              - link "Suporte" [ref=e91] [cursor=pointer]:
+                - /url: /suporte
+                - img [ref=e92]
+                - generic [ref=e99]: Suporte
+        - generic [ref=e100]:
+          - generic [ref=e101]: Desenvolvedor
+          - list [ref=e103]:
+            - listitem [ref=e104]:
+              - link "Dashboard Development" [ref=e105] [cursor=pointer]:
+                - /url: /dashboard-development
+                - img [ref=e106]
+                - generic [ref=e110]: Dashboard Development
+      - list [ref=e112]:
+        - listitem [ref=e113]:
+          - button "Tema" [ref=e114] [cursor=pointer]:
+            - img [ref=e116]
+            - generic [ref=e122]: Tema
+      - button "Toggle Sidebar" [ref=e123]
+    - main [ref=e124]:
+      - generic [ref=e125]:
+        - button "Toggle Sidebar" [ref=e126] [cursor=pointer]:
+          - img
+          - generic [ref=e127]: Toggle Sidebar
+        - generic [ref=e128]:
+          - heading "Dashboard" [level=1] [ref=e129]
+          - generic [ref=e130]:
+            - button "Toggle theme" [ref=e292] [cursor=pointer]:
+              - img
+              - generic [ref=e293]: Toggle theme
+            - button "D Developer" [ref=e131] [cursor=pointer]:
+              - generic [ref=e133]: D
+              - generic [ref=e134]: Developer
+              - img
+      - main [ref=e135]:
+        - generic [ref=e137]:
+          - generic [ref=e138]:
+            - generic [ref=e139]:
+              - heading "Dashboard" [level=2] [ref=e140]
+              - paragraph [ref=e141]: Visão geral da operação Guimicell
+            - generic [ref=e142]:
+              - combobox [ref=e143]:
+                - generic: Maio
+                - img
+              - combobox [ref=e145]:
+                - generic: "2026"
+                - img
+              - combobox [ref=e147]:
+                - generic: Todo o mês
+                - img
+          - generic [ref=e149]:
+            - generic [ref=e295]:
+              - generic [ref=e296]:
+                - generic [ref=e297]:
+                  - paragraph [ref=e298]: Faturamento do Dia
+                  - paragraph [ref=e299]: R$ 0,00
+                  - paragraph [ref=e300]: Aguardando dados
+                - img [ref=e302]
+              - generic [ref=e305]: ▲
+            - generic [ref=e307]:
+              - generic [ref=e308]:
+                - generic [ref=e309]:
+                  - paragraph [ref=e310]: Faturamento do Mês
+                  - paragraph [ref=e311]: R$ 307.655,93
+                  - paragraph [ref=e312]: Maio 2026
+                - img [ref=e314]
+              - generic [ref=e319]: ▲
+            - generic [ref=e321]:
+              - generic [ref=e322]:
+                - generic [ref=e323]:
+                  - paragraph [ref=e324]: Lucro Líquido
+                  - paragraph [ref=e325]: R$ 307.655,93
+                  - paragraph [ref=e326]: Fat. − despesas − compras
+                - img [ref=e328]
+              - generic [ref=e332]: ▲
+            - generic [ref=e334]:
+              - generic [ref=e335]:
+                - generic [ref=e336]:
+                  - paragraph [ref=e337]: Ticket Médio
+                  - paragraph [ref=e338]: R$ 4.661,45
+                  - paragraph [ref=e339]: Por venda (real)
+                - img [ref=e341]
+              - generic [ref=e346]: ▲
+          - generic [ref=e186]:
+            - generic [ref=e348]:
+              - generic [ref=e349]:
+                - generic [ref=e350]:
+                  - paragraph [ref=e351]: Taxa de Conversão
+                  - paragraph [ref=e352]: 0.0%
+                  - paragraph [ref=e353]: Convertidas / Pendentes
+                - img [ref=e355]
+              - generic [ref=e360]: ▲
+            - generic [ref=e362]:
+              - generic [ref=e363]:
+                - generic [ref=e364]:
+                  - paragraph [ref=e365]: Total Despesas
+                  - paragraph [ref=e366]: R$ 0,00
+                  - paragraph [ref=e367]: Contas a pagar (real)
+                - img [ref=e369]
+              - generic [ref=e373]: ▼
+            - generic [ref=e375]:
+              - generic [ref=e376]:
+                - generic [ref=e377]:
+                  - paragraph [ref=e378]: Estoque Total
+                  - paragraph [ref=e379]: R$ 0,00
+                  - paragraph [ref=e380]: Valor em estoque (real)
+                - img [ref=e382]
+              - generic [ref=e386]: →
+            - generic [ref=e388]:
+              - generic [ref=e389]:
+                - generic [ref=e390]:
+                  - paragraph [ref=e391]: Saldo em Caixa
+                  - paragraph [ref=e392]: R$ 307.655,93
+                  - paragraph [ref=e393]: Fat. − despesas
+                - img [ref=e395]
+              - generic [ref=e399]: ▲
+          - generic [ref=e223]:
+            - generic [ref=e400]:
+              - generic [ref=e402]: Evolução — Maio 2026
+              - generic [ref=e405]:
+                - list [ref=e407]:
+                  - listitem [ref=e408]:
+                    - img "Despesas legend icon" [ref=e409]
+                    - text: Despesas
+                  - listitem [ref=e411]:
+                    - img "Faturamento legend icon" [ref=e412]
+                    - text: Faturamento
+                  - listitem [ref=e414]:
+                    - img "Lucro legend icon" [ref=e415]
+                    - text: Lucro
+                - application [ref=e417]:
+                  - generic [ref=e472]:
+                    - generic [ref=e473]:
+                      - generic [ref=e475]: 2026-05-04
+                      - generic [ref=e477]: 2026-05-06
+                      - generic [ref=e479]: 2026-05-08
+                      - generic [ref=e481]: 2026-05-11
+                      - generic [ref=e483]: 2026-05-13
+                    - generic [ref=e484]:
+                      - generic [ref=e486]: R$ 0
+                      - generic [ref=e488]: R$ 15 mil
+                      - generic [ref=e490]: R$ 30 mil
+                      - generic [ref=e492]: R$ 45 mil
+                      - generic [ref=e494]: R$ 60 mil
+            - generic [ref=e495]:
+              - generic [ref=e497]: Evolução Semanal (dias)
+              - paragraph [ref=e500]: Sem dados para este período
+          - generic [ref=e230]:
+            - generic [ref=e232]: Ranking de Vendedores
+            - paragraph [ref=e501]: Nenhum dado de vendedores no período.
+          - generic [ref=e238]:
+            - generic [ref=e241]:
+              - generic [ref=e242]:
+                - img [ref=e243]
+                - text: Ranking
+              - tablist [ref=e250] [cursor=pointer]:
+                - tab "Esse Mês" [selected] [ref=e251]
+                - tab "Geral" [ref=e252]
+            - generic [ref=e258]:
+              - generic [ref=e261]: Tarefas Prioritárias
+              - paragraph [ref=e263]: Nenhuma tarefa pendente.
+            - generic [ref=e264]:
+              - generic [ref=e267]: Hoje
+              - paragraph [ref=e269]: Nenhuma tarefa para hoje
+      - generic [ref=e271]:
+        - generic [ref=e272]:
+          - paragraph [ref=e273]:
+            - generic [ref=e275]: GuimiCell OS
+            - generic [ref=e276]: "|"
+            - generic [ref=e277]: © 2026 · Todos os direitos reservados
+          - paragraph [ref=e278]: Desenvolvido por ATO.
+        - navigation [ref=e279]:
+          - link "Termos" [ref=e280] [cursor=pointer]:
+            - /url: /termos
+          - link "Privacidade" [ref=e281] [cursor=pointer]:
+            - /url: /privacidade
+          - link "Ajuda & Suporte" [ref=e282] [cursor=pointer]:
+            - /url: /suporte
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e288] [cursor=pointer]:
+    - img [ref=e289]
+  - alert [ref=e502]
+  - generic [ref=e503]: R$ 0
