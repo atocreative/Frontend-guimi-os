@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth-session"
 import { getSessionAccessToken } from "@/lib/backend-api"
 
-const BACKEND_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:3001"
-).replace(/\/$/, "")
+const BACKEND_URL = (() => {
+  const url = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL
+  if (!url) {
+    throw new Error("NEXT_PUBLIC_API_BASE_URL is not defined in environment")
+  }
+  return url.replace(/\/$/, "")
+})()
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl

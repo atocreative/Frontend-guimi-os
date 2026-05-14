@@ -33,7 +33,7 @@ export interface MetricasComerciais {
   ticketMedio: number
 }
 
-import { backendFetch, getSessionAccessToken } from './backend-api'
+import { backendFetch, getSessionAccessToken, API_BASE } from './backend-api'
 
 /**
  * SERVER-SIDE: Obtém snapshot financeiro diretamente do backend
@@ -164,12 +164,10 @@ export async function getFinanceiroSummaryServer(
   const filters = buildSalesFilters({ startDate, endDate })
   const params = filtersToSearchParams(filters)
 
-  const apiBase = (process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '')
-
-  console.log('[FRONT FINANCEIRO] Fetching sales...', { url: `${apiBase}/api/financeiro/sales?${params.toString()}` })
+  console.log('[FRONT FINANCEIRO] Fetching sales...', { url: `${API_BASE}/api/financeiro/sales?${params.toString()}` })
 
   const salesRes = await fetch(
-    `${apiBase}/api/financeiro/sales?${params.toString()}`,
+    `${API_BASE}/api/financeiro/sales?${params.toString()}`,
     {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',

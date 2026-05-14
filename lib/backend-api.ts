@@ -1,7 +1,15 @@
 import type { ChecklistDB, ChecklistItemDB, TarefaDB, UsuarioSimples } from "@/types/tarefas"
 import type { UsuarioDB } from "@/types/usuarios"
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001").replace(/\/$/, "")
+function getApiBase(): string {
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL
+  if (!base) {
+    throw new Error("NEXT_PUBLIC_API_BASE_URL is not defined. Configure it in your environment variables.")
+  }
+  return base.replace(/\/$/, "")
+}
+
+const API_BASE = getApiBase()
 
 interface BackendFetchOptions extends RequestInit {
   token?: string

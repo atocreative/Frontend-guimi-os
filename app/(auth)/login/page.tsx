@@ -22,7 +22,9 @@ type CaptchaChallenge = { token: string; question: string; answer?: string }
 // --- Suporte ---
 async function fetchCaptchaChallenge(): Promise<CaptchaChallenge> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/api/auth/captcha`)
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+    if (!baseUrl) throw new Error("Backend URL não configurado")
+    const response = await fetch(`${baseUrl}/api/auth/captcha`)
     if (!response.ok) throw new Error("Erro captcha")
     const data = await response.json()
     const match = data.data.question.match(/(\d+)\s*([\+\-])\s*(\d+)/)

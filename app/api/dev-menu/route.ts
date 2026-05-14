@@ -3,7 +3,11 @@ import { getSession } from "@/lib/auth-session"
 import { getSessionAccessToken } from "@/lib/backend-api"
 import { normalizeDevMenuItems } from "@/lib/feature-definitions"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+const BACKEND_URL = (() => {
+  const url = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL
+  if (!url) throw new Error("NEXT_PUBLIC_API_BASE_URL is not defined")
+  return url.replace(/\/$/, "")
+})()
 
 export async function GET() {
   const session = await getSession()

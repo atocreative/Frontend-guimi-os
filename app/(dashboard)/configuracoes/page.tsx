@@ -31,7 +31,8 @@ export default async function ConfiguracoesPage() {
       try {
         // All integrations are checked via backend, not direct external calls
         // Check backend health which includes Fone Ninja status
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"
+        const backendUrl = process.env.NEXT_PUBLIC_API_BASE_URL
+        if (!backendUrl) throw new Error("Backend URL não configurado")
         const health = await checkIntegrationHealth(backendUrl, 3000)
 
         if (health.isHealthy) {
