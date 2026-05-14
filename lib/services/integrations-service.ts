@@ -20,7 +20,7 @@ export async function syncFoneNinja(): Promise<SyncResponse> {
       ? localStorage.getItem("__session_token")
       : null
 
-    const res = await fetch(`${BACKEND_URL}/integrations/foneninja/sync`, {
+    const res = await fetch(`${BACKEND_URL}/api/integrations/foneninja/sync`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -78,7 +78,7 @@ export async function getIntegrationStatus(): Promise<IntegrationStatusResponse 
       ? localStorage.getItem("__session_token")
       : null
 
-    const res = await fetch(`${BACKEND_URL}/integrations/status`, {
+    const res = await fetch(`${BACKEND_URL}/api/integrations/status`, {
       headers: {
         ...(token && { Authorization: `Bearer ${token}` }),
       },
