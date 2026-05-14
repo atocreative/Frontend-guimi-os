@@ -32,6 +32,8 @@ function calcularMetricas(leads: any[]) {
   }
 }
 
+export const dynamic = 'force-dynamic'
+
 export default async function ComercialPage() {
   const leads = await getComercialLeads().catch(() => null)
   const metricas = leads ? calcularMetricas(leads) : null
