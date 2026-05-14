@@ -27,7 +27,7 @@ export default async function DashboardPage() {
 
   const role = session.user.role
   const isColaborador = role === "COLABORADOR"
-  const isGerente = role === "GESTOR"
+  const isGerente = role === "GERENTE"
   const now = new Date()
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
