@@ -1,0 +1,134 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-14T18:30:00Z",
+  "context": "frontend-guimi-os scope-2-alignment",
+  "status": "paused",
+  "completed_tasks": [
+    {
+      "id": 1,
+      "name": "Fix Developer role mapping to SUPER_USER",
+      "status": "done",
+      "files": ["auth.config.ts"]
+    },
+    {
+      "id": 2,
+      "name": "Remove Indicadores from menu and redirect route",
+      "status": "done",
+      "files": ["components/layout/app-sidebar.tsx", "app/(dashboard)/indicadores/page.tsx"]
+    },
+    {
+      "id": 3,
+      "name": "Rename Colaboradores to Ranking",
+      "status": "done",
+      "files": ["components/layout/app-sidebar.tsx", "lib/feature-flags.ts"]
+    }
+  ],
+  "in_progress_tasks": [
+    {
+      "id": 4,
+      "name": "Validate RBAC implementation",
+      "status": "in_progress",
+      "progress": "GERENTE/GESTOR mapping added to auth.config.ts, feature-flags updated",
+      "blocking": true
+    }
+  ],
+  "remaining_tasks": [
+    {
+      "id": 5,
+      "name": "Implement /api/integrations/status endpoint",
+      "status": "not_started",
+      "repository": "backend-guimi-os",
+      "blocking": true
+    },
+    {
+      "id": 6,
+      "name": "Fix /comercial Dynamic server error",
+      "status": "not_started",
+      "files": ["app/(dashboard)/comercial/page.tsx"],
+      "blocking": true
+    },
+    {
+      "id": 7,
+      "name": "Run Playwright test suite for RBAC",
+      "status": "in_progress",
+      "background_task": "b7hsw547e",
+      "blocking": false
+    },
+    {
+      "id": 8,
+      "name": "Dashboard validation per role",
+      "status": "not_started",
+      "blocking": false
+    }
+  ],
+  "blockers": [
+    {
+      "description": "/api/integrations/status returns 404 - not implemented in backend",
+      "type": "external",
+      "severity": "critical",
+      "workaround": null,
+      "affects": ["login page", "integrações page"]
+    },
+    {
+      "description": "/comercial route has Dynamic server usage error due to headers()",
+      "type": "technical",
+      "severity": "high",
+      "workaround": "Mark page as dynamic or remove headers() usage",
+      "affects": ["build warning"]
+    },
+    {
+      "description": "GERENTE vs GESTOR role name mismatch between Scope 2 and backend",
+      "type": "integration",
+      "severity": "resolved",
+      "workaround": "Normalized in auth.config.ts - maps both to GERENTE",
+      "affects": ["RBAC"]
+    }
+  ],
+  "human_actions_pending": [
+    {
+      "action": "Implement GET /api/integrations/status endpoint",
+      "context": "Backend missing. Returns 404. Frontend calls on login + integrações pages.",
+      "blocking": true,
+      "repository": "backend-guimi-os"
+    },
+    {
+      "action": "Fix /comercial Dynamic server error",
+      "context": "Page uses headers() in static context. Build warning shows Dynamic server usage error.",
+      "blocking": true
+    },
+    {
+      "action": "Run Playwright full test suite",
+      "context": "Validate RBAC across 4 roles, menu visibility, route protection",
+      "blocking": false
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Normalize role names in auth.config.ts",
+      "rationale": "Backend sends 'Developer' or 'GESTOR' but Scope 2 defines 'SUPER_USER, ADMIN, GERENTE, COLABORADOR'. Normalize at auth layer.",
+      "files": ["auth.config.ts"]
+    },
+    {
+      "decision": "Remove all mock fallbacks",
+      "rationale": "Per war room rules: show real errors instead of silent fallbacks. Pages show 'Dados indisponíveis' if backend fails.",
+      "files": ["app/(dashboard)/comercial/page.tsx", "various"]
+    },
+    {
+      "decision": "Indicadores completely removed",
+      "rationale": "Scope 2 section 5.10: 'A tela Indicadores será removida'. Data redistributed to Dashboard, Financeiro, Comercial, Ranking.",
+      "files": ["app-sidebar.tsx", "indicadores/page.tsx"]
+    }
+  ],
+  "uncommitted_files": [
+    ".continue-here.md",
+    "HANDOFF.json"
+  ],
+  "build_status": {
+    "typescript": "✓ 0 errors",
+    "next_build": "✓ Compiled successfully in 25.7s",
+    "warnings": [
+      "Dynamic server usage: Route /comercial couldn't be rendered statically because it used `headers`"
+    ]
+  },
+  "next_action": "Check Playwright test results (b7hsw547e), then coordinate with backend to implement /api/integrations/status and fix /comercial page"
+}
