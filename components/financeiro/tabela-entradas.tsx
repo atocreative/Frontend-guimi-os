@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 
 export interface SaleRow {
   id?: string | number
@@ -100,60 +101,37 @@ export function TabelaEntradas({ entradas }: { entradas: SaleRow[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Produto</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Cliente</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Categoria</th>
-                <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Venda</th>
-                <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Lucro</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Pagamento</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Data</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entradas.map((entrada, i) => {
-                const valor = resolveValor(entrada)
-                const lucro = resolveLucro(entrada)
-                const pagamento = resolvePagamento(entrada)
-                return (
-                  <tr key={String(entrada.id ?? i)} className={i < entradas.length - 1 ? "border-b" : ""}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-xs">{resolveProduto(entrada)}</p>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {resolveNome(entrada.cliente ?? entrada.customer)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="secondary" className="text-xs">
-                        {resolveCategoria(entrada)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-xs">
-                      {brl(valor)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-xs text-emerald-600 font-medium">
-                      {brl(lucro)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        variant="outline"
-                        className={cn("text-xs px-1.5", pagamentoCor[pagamento] ?? "")}
-                      >
-                        {pagamento}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {resolveData(entrada)}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Produto</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Categoria</TableHead>
+              <TableHead className="text-right">Venda</TableHead>
+              <TableHead className="text-right">Lucro</TableHead>
+              <TableHead>Pagamento</TableHead>
+              <TableHead>Data</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {entradas.map((entrada, i) => {
+              const valor = resolveValor(entrada)
+              const lucro = resolveLucro(entrada)
+              const pagamento = resolvePagamento(entrada)
+              return (
+                <TableRow key={String(entrada.id ?? i)}>
+                  <TableCell className="font-medium text-xs">{resolveProduto(entrada)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{resolveNome(entrada.cliente ?? entrada.customer)}</TableCell>
+                  <TableCell><Badge variant="secondary" className="text-xs">{resolveCategoria(entrada)}</Badge></TableCell>
+                  <TableCell className="text-right font-medium text-xs tabular-nums">{brl(valor)}</TableCell>
+                  <TableCell className="text-right text-xs text-emerald-600 font-medium tabular-nums">{brl(lucro)}</TableCell>
+                  <TableCell><Badge variant="outline" className={cn("text-xs px-1.5", pagamentoCor[pagamento] ?? "")}>{pagamento}</Badge></TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{resolveData(entrada)}</TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   )

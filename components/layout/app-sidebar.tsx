@@ -303,7 +303,7 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
                               </Badge>
                             )}
                             {status === "coming_soon" && (
-                              <Badge variant="coming-soon" className="text-[10px] group-data-[collapsible=icon]:hidden">
+                              <Badge variant="secondary" className="text-[10px] group-data-[collapsible=icon]:hidden">
                                 em breve
                               </Badge>
                             )}
@@ -324,7 +324,7 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
                         >
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
-                          <Badge variant="coming-soon" className="text-xs group-data-[collapsible=icon]:hidden">
+                          <Badge variant="secondary" className="text-xs group-data-[collapsible=icon]:hidden">
                             Em breve
                           </Badge>
                         </SidebarMenuButton>

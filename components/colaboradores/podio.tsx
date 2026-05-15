@@ -45,7 +45,13 @@ function getMetaPercent(colaborador: ColaboradorResumo) {
   return Math.round((colaborador.realizadoMes / colaborador.metaMes) * 100)
 }
 
-export function Podio({ colaboradores }: { colaboradores: ColaboradorResumo[] }) {
+const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
+
+export function Podio({ colaboradores, mes, ano }: { colaboradores: ColaboradorResumo[]; mes?: number; ano?: number }) {
+  const agora = new Date()
+  const mesLabel = MESES[mes ?? agora.getMonth()]
+  const anoLabel = ano ?? agora.getFullYear()
+
   const ordenado = [...colaboradores].sort((a, b) => {
     if (b.pontosMes !== a.pontosMes) return b.pontosMes - a.pontosMes
     return b.realizadoMes - a.realizadoMes
@@ -58,7 +64,7 @@ export function Podio({ colaboradores }: { colaboradores: ColaboradorResumo[] })
     <Card>
       <CardHeader className="pb-4">
         <CardTitle className="text-sm font-semibold">
-          Ranking do Mês — Março 2026
+          Ranking do Mês — {mesLabel} {anoLabel}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -69,15 +75,16 @@ export function Podio({ colaboradores }: { colaboradores: ColaboradorResumo[] })
             const percentualMeta = getMetaPercent(colaborador)
 
             return (
-              <div
+              <Card
                 key={colaborador.id}
                 className={cn(
-                  "rounded-2xl border p-5 text-center shadow-sm",
+                  "text-center shadow-sm",
                   config.order,
                   config.scale,
                   config.border
                 )}
               >
+              <CardContent className="p-5">
                 <div className="mb-3 text-4xl">{config.emoji}</div>
                 <div className="mb-4 flex justify-center">
                   <Avatar className="h-16 w-16">
@@ -111,13 +118,13 @@ export function Podio({ colaboradores }: { colaboradores: ColaboradorResumo[] })
                     />
                   </div>
                 </div>
-              </div>
+              </CardContent>
+              </Card>
             )
           })}
         </div>
 
-        <div className="rounded-xl border">
-          <Table>
+        <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
                 <TableHead>Posição</TableHead>
@@ -157,7 +164,6 @@ export function Podio({ colaboradores }: { colaboradores: ColaboradorResumo[] })
               ))}
             </TableBody>
           </Table>
-        </div>
       </CardContent>
     </Card>
   )

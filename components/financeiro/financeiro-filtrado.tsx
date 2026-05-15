@@ -10,6 +10,7 @@ import {
   PiggyBank,
   Target,
 } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { TabelaDespesas } from "@/components/financeiro/tabela-despesas"
 import { TabelaEntradas } from "@/components/financeiro/tabela-entradas"
@@ -214,45 +215,53 @@ export function FinanceiroFiltrado({
 
       {/* Barra de progresso da meta */}
       {faturamento > 0 && (
-        <div className="rounded-lg border bg-card px-4 py-3 space-y-1.5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-1.5 font-medium">
-              <Target className="h-4 w-4 text-muted-foreground" />
-              Meta mensal — {brl(META_MES)}
-            </span>
-            <span className={percentualMeta >= 100 ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
-              {percentualMeta.toFixed(1)}%
-            </span>
-          </div>
-          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-200 ${
-                percentualMeta >= 100 ? "bg-emerald-500" : percentualMeta >= 70 ? "bg-blue-500" : "bg-amber-500"
-              }`}
-              style={{ width: `${barraWidth}%` }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {brl(faturamento)} arrecadados · faltam {brl(Math.max(0, META_MES - faturamento))}
-          </p>
-        </div>
+        <Card>
+          <CardContent className="px-4 py-3 space-y-1.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Target className="h-4 w-4 text-muted-foreground" />
+                Meta mensal — {brl(META_MES)}
+              </span>
+              <span className={percentualMeta >= 100 ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
+                {percentualMeta.toFixed(1)}%
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-200 ${
+                  percentualMeta >= 100 ? "bg-emerald-500" : percentualMeta >= 70 ? "bg-blue-500" : "bg-amber-500"
+                }`}
+                style={{ width: `${barraWidth}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {brl(faturamento)} arrecadados · faltam {brl(Math.max(0, META_MES - faturamento))}
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Alertas */}
       {loading && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-          Carregando dados de {MESES[mes]} {ano}…
-        </div>
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="px-4 py-3 text-sm text-blue-900">
+            Carregando dados de {MESES[mes]} {ano}…
+          </CardContent>
+        </Card>
       )}
       {erro && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-          Não foi possível carregar dados para o período selecionado.
-        </div>
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="px-4 py-3 text-sm text-red-900">
+            Não foi possível carregar dados para o período selecionado.
+          </CardContent>
+        </Card>
       )}
       {!loading && !erro && !summary && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Nenhum dado disponível para {MESES[mes]} {ano}.
-        </div>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="px-4 py-3 text-sm text-amber-900">
+            Nenhum dado disponível para {MESES[mes]} {ano}.
+          </CardContent>
+        </Card>
       )}
 
       {/* KPIs */}

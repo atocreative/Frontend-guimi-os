@@ -1,5 +1,6 @@
 import { Clock, CheckCircle2, AlertTriangle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { MetricasComercial } from "@/components/comercial/metricas-comercial"
 import { LeadCard } from "@/components/comercial/lead-card"
 import { getComercialLeads } from "@/lib/services/comercial-service"
@@ -83,22 +84,26 @@ export default async function ComercialPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed p-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              {hasError ? "Não foi possível carregar os leads. Verifique a conexão com o backend." : "Nenhum lead disponível"}
-            </p>
-          </div>
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                {hasError ? "Não foi possível carregar os leads. Verifique a conexão com o backend." : "Nenhum lead disponível"}
+              </p>
+            </CardContent>
+          </Card>
         )}
       </div>
 
       {/* Pipeline */}
       <div>
         <h3 className="text-sm font-semibold mb-3">Pipeline de Vendas</h3>
-        <div className="rounded-lg border p-4">
-          <p className="text-sm text-muted-foreground">
-            Pipeline em desenvolvimento - aguardando integração completa
-          </p>
-        </div>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              Pipeline em desenvolvimento - aguardando integração completa
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
     </div>

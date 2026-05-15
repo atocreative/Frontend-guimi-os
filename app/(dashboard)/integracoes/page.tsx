@@ -9,33 +9,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
-const INTEGRATIONS = [
+const INTEGRATIONS_CONFIG = [
   {
     id: "foneninja-api",
     name: "FoneNinja API",
     description: "Sincronização via API REST",
     icon: Plug,
-    status: "conectado" as const,
-    lastSync: "2 minutos atrás",
     dataTypes: ["Vendas", "Clientes", "Produtos"],
+    statusKey: "foneninja" as const,
   },
   {
     id: "foneninja-xlsx",
     name: "FoneNinja XLSX",
     description: "Importação de planilhas",
     icon: FileText,
-    status: "conectado" as const,
-    lastSync: "1 dia atrás",
     dataTypes: ["Relatórios", "Dados históricos"],
+    statusKey: "foneninja" as const,
   },
   {
     id: "banco-local",
     name: "Banco de Dados Local",
     description: "Sincronização com BD normalizado",
     icon: Database,
-    status: "conectado" as const,
-    lastSync: "Agora",
     dataTypes: ["Cache local", "Dados processados"],
+    statusKey: "backend" as const,
   },
 ]
 
@@ -115,7 +112,7 @@ export default function IntegracoesPpage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
               <CardTitle>Status de sincronização</CardTitle>
-              <CardDescription>{formatDateTime(lastSyncTime)}</CardDescription>
+              <CardDescription suppressHydrationWarning>{formatDateTime(lastSyncTime)}</CardDescription>
               <div className="flex flex-wrap gap-2 pt-1">
                 <Badge className={`gap-1 ${statusTone}`}>
                   {integrationStatus.status === "erro" ? <AlertCircle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
@@ -191,8 +188,12 @@ export default function IntegracoesPpage() {
       <div>
         <h2 className="mb-4 text-lg font-semibold">Integrações Disponíveis</h2>
         <div className="grid gap-4 md:grid-cols-3">
-          {INTEGRATIONS.map((integration) => {
+          {INTEGRATIONS_CONFIG.map((integration) => {
             const Icon = integration.icon
+            const isOnline =
+              integration.statusKey === "foneninja"
+                ? integrationStatus.foneninjaStatus === "online"
+                : integrationStatus.backendStatus === "online"
             return (
               <Card key={integration.id}>
                 <CardHeader className="pb-3">
@@ -208,9 +209,9 @@ export default function IntegracoesPpage() {
                         </CardDescription>
                       </div>
                     </div>
-                    <Badge className="bg-green-100 text-xs text-green-800">
-                      <CheckCircle2 className="mr-1 h-3 w-3" />
-                      Conectado
+                    <Badge className={isOnline ? "bg-green-100 text-xs text-green-800" : "bg-red-100 text-xs text-red-800"}>
+                      {isOnline ? <CheckCircle2 className="mr-1 h-3 w-3" /> : <AlertCircle className="mr-1 h-3 w-3" />}
+                      {isOnline ? "Conectado" : "Offline"}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -219,7 +220,7 @@ export default function IntegracoesPpage() {
                     <p className="mb-1 text-xs font-medium text-muted-foreground">
                       Última sincronização
                     </p>
-                    <p className="text-sm">{integration.lastSync}</p>
+                    <p className="text-sm">{integrationStatus.lastSync ? new Date(integrationStatus.lastSync).toLocaleString("pt-BR") : "—"}</p>
                   </div>
                   <div>
                     <p className="mb-1 text-xs font-medium text-muted-foreground">
@@ -262,7 +263,7 @@ export default function IntegracoesPpage() {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{log.message}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground" suppressHydrationWarning>
                         {formatDateTime(log.timestamp)}
                         {log.duration && ` • ${formatDuration(log.duration)}`}
                         {(log.recordsProcessed || log.recordsTotal) &&

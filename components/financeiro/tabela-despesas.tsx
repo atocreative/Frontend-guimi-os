@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableFooter } from "@/components/ui/table"
 
 export interface DespesaItem {
   id?: string | number
@@ -92,50 +93,38 @@ export function TabelaDespesas({ despesas }: Props) {
           <CardTitle className="text-sm font-semibold">Lançamentos de Despesas</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Descrição</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Categoria</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Valor</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Pagamento</th>
-                </tr>
-              </thead>
-              <tbody>
-                {despesas.map((d, i) => {
-                  const descricao  = String(d.descricao ?? d.description ?? "—")
-                  const categoria  = String(d.categoria ?? d.category ?? "—")
-                  const valor      = Number(d.valor ?? d.value ?? d.amount ?? 0)
-                  return (
-                    <tr key={String(d.id ?? i)} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-xs">{descricao}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant="secondary" className="text-xs">{categoria}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right text-xs font-medium text-red-500 tabular-nums">
-                        {brl(valor)}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {resolveData(d)}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="border-t bg-muted/50">
-                  <td colSpan={2} className="px-4 py-2.5 text-xs font-semibold">Total</td>
-                  <td className="px-4 py-2.5 text-right text-xs font-semibold text-red-500 tabular-nums">
-                    {brl(total)}
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Descrição</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+                <TableHead>Pagamento</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {despesas.map((d, i) => {
+                const descricao  = String(d.descricao ?? d.description ?? "—")
+                const categoria  = String(d.categoria ?? d.category ?? "—")
+                const valor      = Number(d.valor ?? d.value ?? d.amount ?? 0)
+                return (
+                  <TableRow key={String(d.id ?? i)}>
+                    <TableCell className="font-medium text-xs">{descricao}</TableCell>
+                    <TableCell><Badge variant="secondary" className="text-xs">{categoria}</Badge></TableCell>
+                    <TableCell className="text-right text-xs font-medium text-red-500 tabular-nums">{brl(valor)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{resolveData(d)}</TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={2} className="font-semibold">Total</TableCell>
+                <TableCell className="text-right font-semibold text-red-500 tabular-nums">{brl(total)}</TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          </Table>
         </CardContent>
       </Card>
     </div>
