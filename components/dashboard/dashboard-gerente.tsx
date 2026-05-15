@@ -251,13 +251,6 @@ export function DashboardGerente({
               destaque
             />
             <KpiCard
-              titulo="Total Despesas"
-              valor={load(formatBRL(despesas))}
-              descricao="Contas a pagar (real)"
-              icone={Receipt}
-              tendencia="down"
-            />
-            <KpiCard
               titulo="Ticket Médio"
               valor={load(formatBRL(ticketMedio))}
               descricao="Por venda (real)"
@@ -268,33 +261,23 @@ export function DashboardGerente({
         )}
       </div>
 
-      {/* KPIs — linha 2: taxa e meta */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-2">
-        {loadingKpi ? (
-          <>
-            <KpiSkeleton />
+      {/* KPI — meta */}
+      {(loadingKpi || faturamento > 0) && (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {loadingKpi ? (
             <KpiSkeleton destaque />
-          </>
-        ) : (
-          <>
-            <KpiCard
-              titulo="Taxa de Conversão"
-              valor={load((conversao * 100).toFixed(1) + "%")}
-              descricao="Convertidas / pendentes"
-              icone={Target}
-              tendencia="up"
-            />
+          ) : (
             <KpiCard
               titulo="Progresso da Meta"
               valor={load(progresso.toFixed(0) + "%")}
-              descricao={`Meta: R$ 100k`}
+              descricao="Meta: R$ 100k"
               icone={TrendingUp}
               tendencia={progresso >= 100 ? "up" : "neutral"}
               destaque
             />
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Painéis */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

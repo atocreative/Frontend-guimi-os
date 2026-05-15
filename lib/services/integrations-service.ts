@@ -74,18 +74,25 @@ export interface IntegrationStatusResponse {
 
 export async function getIntegrationStatus(): Promise<IntegrationStatusResponse | null> {
   try {
-    const token = typeof window !== "undefined"
-      ? localStorage.getItem("__session_token")
-      : null
-
-    const res = await fetch(`${BACKEND_URL}/api/integrations/status`, {
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
-    })
-
+    // Call the frontend proxy (handles auth via NextAuth session cookie)
+    const res = await fetch("/api/integrations/status", { cache: "no-store" })
     if (!res.ok) return null
-    return await res.json()
+
+    const raw = await res.json()
+
+    // Backend returns { foneninja: "online"|"offline", kommo: ..., meuAssessor: ... }
+    // Normalize to IntegrationStatusResponse
+    const foneninjaStatus: "online" | "offline" =
+      raw.foneninja === "online" ? "online" : "offline"
+
+    return {
+      status: foneninjaStatus === "online" ? "concluido" : "aguardando",
+      foneninjaStatus,
+      backendStatus: "online",
+      dbStatus: "online",
+      _meta: { source: "PostgreSQL", cronStatus: "ativo" },
+      ...raw,
+    }
   } catch {
     return null
   }

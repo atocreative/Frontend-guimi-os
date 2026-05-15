@@ -105,7 +105,7 @@ const navItems: NavGroup[] = [
   {
     label: "Gestão",
     items: [
-      { title: "Ranking", href: "/colaboradores", icon: Users, featureId: "RANKING" },
+      { title: "Ranking", href: "/ranking", icon: Users, featureId: "RANKING" },
       { title: "Integrações", href: "/integracoes", icon: Plug, featureId: "INTEGRACOES" },
       { title: "Configurações", href: "/configuracoes", icon: Settings, featureId: "CONFIGURACOES" },
     ],

@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
-import { Roboto } from "next/font/google";
+import { Roboto, Inter } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Providers } from "./providers";
+import { cn } from "@/lib/utils";
+
+const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
 const roboto = Roboto({
   variable: "--font-roboto",
@@ -28,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${roboto.variable} h-full antialiased`}
+      className={cn("h-full", "antialiased", roboto.variable, "font-sans", inter.variable)}
       suppressHydrationWarning
     >
       <body className="min-h-screen flex flex-col font-sans">

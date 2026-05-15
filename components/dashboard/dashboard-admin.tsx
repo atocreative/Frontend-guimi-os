@@ -3,15 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import {
+  AlertTriangle,
+  Clock,
   DollarSign,
-  PiggyBank,
-  Receipt,
+  RefreshCw,
   ShoppingCart,
   Target,
   TrendingUp,
-  Wallet,
-  RefreshCw,
+  Users,
+  WifiOff,
 } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Select,
   SelectContent,
@@ -20,9 +22,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { GraficoVazio } from "@/components/dashboard/grafico-vazio"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { KpiSkeleton } from "@/components/dashboard/kpi-skeleton"
-import { GraficoVazio } from "@/components/dashboard/grafico-vazio"
 import { VendedoresRanking } from "@/components/dashboard/vendedores-ranking"
 import { PainelCompromissos } from "@/components/dashboard/painel-compromissos"
 import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
@@ -75,9 +77,20 @@ const INDICADORES_ZERO: IndicadoresGeral = {
   ticketMedio: 0, estoqueTotal: 0, conversao: 0,
 }
 
+interface AlertaItem {
+  id: string
+  tipo: "destructive" | "warning" | "info"
+  titulo: string
+  mensagem: string
+}
+
 function toNum(value: unknown): number {
   const n = Number(value)
   return Number.isFinite(n) ? n : 0
+}
+
+function isNull(value: unknown): boolean {
+  return value === null || value === undefined
 }
 
 // ─── componentes lazy ─────────────────────────────────────────────────────────
@@ -125,9 +138,12 @@ export function DashboardAdmin({
   const [ano, setAno] = useState(initialYear)
   const [dia, setDia] = useState<number | "">(mesProp === undefined && anoProp === undefined && initialYear === currentYear ? currentDay : "")
   const [indicadores, setIndicadores] = useState<IndicadoresGeral>(INDICADORES_ZERO)
+  const [totalVendas, setTotalVendas] = useState(0)
   const [loadingKpi, setLoadingKpi] = useState(true)
   const [overviewExtra, setOverviewExtra] = useState<OverviewExtra | null>(null)
   const [faturamentoDiaSelecionado, setFaturamentoDiaSelecionado] = useState<number | null>(null)
+  const [erroFetch, setErroFetch] = useState(false)
+  const [nullFlags, setNullFlags] = useState({ lucro: false, totalVendas: false, faturamentoDia: false })
 
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
@@ -154,18 +170,28 @@ export function DashboardAdmin({
   // ── fetch via /api/dashboard/summary ────────────────────────────────────────
   const fetchMensal = useCallback(async (m: number, a: number) => {
     setLoadingKpi(true)
+    setErroFetch(false)
     try {
       const monthlySummary = await getDashboardSummary({ year: a, month: m })
       if (monthlySummary) {
+        const lucroRaw = monthlySummary.lucroLiquidoMes ?? monthlySummary.financeiro?.netProfit
+        const totalVendasRaw = monthlySummary.totalVendas
+        const fatDiaRaw = monthlySummary.faturamentoDia
+        setNullFlags({
+          lucro: isNull(lucroRaw),
+          totalVendas: isNull(totalVendasRaw),
+          faturamentoDia: isNull(fatDiaRaw),
+        })
         setIndicadores({
           faturamento: toNum(monthlySummary.faturamentoMes ?? monthlySummary.financeiro?.receita),
           despesas:    toNum(monthlySummary.despesasMes ?? monthlySummary.financeiro?.despesasVariaveis),
           compras:     toNum(monthlySummary.comprasMes),
-          lucro:       toNum(monthlySummary.lucroLiquidoMes ?? monthlySummary.financeiro?.netProfit),
+          lucro:       toNum(lucroRaw),
           ticketMedio: toNum(monthlySummary.ticketMedio),
           estoqueTotal: 0,
           conversao:   0,
         })
+        setTotalVendas(toNum(totalVendasRaw))
         setOverviewExtra({
           grafico: (monthlySummary.grafico ?? []).map((item) => ({
             dia:     item.data,
@@ -174,15 +200,15 @@ export function DashboardAdmin({
             lucro:   item.saldo,
           })),
           resumo: { faturamentoDia: toNum(monthlySummary.faturamentoDia) },
+          // @ts-ignore - vendedores may come from backend even if not in type yet
+          vendedores: (monthlySummary as any).rankingVendedores ?? (monthlySummary as any).vendedores ?? undefined,
         })
-      } else {
-        setIndicadores(INDICADORES_ZERO)
-        setOverviewExtra(null)
       }
+      // se null, mantém dados anteriores — não zera tudo
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error)
-      setIndicadores(INDICADORES_ZERO)
-      setOverviewExtra(null)
+      setErroFetch(true)
+      // mantém dados anteriores visíveis
     } finally {
       setLoadingKpi(false)
     }
@@ -213,9 +239,68 @@ export function DashboardAdmin({
   }, [indicadores, refetchIntegrationStatus])
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
-  const { faturamento, despesas, lucro, ticketMedio, estoqueTotal, conversao } = indicadores
+  const { faturamento, lucro } = indicadores
   const faturamentoDia = diaValido !== "" ? Number(faturamentoDiaSelecionado ?? 0) : Number(overviewExtra?.resumo?.faturamentoDia ?? 0)
-  const saldoCaixa = Math.max(0, faturamento - despesas)
+
+  // Null-awareness: valores que o backend não retornou (null) ≠ zero real
+  const lucroNulo = nullFlags.lucro
+  const totalVendasNulo = nullFlags.totalVendas
+  const faturamentoDiaNulo = nullFlags.faturamentoDia && diaValido === ""
+
+  // Warning: lucro === faturamento indica dado inconsistente (backend não separou despesas)
+  const lucroInconsistente = !loadingKpi && !lucroNulo && lucro > 0 && lucro === faturamento
+
+  // ── alertas derivados ────────────────────────────────────────────────────────
+  const alertas = useMemo<AlertaItem[]>(() => {
+    const list: AlertaItem[] = []
+    const isHoje = diaValido === "" && mes === new Date().getMonth() && ano === new Date().getFullYear()
+
+    if (integrationStatus?.status === "offline" || integrationStatus?.status === "error") {
+      list.push({
+        id: "integracao-offline",
+        tipo: "destructive",
+        titulo: "Integração offline",
+        mensagem: "Fone Ninja não está respondendo. Os dados podem estar desatualizados.",
+      })
+    }
+
+    if (isHoje && faturamentoDia === 0 && !loadingKpi) {
+      list.push({
+        id: "sem-vendas-hoje",
+        tipo: "warning",
+        titulo: "Sem vendas hoje",
+        mensagem: "Nenhuma venda registrada para hoje. Verifique se a integração está sincronizando.",
+      })
+    }
+
+    if (integrationStatus?.lastSync) {
+      const diffMin = (Date.now() - new Date(integrationStatus.lastSync).getTime()) / 60_000
+      if (diffMin > 60) {
+        list.push({
+          id: "sync-atrasado",
+          tipo: "warning",
+          titulo: "Sincronização atrasada",
+          mensagem: `Última sync há ${Math.round(diffMin)} minutos. Dados podem estar defasados.`,
+        })
+      }
+    } else if (!loadingKpi) {
+      list.push({
+        id: "sync-nunca",
+        tipo: "warning",
+        titulo: "Sem sincronização registrada",
+        mensagem: "Nenhuma sincronização com o Fone Ninja foi registrada ainda.",
+      })
+    }
+
+    list.push({
+      id: "kommo-desconectado",
+      tipo: "info",
+      titulo: "Leads sem follow-up",
+      mensagem: "Kommo CRM ainda não conectado — leads de meses anteriores não podem ser verificados.",
+    })
+
+    return list
+  }, [integrationStatus, faturamentoDia, loadingKpi, diaValido, mes, ano])
 
   const dadosGrafico = useMemo(() =>
     (overviewExtra?.grafico ?? []).map((item) => ({
@@ -274,12 +359,18 @@ export function DashboardAdmin({
           {integrationStatus?.lastSync && (
             <Badge className="mt-2 bg-green-100 text-green-800">
               <RefreshCw className="h-3 w-3 mr-1" />
-              Sincronizado às {new Date(integrationStatus.lastSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              Sincronizado às {new Date(integrationStatus.lastSync).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
             </Badge>
           )}
-          {integrationStatus.status === "concluido" && (
-            <Badge className="mt-2 ml-2 bg-emerald-100 text-emerald-800">
-              Dados históricos sincronizados
+          {loadingKpi && (
+            <Badge variant="secondary" className="mt-2 ml-2">
+              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+              Carregando…
+            </Badge>
+          )}
+          {erroFetch && !loadingKpi && (
+            <Badge variant="destructive" className="mt-2 ml-2">
+              Erro ao carregar dados — exibindo último resultado
             </Badge>
           )}
         </div>
@@ -289,7 +380,7 @@ export function DashboardAdmin({
             setMes(Number(v))
             setDia("")
           }}>
-            <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[130px] cursor-pointer"><SelectValue /></SelectTrigger>
             <SelectContent>
               {mesesDisponiveis.map((item) => (
                 <SelectItem key={item.value} value={String(item.value)}>{item.nome}</SelectItem>
@@ -301,7 +392,7 @@ export function DashboardAdmin({
             setAno(Number(v))
             setDia("")
           }}>
-            <SelectTrigger className="w-[90px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[90px] cursor-pointer"><SelectValue /></SelectTrigger>
             <SelectContent>
               {yearsDisponiveis.map((a) => (
                 <SelectItem key={a} value={String(a)}>{a}</SelectItem>
@@ -310,7 +401,7 @@ export function DashboardAdmin({
           </Select>
 
           <Select value={dia === "" ? "all" : String(dia)} onValueChange={(v) => setDia(v === "all" ? "" : Number(v))}>
-            <SelectTrigger className="w-[90px]"><SelectValue placeholder="Dia" /></SelectTrigger>
+            <SelectTrigger className="w-[90px] cursor-pointer"><SelectValue placeholder="Dia" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todo o mês</SelectItem>
               {diasDisponiveis.map((d) => (
@@ -321,7 +412,7 @@ export function DashboardAdmin({
         </div>
       </div>
 
-      {/* KPIs — linha 1: receita */}
+      {/* KPIs — exatamente: faturamentoDia, faturamentoMes, lucroLiquido, totalVendasMes */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {loadingKpi ? (
           <>
@@ -334,91 +425,73 @@ export function DashboardAdmin({
           <>
             <KpiCard
               titulo="Faturamento do Dia"
-              valor={load(formatBRL(faturamentoDia))}
-              descricao={diaValido ? `Dia ${diaValido}` : faturamentoDia > 0 ? "Hoje (real)" : "Aguardando dados"}
+              valor={faturamentoDiaNulo ? "Indisponível" : formatBRL(faturamentoDia)}
+              descricao={diaValido ? `Dia ${diaValido}` : faturamentoDiaNulo ? "Sem dados do backend" : faturamentoDia > 0 ? "Hoje (real)" : "Aguardando dados"}
               icone={DollarSign}
-              tendencia="up"
+              tendencia={faturamentoDiaNulo ? "neutral" : "up"}
             />
             <KpiCard
               titulo="Faturamento do Mês"
-              valor={load(formatBRL(faturamento))}
+              valor={formatBRL(faturamento)}
               descricao={`${MESES[mes]} ${ano}`}
               icone={Target}
               tendencia="up"
             />
             <KpiCard
               titulo="Lucro Líquido"
-              valor={load(formatBRL(lucro))}
-              descricao="Fat. − despesas − compras"
+              valor={lucroNulo ? "Indisponível" : lucroInconsistente ? "⚠ Inconsistente" : formatBRL(lucro)}
+              descricao={lucroNulo ? "Aguardando custos/despesas" : lucroInconsistente ? "Dado financeiro inconsistente" : "Fat. − despesas − compras"}
               icone={TrendingUp}
-              tendencia={lucro >= 0 ? "up" : "down"}
+              tendencia={lucroNulo ? "neutral" : lucroInconsistente ? "down" : lucro >= 0 ? "up" : "down"}
               destaque
             />
             <KpiCard
-              titulo="Ticket Médio"
-              valor={load(formatBRL(ticketMedio))}
-              descricao="Por venda (real)"
+              titulo="Total Vendas no Mês"
+              valor={totalVendasNulo ? "Indisponível" : totalVendas > 0 ? String(totalVendas) : "—"}
+              descricao={totalVendasNulo ? "Sem dados do backend" : "Vendas consolidadas (real)"}
               icone={ShoppingCart}
-              tendencia="up"
+              tendencia={totalVendasNulo ? "neutral" : "up"}
             />
           </>
         )}
       </div>
 
-      {/* KPIs — linha 2: custos e posição */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {loadingKpi ? (
-          <>
-            <KpiSkeleton />
-            <KpiSkeleton />
-            <KpiSkeleton />
-            <KpiSkeleton destaque />
-          </>
-        ) : (
-          <>
-            <KpiCard
-              titulo="Taxa de Conversão"
-              valor={load((conversao * 100).toFixed(1) + "%")}
-              descricao="Convertidas / Pendentes"
-              icone={Target}
-              tendencia="up"
-            />
-            <KpiCard
-              titulo="Total Despesas"
-              valor={load(formatBRL(despesas))}
-              descricao="Contas a pagar (real)"
-              icone={Receipt}
-              tendencia="down"
-            />
-            <KpiCard
-              titulo="Estoque Total"
-              valor={load(formatBRL(estoqueTotal))}
-              descricao="Valor em estoque (real)"
-              icone={Wallet}
-              tendencia="neutral"
-            />
-            <KpiCard
-              titulo="Saldo em Caixa"
-              valor={load(formatBRL(saldoCaixa))}
-              descricao="Fat. − despesas"
-              icone={PiggyBank}
-              tendencia={saldoCaixa > 0 ? "up" : "down"}
-              destaque
-            />
-          </>
-        )}
-      </div>
+      {/* Alertas gerais */}
+      {alertas.length > 0 && (
+        <div className="space-y-2">
+          {alertas.map((alerta) => (
+            <Alert
+              key={alerta.id}
+              variant={alerta.tipo === "destructive" ? "destructive" : "default"}
+              className={alerta.tipo === "warning" ? "border-yellow-400 bg-yellow-50 text-yellow-900 dark:border-yellow-600 dark:bg-yellow-950 dark:text-yellow-100" : alerta.tipo === "info" ? "border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-100" : ""}
+            >
+              {alerta.tipo === "destructive" && <WifiOff className="h-4 w-4" />}
+              {alerta.tipo === "warning" && <AlertTriangle className="h-4 w-4" />}
+              {alerta.tipo === "info" && <Users className="h-4 w-4" />}
+              <AlertTitle>{alerta.titulo}</AlertTitle>
+              <AlertDescription>{alerta.mensagem}</AlertDescription>
+            </Alert>
+          ))}
+        </div>
+      )}
 
-      {/* Gráfico */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {/* Gráfico faturamento/lucro */}
+      {dadosGrafico.length > 0 ? (
         <GraficoFinanceiro dados={dadosGrafico} titulo={`Evolução — ${MESES[mes]} ${ano}`} />
-        <GraficoFinanceiro dados={[]} titulo="Evolução Semanal (dias)" />
+      ) : !loadingKpi ? (
+        <GraficoVazio mensagem={`Sem dados de gráfico para ${MESES[mes]} ${ano}`} />
+      ) : null}
+
+      {/* Origem dos leads — Kommo CRM (não conectado ainda) */}
+      <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+        <Clock className="mx-auto mb-1 h-4 w-4 opacity-50" />
+        Origem dos leads — aguardando conexão com Kommo CRM
       </div>
 
       {/* Ranking de vendedores */}
       <VendedoresRanking vendedores={overviewExtra?.vendedores ?? []} loading={loadingKpi} />
 
-      {/* Painéis */}
+      {/* Tarefas do dia */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Leaderboard currentUserId={currentUser?.id} compact />
         <PainelTarefas tarefas={pendentesVisiveis} onConcluir={concluirTarefa} riscados={riscados} />

@@ -12,8 +12,27 @@ const BACKEND_URL = (() => {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
-  const startDate = searchParams.get("startDate")
-  const endDate = searchParams.get("endDate")
+  let startDate = searchParams.get("startDate")
+  let endDate = searchParams.get("endDate")
+
+  // Support year/month/day params from dashboard-summary service
+  if (!startDate || !endDate) {
+    const yearParam = searchParams.get("year")
+    const monthParam = searchParams.get("month")
+    const dayParam = searchParams.get("day")
+    if (yearParam && monthParam !== null) {
+      const year = parseInt(yearParam, 10)
+      const month = parseInt(monthParam, 10) // 0-indexed
+      if (dayParam) {
+        const day = parseInt(dayParam, 10)
+        startDate = new Date(Date.UTC(year, month, day)).toISOString()
+        endDate = new Date(Date.UTC(year, month, day + 1) - 1).toISOString()
+      } else {
+        startDate = new Date(Date.UTC(year, month, 1)).toISOString()
+        endDate = new Date(Date.UTC(year, month + 1, 1) - 1).toISOString()
+      }
+    }
+  }
 
   const params = new URLSearchParams()
   if (startDate) params.set("startDate", startDate)

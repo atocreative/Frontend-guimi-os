@@ -36,6 +36,8 @@ interface Props {
 export function VendedoresRanking({ vendedores, loading = false }: Props) {
   const lista = vendedores.slice(0, 5)
 
+  if (!loading && lista.length === 0) return null
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -48,11 +50,7 @@ export function VendedoresRanking({ vendedores, loading = false }: Props) {
               <Skeleton key={i} className="h-10 w-full" />
             ))}
           </div>
-        ) : lista.length === 0 ? (
-          <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-            Nenhum dado de vendedores no período.
-          </p>
-        ) : (
+        ) : lista.length === 0 ? null : (
           <Table>
             <TableHeader>
               <TableRow>

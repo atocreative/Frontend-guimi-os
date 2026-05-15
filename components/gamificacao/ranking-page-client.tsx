@@ -21,7 +21,7 @@ export function RankingPageClient({ currentUserId, currentUserRole }: RankingPag
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Ranking e Gamificação</h1>
+        <h1 className="text-3xl font-bold">Ranking</h1>
         <p className="text-muted-foreground">
           Acompanhe sua posição e desempenho em relação aos demais
         </p>

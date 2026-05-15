@@ -1,11 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Plus } from "lucide-react"
 import { ColaboradorCard } from "@/components/colaboradores/colaborador-card"
 import { Podio } from "@/components/colaboradores/podio"
 import { NovoColaboradorModal } from "@/components/usuarios/novo-colaborador-modal"
-import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api-client"
 import type { ColaboradorResumo } from "@/types/colaboradores"
@@ -56,12 +54,15 @@ interface ColaboradoresClientProps {
   canManageUsers: boolean
 }
 
+export { ColaboradoresClient as RankingClient }
+
 export function ColaboradoresClient({
   canManageUsers,
 }: ColaboradoresClientProps) {
   const [usuarios, setUsuarios] = useState<UsuarioSistema[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  void modalOpen
 
   useEffect(() => {
     async function carregarUsuarios() {
@@ -90,17 +91,11 @@ export function ColaboradoresClient({
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">Colaboradores</h2>
+          <h2 className="text-xl font-semibold">Ranking</h2>
           <p className="text-sm text-muted-foreground">
-            Corrida Guimicell - Performance e Conquistas.
+            Corrida Guimicell — Performance e Conquistas da equipe.
           </p>
         </div>
-        {canManageUsers && (
-          <Button size="sm" className="gap-1.5" onClick={() => setModalOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Novo Colaborador
-          </Button>
-        )}
       </div>
 
       {loading ? (

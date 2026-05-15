@@ -171,6 +171,8 @@ export function Leaderboard({
     [compact, entries]
   )
 
+  if (!loading && (!data?.available || entries.length === 0)) return null
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -194,21 +196,7 @@ export function Leaderboard({
               <Skeleton key={index} className="h-12 rounded-lg" />
             ))}
           </div>
-        ) : !data?.available ? (
-          <div className="rounded-lg border border-dashed px-4 py-6 text-center">
-            <p className="text-sm font-medium">Gamificação indisponível</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {data?.message ?? "O backend ainda não liberou o leaderboard."}
-            </p>
-          </div>
-        ) : entries.length === 0 ? (
-          <div className="rounded-lg border border-dashed px-4 py-6 text-center">
-            <p className="text-sm font-medium">Nenhum ranking disponível</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              O leaderboard aparecerá quando houver dados de pontuação.
-            </p>
-          </div>
-        ) : (
+        ) : !data?.available || entries.length === 0 ? null : (
           <>
             <div className="space-y-2">
               {visibleEntries.map((entry, index) => (
