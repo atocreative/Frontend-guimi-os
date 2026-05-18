@@ -12,12 +12,12 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = req.nextUrl
     const params = new URLSearchParams()
-    for (const key of ["period", "month", "year", "seller", "startDate", "endDate"]) {
+    for (const key of ["period", "month", "year", "startDate", "endDate"]) {
       const v = searchParams.get(key)
       if (v) params.set(key, v)
     }
 
-    const res = await fetch(`${BACKEND_URL}/api/ranking?${params}`, {
+    const res = await fetch(`${BACKEND_URL}/api/ranking/performance?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),

@@ -5,15 +5,16 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { RankingPodio } from "./ranking-podio"
 import { RankingTable } from "./ranking-table"
 import { RankingFiltersBar } from "./ranking-filters"
-import type { RankingEntry, RankingFilters } from "./types"
+import { PerformanceCard } from "./performance-card"
+import type { PerformanceEntry, RankingFilters } from "./types"
 
 const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
 
-function periodLabel(filters: RankingFilters) {
-  if (filters.period === "hoje") return "Hoje"
-  if (filters.period === "semana") return "Esta semana"
-  if (filters.period === "ano") return `Ano ${filters.year}`
-  return `${MESES[filters.month - 1]} ${filters.year}`
+function periodLabel(f: RankingFilters) {
+  if (f.period === "hoje") return "Hoje"
+  if (f.period === "semana") return "Esta semana"
+  if (f.period === "ano") return `Ano ${f.year}`
+  return `${MESES[f.month - 1]} ${f.year}`
 }
 
 export function RankingClient() {
@@ -22,9 +23,8 @@ export function RankingClient() {
     period: "mes",
     month: now.getMonth() + 1,
     year: now.getFullYear(),
-    seller: "",
   })
-  const [entries, setEntries] = useState<RankingEntry[]>([])
+  const [entries, setEntries] = useState<PerformanceEntry[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchRanking = useCallback(async (f: RankingFilters) => {
@@ -35,8 +35,6 @@ export function RankingClient() {
         month: String(f.month),
         year: String(f.year),
       })
-      if (f.seller) params.set("seller", f.seller)
-
       const res = await fetch(`/api/ranking?${params}`, { cache: "no-store" })
       if (!res.ok) { setEntries([]); return }
       const data = await res.json()
@@ -52,14 +50,18 @@ export function RankingClient() {
     fetchRanking(filters)
   }, [filters, fetchRanking])
 
+  const topScore = entries[0]?.score ?? 0
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Ranking</h2>
+          <h2 className="text-xl font-semibold">Ranking Operacional</h2>
           <p className="text-sm text-muted-foreground">
-            {loading ? "Carregando..." : `${entries.length} vendedor(es) · ${periodLabel(filters)}`}
+            {loading
+              ? "Carregando..."
+              : `${entries.length} colaborador(es) · ${periodLabel(filters)}${topScore > 0 ? ` · líder com ${topScore.toLocaleString("pt-BR")} pts` : ""}`}
           </p>
         </div>
         <RankingFiltersBar filters={filters} onChange={setFilters} />
@@ -68,9 +70,9 @@ export function RankingClient() {
       {/* Podium */}
       {loading ? (
         <div className="grid gap-4 md:grid-cols-3">
-          <Skeleton className="order-2 h-72 rounded-2xl md:order-2" />
-          <Skeleton className="order-1 h-60 rounded-2xl md:order-1 md:mt-8" />
-          <Skeleton className="order-3 h-52 rounded-2xl md:mt-14" />
+          <Skeleton className="md:mt-8 h-64 rounded-2xl" />
+          <Skeleton className="h-72 rounded-2xl" />
+          <Skeleton className="md:mt-14 h-56 rounded-2xl" />
         </div>
       ) : (
         <RankingPodio entries={entries} />
@@ -78,7 +80,7 @@ export function RankingClient() {
 
       {/* Full table */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Ranking completo
         </h3>
         {loading ? (
@@ -89,6 +91,26 @@ export function RankingClient() {
           </div>
         ) : (
           <RankingTable entries={entries} />
+        )}
+      </div>
+
+      {/* Performance individual */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Performance individual
+        </h3>
+        {loading ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-52 rounded-xl" />
+            ))}
+          </div>
+        ) : entries.length === 0 ? null : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {entries.map((entry) => (
+              <PerformanceCard key={entry.userId} entry={entry} />
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -1,7 +1,6 @@
 "use client"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
 import type { RankingFilters } from "./types"
 
 const MESES = [
@@ -26,7 +25,8 @@ interface RankingFiltersProps {
 
 export function RankingFiltersBar({ filters, onChange }: RankingFiltersProps) {
   const set = (partial: Partial<RankingFilters>) => onChange({ ...filters, ...partial })
-  const showMonthYear = filters.period === "mes" || filters.period === "personalizado"
+  const showMonth = filters.period === "mes" || filters.period === "personalizado"
+  const showYear = showMonth || filters.period === "ano"
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -41,33 +41,20 @@ export function RankingFiltersBar({ filters, onChange }: RankingFiltersProps) {
         </SelectContent>
       </Select>
 
-      {showMonthYear && (
-        <>
-          <Select value={String(filters.month)} onValueChange={(v) => set({ month: Number(v) })}>
-            <SelectTrigger className="h-8 w-32 text-xs">
-              <SelectValue placeholder="Mês" />
-            </SelectTrigger>
-            <SelectContent>
-              {MESES.map((m, i) => (
-                <SelectItem key={i + 1} value={String(i + 1)} className="text-xs">{m}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={String(filters.year)} onValueChange={(v) => set({ year: Number(v) })}>
-            <SelectTrigger className="h-8 w-24 text-xs">
-              <SelectValue placeholder="Ano" />
-            </SelectTrigger>
-            <SelectContent>
-              {ANOS.map((y) => (
-                <SelectItem key={y} value={String(y)} className="text-xs">{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </>
+      {showMonth && (
+        <Select value={String(filters.month)} onValueChange={(v) => set({ month: Number(v) })}>
+          <SelectTrigger className="h-8 w-32 text-xs">
+            <SelectValue placeholder="Mês" />
+          </SelectTrigger>
+          <SelectContent>
+            {MESES.map((m, i) => (
+              <SelectItem key={i + 1} value={String(i + 1)} className="text-xs">{m}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
 
-      {filters.period === "ano" && (
+      {showYear && (
         <Select value={String(filters.year)} onValueChange={(v) => set({ year: Number(v) })}>
           <SelectTrigger className="h-8 w-24 text-xs">
             <SelectValue placeholder="Ano" />
@@ -79,13 +66,6 @@ export function RankingFiltersBar({ filters, onChange }: RankingFiltersProps) {
           </SelectContent>
         </Select>
       )}
-
-      <Input
-        placeholder="Filtrar vendedor..."
-        value={filters.seller}
-        onChange={(e) => set({ seller: e.target.value })}
-        className="h-8 w-44 text-xs"
-      />
     </div>
   )
 }

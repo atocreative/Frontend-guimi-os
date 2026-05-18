@@ -3,11 +3,7 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import type { RankingEntry } from "./types"
-
-function brl(v: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v)
-}
+import type { PerformanceEntry } from "./types"
 
 function getInitials(name: string) {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
@@ -17,102 +13,104 @@ const MEDALS = [
   {
     label: "1º",
     ring: "ring-2 ring-amber-400/70",
-    glow: "shadow-[0_0_24px_rgba(251,191,36,0.25)]",
+    glow: "shadow-[0_0_28px_rgba(251,191,36,0.22)]",
     badge: "bg-amber-500/15 text-amber-500 border-amber-400/30",
     avatarBg: "bg-amber-500/20 text-amber-400",
+    scoreColor: "text-amber-400",
     icon: "🥇",
-    size: "h-20 w-20",
+    avatarSize: "h-20 w-20",
     textName: "text-base font-bold",
     cardCls: "border-amber-400/25 bg-gradient-to-b from-amber-500/8 to-transparent scale-[1.04] z-10",
   },
   {
     label: "2º",
     ring: "ring-2 ring-zinc-400/50",
-    glow: "shadow-[0_0_16px_rgba(161,161,170,0.15)]",
+    glow: "shadow-[0_0_16px_rgba(161,161,170,0.12)]",
     badge: "bg-zinc-400/10 text-zinc-400 border-zinc-400/25",
     avatarBg: "bg-zinc-500/20 text-zinc-300",
+    scoreColor: "text-zinc-300",
     icon: "🥈",
-    size: "h-14 w-14",
+    avatarSize: "h-14 w-14",
     textName: "text-sm font-semibold",
     cardCls: "border-zinc-400/15 bg-gradient-to-b from-zinc-500/5 to-transparent",
   },
   {
     label: "3º",
     ring: "ring-2 ring-orange-700/40",
-    glow: "shadow-[0_0_16px_rgba(180,83,9,0.12)]",
+    glow: "shadow-[0_0_16px_rgba(180,83,9,0.10)]",
     badge: "bg-orange-900/20 text-orange-400 border-orange-700/25",
     avatarBg: "bg-orange-900/20 text-orange-400",
+    scoreColor: "text-orange-400",
     icon: "🥉",
-    size: "h-14 w-14",
+    avatarSize: "h-14 w-14",
     textName: "text-sm font-semibold",
     cardCls: "border-orange-700/15 bg-gradient-to-b from-orange-900/8 to-transparent",
   },
-]
+] as const
 
-interface PodioCardProps {
-  entry: RankingEntry
-  rank: 0 | 1 | 2
-  isTop1?: boolean
-}
-
-function PodioCard({ entry, rank, isTop1 }: PodioCardProps) {
+function PodioCard({ entry, rank, isTop1 }: { entry: PerformanceEntry; rank: 0 | 1 | 2; isTop1?: boolean }) {
   const m = MEDALS[rank]
 
   return (
     <div
       className={cn(
-        "group relative flex flex-col items-center rounded-2xl border p-5 text-center transition-all duration-300 hover:-translate-y-1",
+        "relative flex flex-col items-center rounded-2xl border text-center transition-colors duration-200",
         m.cardCls,
         m.glow,
         isTop1 ? "px-6 py-7" : "px-4 py-5"
       )}
     >
-      {/* Medal icon top-right */}
-      <span className={cn("absolute right-3 top-3 text-xl", isTop1 ? "text-2xl" : "")}>{m.icon}</span>
+      <span className={cn("absolute right-3 top-3", isTop1 ? "text-2xl" : "text-xl")}>{m.icon}</span>
 
-      {/* Avatar */}
-      <Avatar className={cn(m.size, m.ring, "mb-3 transition-transform duration-300 group-hover:scale-105")}>
+      {/* Streak badge */}
+      {entry.streak > 1 && (
+        <span className="absolute left-3 top-3 flex items-center gap-0.5 rounded-full bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-orange-400">
+          🔥 {entry.streak}d
+        </span>
+      )}
+
+      <Avatar className={cn(m.avatarSize, m.ring, "mb-3")}>
         <AvatarFallback className={cn("font-bold", m.avatarBg, isTop1 ? "text-lg" : "text-sm")}>
-          {getInitials(entry.sellerName)}
+          {getInitials(entry.userName)}
         </AvatarFallback>
       </Avatar>
 
-      {/* Position badge */}
       <Badge variant="outline" className={cn("mb-2 px-2 py-0.5 text-xs font-bold", m.badge)}>
         {m.label} lugar
       </Badge>
 
-      {/* Name */}
-      <p className={cn(m.textName, "mb-3 leading-tight")}>{entry.sellerName}</p>
+      <p className={cn(m.textName, "mb-3 leading-tight")}>{entry.userName}</p>
 
-      {/* Stats */}
-      <div className="w-full space-y-1.5">
-        <div className="rounded-lg bg-black/20 px-3 py-2">
-          <p className={cn("font-bold tabular-nums text-emerald-400", isTop1 ? "text-xl" : "text-base")}>
-            {brl(entry.faturamento)}
-          </p>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Faturamento</p>
+      {/* Score — primary stat */}
+      <div className="mb-2 w-full rounded-lg bg-black/20 px-3 py-2">
+        <p className={cn("font-bold tabular-nums", m.scoreColor, isTop1 ? "text-2xl" : "text-lg")}>
+          {entry.score.toLocaleString("pt-BR")}
+        </p>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">pontos</p>
+      </div>
+
+      {/* Secondary stats */}
+      <div className="grid w-full grid-cols-2 gap-1.5">
+        <div className="rounded-lg bg-black/20 px-2 py-1.5 text-center">
+          <p className={cn("font-semibold tabular-nums", isTop1 ? "text-sm" : "text-xs")}>{entry.tarefasConcluidas}</p>
+          <p className="text-[10px] text-muted-foreground">Tarefas</p>
         </div>
-        <div className="flex gap-1.5">
-          <div className="flex-1 rounded-lg bg-black/20 px-2 py-1.5 text-center">
-            <p className={cn("font-semibold tabular-nums", isTop1 ? "text-sm" : "text-xs")}>{entry.totalVendas}</p>
-            <p className="text-[10px] text-muted-foreground">Vendas</p>
-          </div>
-          <div className="flex-1 rounded-lg bg-black/20 px-2 py-1.5 text-center">
-            <p className={cn("font-semibold tabular-nums", isTop1 ? "text-sm" : "text-xs")}>{brl(entry.ticketMedio)}</p>
-            <p className="text-[10px] text-muted-foreground">Ticket</p>
-          </div>
+        <div className="rounded-lg bg-black/20 px-2 py-1.5 text-center">
+          <p className={cn("font-semibold tabular-nums", isTop1 ? "text-sm" : "text-xs")}>{entry.taxaConclusao}%</p>
+          <p className="text-[10px] text-muted-foreground">Conclusão</p>
         </div>
+        {entry.checklistsConcluidos > 0 && (
+          <div className="col-span-2 rounded-lg bg-black/20 px-2 py-1.5 text-center">
+            <p className={cn("font-semibold tabular-nums", isTop1 ? "text-sm" : "text-xs")}>{entry.checklistsConcluidos}</p>
+            <p className="text-[10px] text-muted-foreground">Checklists</p>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-interface RankingPodioProps {
-  entries: RankingEntry[]
-}
-
-export function RankingPodio({ entries }: RankingPodioProps) {
+export function RankingPodio({ entries }: { entries: PerformanceEntry[] }) {
   const top3 = entries.slice(0, 3)
   const top1 = top3[0]
   const top2 = top3[1]
@@ -128,24 +126,19 @@ export function RankingPodio({ entries }: RankingPodioProps) {
 
   return (
     <div className="w-full">
-      {/* Mobile: vertical stack, TOP 1 first */}
+      {/* Mobile: vertical stack TOP 1 first */}
       <div className="flex flex-col gap-3 md:hidden">
-        {top3.map((entry, i) => (
-          <PodioCard key={entry.sellerName} entry={entry} rank={i as 0 | 1 | 2} isTop1={i === 0} />
+        {top3.map((e, i) => (
+          <PodioCard key={e.userId} entry={e} rank={i as 0 | 1 | 2} isTop1={i === 0} />
         ))}
       </div>
 
-      {/* Desktop: 3-column with TOP 1 center + elevated */}
+      {/* Desktop: TOP2 left · TOP1 center elevated · TOP3 right lower */}
       <div className="hidden items-end gap-4 md:grid md:grid-cols-3">
-        {/* TOP 2 — left, slightly lower */}
         <div className="mt-8">
           {top2 ? <PodioCard entry={top2} rank={1} /> : <div />}
         </div>
-
-        {/* TOP 1 — center, elevated */}
         <PodioCard entry={top1} rank={0} isTop1 />
-
-        {/* TOP 3 — right, lowest */}
         <div className="mt-14">
           {top3rd ? <PodioCard entry={top3rd} rank={2} /> : <div />}
         </div>

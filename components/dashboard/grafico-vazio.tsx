@@ -4,17 +4,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 interface GraficoVazioProps {
   titulo?: string
   descricao?: string
+  /** Alias para descricao — usado em dashboard-admin */
+  mensagem?: string
 }
 
 export function GraficoVazio({
   titulo = "Sem dados disponíveis",
-  descricao = "Nenhuma venda registrada para este período"
+  descricao,
+  mensagem,
 }: GraficoVazioProps) {
+  const texto = descricao ?? mensagem ?? "Nenhuma venda registrada para este período"
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">{titulo}</CardTitle>
-        {descricao && <CardDescription>{descricao}</CardDescription>}
+        {texto && <CardDescription>{texto}</CardDescription>}
       </CardHeader>
       <CardContent className="flex h-[240px] items-center justify-center">
         <div className="flex flex-col items-center gap-2 text-muted-foreground">

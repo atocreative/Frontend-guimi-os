@@ -1,14 +1,21 @@
-export interface RankingEntry {
+export interface PerformanceEntry {
   posicao: number
-  sellerName: string
-  totalVendas: number
-  faturamento: number
-  ticketMedio: number
+  userId: string
+  userName: string
+  jobTitle: string | null
+  nivel: number
+  score: number
+  tarefasConcluidas: number
+  tarefasNoPrazo: number
+  tarefasAtrasadas: number
+  tarefasPendentes: number
+  taxaConclusao: number
+  checklistsConcluidos: number
+  streak: number
 }
 
 export interface RankingFilters {
   period: "hoje" | "semana" | "mes" | "ano" | "personalizado"
   month: number
   year: number
-  seller: string
 }
