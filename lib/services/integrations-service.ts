@@ -65,6 +65,8 @@ export interface IntegrationStatusResponse {
   backendStatus?: "online" | "offline"
   dbStatus?: "online" | "offline"
   foneninjaStatus?: "online" | "offline"
+  kommoStatus?: "online" | "offline"
+  meuAssessorStatus?: "online" | "offline"
   message?: string
   _meta?: {
     source?: "PostgreSQL" | "FoneNinja" | string
@@ -85,11 +87,16 @@ export async function getIntegrationStatus(): Promise<IntegrationStatusResponse 
     const foneninjaStatus: "online" | "offline" =
       raw.foneninja === "online" ? "online" : "offline"
 
+    const normalizeOnline = (v: unknown): "online" | "offline" =>
+      v === "online" ? "online" : "offline"
+
     return {
       status: foneninjaStatus === "online" ? "concluido" : "aguardando",
       foneninjaStatus,
-      backendStatus: "online",
-      dbStatus: "online",
+      kommoStatus: normalizeOnline(raw.kommo),
+      meuAssessorStatus: normalizeOnline(raw.meuAssessor),
+      backendStatus: "online" as const,
+      dbStatus: "online" as const,
       _meta: { source: "PostgreSQL", cronStatus: "ativo" },
       ...raw,
     }

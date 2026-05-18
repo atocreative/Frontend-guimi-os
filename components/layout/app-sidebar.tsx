@@ -42,7 +42,6 @@ import {
   Sun,
   Code2,
   Moon,
-  Plug,
   type LucideIcon,
 } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -106,7 +105,6 @@ const navItems: NavGroup[] = [
     label: "Gestão",
     items: [
       { title: "Ranking", href: "/ranking", icon: Users, featureId: "RANKING" },
-      { title: "Integrações", href: "/integracoes", icon: Plug, featureId: "INTEGRACOES" },
       { title: "Configurações", href: "/configuracoes", icon: Settings, featureId: "CONFIGURACOES" },
     ],
   },

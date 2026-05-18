@@ -359,6 +359,13 @@ export const api = {
     return null
   },
 
+  async bulkDeleteUsers(ids: string[]) {
+    return apiCall("/api/users/bulk-delete", {
+      method: "DELETE",
+      body: JSON.stringify({ ids }),
+    })
+  },
+
   async getChecklists(tipo?: "ABERTURA" | "FECHAMENTO") {
     const data = await apiCall("/api/checklists", { params: tipo ? { tipo } : undefined })
     return { checklists: extractChecklistsPayload(data) }

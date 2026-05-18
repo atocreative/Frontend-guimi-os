@@ -255,7 +255,7 @@ export function DashboardAdmin({
     const list: AlertaItem[] = []
     const isHoje = diaValido === "" && mes === new Date().getMonth() && ano === new Date().getFullYear()
 
-    if (integrationStatus?.status === "offline" || integrationStatus?.status === "error") {
+    if (integrationStatus?.status === "erro") {
       list.push({
         id: "integracao-offline",
         tipo: "destructive",

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,7 +41,7 @@ function getInitials(name: string) {
     .toUpperCase()
 }
 
-export function UsuarioCard({ usuario, onEdit, onDelete }: { usuario: UsuarioSistema; onEdit?: (usuario: UsuarioSistema) => void; onDelete?: (usuarioId: string) => void }) {
+export function UsuarioCard({ usuario, onEdit, onDelete, selected, onSelect }: { usuario: UsuarioSistema; onEdit?: (usuario: UsuarioSistema) => void; onDelete?: (usuarioId: string) => void; selected?: boolean; onSelect?: (id: string, checked: boolean) => void }) {
   const [deleting, setDeleting] = useState(false)
   const { confirm } = useConfirmDialog()
   const createdAt = new Date(usuario.createdAt).toLocaleDateString("pt-BR")
@@ -81,8 +82,15 @@ export function UsuarioCard({ usuario, onEdit, onDelete }: { usuario: UsuarioSis
   }
 
   return (
-    <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+    <div className={cn("flex items-center justify-between rounded-lg border px-4 py-3", selected && "border-primary/50 bg-primary/5")}>
       <div className="flex items-center gap-3">
+        {onSelect && (
+          <Checkbox
+            checked={selected ?? false}
+            onCheckedChange={(checked) => onSelect(usuario.id, !!checked)}
+            aria-label={`Selecionar ${usuario.name}`}
+          />
+        )}
         <Avatar className="h-9 w-9">
           <AvatarFallback
             className={cn(

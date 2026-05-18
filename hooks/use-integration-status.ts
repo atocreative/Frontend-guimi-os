@@ -15,6 +15,8 @@ export interface IntegrationStatusData {
   backendStatus?: "online" | "offline"
   dbStatus?: "online" | "offline"
   foneninjaStatus?: "online" | "offline"
+  kommoStatus?: "online" | "offline"
+  meuAssessorStatus?: "online" | "offline"
   source?: "PostgreSQL" | "FoneNinja" | string
   cronStatus?: "ativo" | "parado" | "atrasado" | string
 }
@@ -47,6 +49,8 @@ export function useIntegrationStatus(pollIntervalMs: number = 5 * 60 * 1000) {
           backendStatus: data.backendStatus,
           dbStatus: data.dbStatus,
           foneninjaStatus: data.foneninjaStatus,
+          kommoStatus: data.kommoStatus,
+          meuAssessorStatus: data.meuAssessorStatus,
           source: data._meta?.source,
           cronStatus,
         })
