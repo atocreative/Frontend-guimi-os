@@ -18,10 +18,11 @@ type SupportEmailForm = {
   message: string
 }
 
-const supportEmail = "suporte@guimicell.com.br"
+const supportEmail = "suporte.atocriative@gmail.com"
 
 export function EmailForm() {
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const {
     register,
@@ -39,17 +40,33 @@ export function EmailForm() {
   })
 
   async function onSubmit(data: SupportEmailForm) {
-    const params = new URLSearchParams({
-      subject: `[Suporte GuimiCell OS] ${data.subject}`,
-      body: `Nome: ${data.name}\nEmail: ${data.email}\n\nMensagem:\n${data.message}`,
-    })
+    setError(null)
+    try {
+      const res = await fetch("/api/support/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: data.name,
+          email: data.email,
+          assunto: data.subject,
+          mensagem: data.message,
+        }),
+      })
 
-    if (typeof window !== "undefined") {
-      window.open(`mailto:${supportEmail}?${params.toString()}`, "_self")
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}))
+        setError(
+          (payload as { error?: string }).error ??
+            "Falha ao enviar. Tente novamente mais tarde."
+        )
+        return
+      }
+
+      setSubmitted(true)
+      reset()
+    } catch {
+      setError("Erro de conexão. Verifique sua internet e tente novamente.")
     }
-
-    setSubmitted(true)
-    reset()
   }
 
   return (
@@ -59,7 +76,8 @@ export function EmailForm() {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          As mensagens serão direcionadas para <span className="font-medium text-foreground">{supportEmail}</span>.
+          As mensagens serão direcionadas para{" "}
+          <span className="font-medium text-foreground">{supportEmail}</span>.
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -111,13 +129,24 @@ export function EmailForm() {
 
           {submitted ? (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
-              Seu cliente de e-mail foi acionado com os dados preenchidos.
+              Mensagem enviada com sucesso! Nossa equipe entrará em contato em breve.
             </div>
           ) : null}
 
-          <Button type="submit" size="lg" className="w-full md:w-auto" disabled={isSubmitting}>
+          {error ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
+
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full md:w-auto"
+            disabled={isSubmitting || submitted}
+          >
             <Send className="h-4 w-4" />
-            {isSubmitting ? "Preparando..." : "Enviar para o suporte"}
+            {isSubmitting ? "Enviando..." : submitted ? "Enviado!" : "Enviar para o suporte"}
           </Button>
         </form>
       </CardContent>

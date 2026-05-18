@@ -2,7 +2,8 @@ import Link from "next/link"
 import { MessageCircleHeart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-const whatsappHref = "https://wa.me/5511999999999?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20o%20GuimiCell%20OS."
+const whatsappHref =
+  "https://wa.me/5561991995064?text=Ol%C3%A1%21%20Preciso%20de%20suporte%20no%20sistema%20GuimiCell%20OS."
 
 export function WhatsAppButton() {
   return (

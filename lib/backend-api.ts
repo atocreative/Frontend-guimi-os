@@ -4,7 +4,9 @@ import type { UsuarioDB } from "@/types/usuarios"
 function getApiBase(): string {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL
   if (!base) {
-    throw new Error("NEXT_PUBLIC_API_BASE_URL is not defined. Configure it in your environment variables.")
+    // Fallback seguro — não explodir no build do Next.js.
+    // Em produção, NEXT_PUBLIC_API_BASE_URL deve estar configurada.
+    return "http://localhost:3001"
   }
   return base.replace(/\/$/, "")
 }
