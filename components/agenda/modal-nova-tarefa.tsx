@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { CalendarIcon } from "lucide-react"
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
@@ -12,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -19,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
 import { taskCreateSchema, taskUpdateSchema } from "@/lib/schemas"
 import { api, ApiError } from "@/lib/api-client"
 import type { TarefaDB, UsuarioSimples } from "@/types/tarefas"
@@ -36,10 +41,29 @@ interface ModalNovaTarefaProps {
 
 type PrioridadeSelectValue = "ALTA" | "MEDIA" | "BAIXA" | "NENHUMA"
 
-function isoParaInputDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-CA", {
-    timeZone: "America/Sao_Paulo",
-  })
+// Parse ISO string to a local Date (respecting Brazil timezone)
+function isoParaDate(iso: string): Date {
+  const parts = new Date(iso)
+    .toLocaleDateString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+    .split("/")
+  return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]))
+}
+
+// Convert local Date to ISO (midnight local = correct UTC offset for Brazil)
+function dateParaIso(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return new Date(`${y}-${m}-${day}T00:00:00`).toISOString()
+}
+
+function formatDateBR(d: Date): string {
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
 
 function prioridadeToSelectValue(
@@ -67,8 +91,8 @@ export function ModalNovaTarefa({
   const [titulo, setTitulo] = useState("")
   const [descricao, setDescricao] = useState("")
   const [prioridade, setPrioridade] = useState<PrioridadeSelectValue>("NENHUMA")
-  const [prazo, setPrazo] = useState("")
-  const [horario, setHorario] = useState("")
+  const [prazo, setPrazo] = useState<Date | null>(null)
+  const [calendarOpen, setCalendarOpen] = useState(false)
   const [responsavelId, setResponsavelId] = useState(currentUserId)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState("")
@@ -81,10 +105,7 @@ export function ModalNovaTarefa({
       setTitulo(tarefaParaEditar.title)
       setDescricao(tarefaParaEditar.description ?? "")
       setPrioridade(prioridadeToSelectValue(tarefaParaEditar.priority))
-      setPrazo(
-        tarefaParaEditar.dueAt ? isoParaInputDate(tarefaParaEditar.dueAt) : ""
-      )
-      setHorario(tarefaParaEditar.horario ?? "")
+      setPrazo(tarefaParaEditar.dueAt ? isoParaDate(tarefaParaEditar.dueAt) : null)
       setResponsavelId(tarefaParaEditar.assigneeId ?? usuarios[0]?.id ?? "")
       setErro("")
       return
@@ -94,8 +115,7 @@ export function ModalNovaTarefa({
       setTitulo("")
       setDescricao("")
       setPrioridade("NENHUMA")
-      setPrazo("")
-      setHorario("")
+      setPrazo(null)
       setResponsavelId(podeEscolherResponsavel ? (usuarios[0]?.id ?? "") : "")
       setErro("")
     }
@@ -106,9 +126,8 @@ export function ModalNovaTarefa({
     setErro("")
 
     try {
-      // Only include assigneeId if we have valid users and responsável is selected
       const shouldIncludeAssignee = usuarios.length > 0 && podeEscolherResponsavel && responsavelId
-      const dueAtIso = prazo ? new Date(`${prazo}T00:00:00`).toISOString() : undefined
+      const dueAtIso = prazo ? dateParaIso(prazo) : undefined
 
       const payload = modoEdicao
         ? {
@@ -116,7 +135,6 @@ export function ModalNovaTarefa({
             description: descricao.trim() || null,
             priority: selectValueToPriority(prioridade),
             dueAt: dueAtIso,
-            horario: horario || null,
             assigneeId: shouldIncludeAssignee ? responsavelId : undefined,
           }
         : {
@@ -140,12 +158,14 @@ export function ModalNovaTarefa({
           toast.success("Tarefa atualizada com sucesso")
           onClose()
         } catch (error) {
-          console.error("Erro ao atualizar tarefa:", error)
           if (error instanceof ApiError) {
-            setErro(error.message)
+            console.error("[agenda/update] request failed", { status: error.status, code: error.code })
           } else {
-            setErro("Erro ao salvar. Tente novamente.")
+            console.error("[agenda/update] unexpected error")
           }
+          const message = "Não foi possível salvar a tarefa."
+          setErro(message)
+          toast.error(message)
         }
         return
       }
@@ -164,20 +184,20 @@ export function ModalNovaTarefa({
         toast.success("Tarefa criada com sucesso")
         onClose()
       } catch (error) {
-        console.error("Erro ao criar tarefa:", error)
         if (error instanceof ApiError) {
-          setErro(error.message)
+          console.error("[agenda/create] request failed", { status: error.status, code: error.code })
         } else {
-          setErro("Erro ao criar tarefa. Tente novamente.")
+          console.error("[agenda/create] unexpected error")
         }
+        const message = "Não foi possível criar a tarefa."
+        setErro(message)
+        toast.error(message)
       }
     } catch (error) {
-      console.error("Erro geral ao salvar tarefa:", error)
-      if (error instanceof ApiError) {
-        setErro(error.message)
-      } else {
-        setErro("Erro de conexão. Tente novamente.")
-      }
+      console.error("[agenda/save] unexpected error")
+      const message = "Não foi possível salvar a tarefa."
+      setErro(message)
+      toast.error(message)
     } finally {
       setSalvando(false)
     }
@@ -185,9 +205,16 @@ export function ModalNovaTarefa({
 
   return (
     <Sheet open={open} onOpenChange={(value) => !value && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{modoEdicao ? "Editar Tarefa" : "Nova Tarefa"}</SheetTitle>
+      <SheetContent side="right" className="flex flex-col w-full sm:max-w-md p-0">
+        <SheetHeader className="px-6 pt-6 pb-4 border-b">
+          <SheetTitle className="text-base font-semibold">
+            {modoEdicao ? "Editar Tarefa" : "Nova Tarefa"}
+          </SheetTitle>
+          <SheetDescription>
+            {modoEdicao
+              ? "Atualize os dados da tarefa e salve as alterações."
+              : "Preencha os dados para criar uma nova tarefa na agenda."}
+          </SheetDescription>
         </SheetHeader>
 
         <form
@@ -195,73 +222,93 @@ export function ModalNovaTarefa({
             event.preventDefault()
             salvar()
           }}
-          className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-2"
+          className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5"
         >
-          <div className="space-y-1.5">
-            <Label htmlFor="titulo">Título *</Label>
+          <div className="space-y-2">
+            <Label htmlFor="titulo" className="text-sm font-medium">
+              Título <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="titulo"
               value={titulo}
               onChange={(event) => setTitulo(event.target.value)}
               placeholder="Ex: Ligar para cliente VIP"
+              className="h-11 text-sm"
               autoFocus
             />
             {erro && <p className="text-xs text-destructive">{erro}</p>}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="descricao">Descrição</Label>
-            <Input
+          <div className="space-y-2">
+            <Label htmlFor="descricao" className="text-sm font-medium">
+              Descrição <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
               id="descricao"
               value={descricao}
               onChange={(event) => setDescricao(event.target.value)}
-              placeholder="Detalhes opcionais..."
+              placeholder="Adicione detalhes, contexto ou instruções para esta tarefa..."
+              className="min-h-[120px] resize-y text-sm leading-relaxed"
             />
+            {descricao.trim().length > 0 && descricao.trim().length < 5 && (
+              <p className="text-xs text-destructive">Mínimo de 5 caracteres.</p>
+            )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Prioridade</Label>
-            <Select
-              value={prioridade}
-              onValueChange={(value) => setPrioridade(value as PrioridadeSelectValue)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NENHUMA">Nenhuma</SelectItem>
-                <SelectItem value="ALTA">Alta</SelectItem>
-                <SelectItem value="MEDIA">Média</SelectItem>
-                <SelectItem value="BAIXA">Baixa</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Prioridade</Label>
+              <Select
+                value={prioridade}
+                onValueChange={(value) => setPrioridade(value as PrioridadeSelectValue)}
+              >
+                <SelectTrigger className="w-full h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NENHUMA">Nenhuma</SelectItem>
+                  <SelectItem value="ALTA">Alta</SelectItem>
+                  <SelectItem value="MEDIA">Média</SelectItem>
+                  <SelectItem value="BAIXA">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="prazo">Prazo</Label>
-            <Input
-              id="prazo"
-              type="date"
-              value={prazo}
-              onChange={(event) => setPrazo(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="horario">Horário</Label>
-            <Input
-              id="horario"
-              type="time"
-              value={horario}
-              onChange={(event) => setHorario(event.target.value)}
-            />
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Prazo</Label>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-10 justify-start gap-2 font-normal text-sm"
+                  >
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    {prazo ? (
+                      formatDateBR(prazo)
+                    ) : (
+                      <span className="text-muted-foreground">DD/MM/AAAA</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="p-0">
+                  <Calendar
+                    selected={prazo}
+                    onSelect={(date) => {
+                      setPrazo(date)
+                      setCalendarOpen(false)
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           {podeEscolherResponsavel && (
-            <div className="space-y-1.5">
-              <Label>Responsável</Label>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Responsável</Label>
               <Select value={responsavelId} onValueChange={setResponsavelId}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -276,11 +323,21 @@ export function ModalNovaTarefa({
           )}
         </form>
 
-        <SheetFooter className="px-4">
-          <Button variant="outline" onClick={onClose} disabled={salvando}>
+        <SheetFooter className="px-6 py-4 border-t gap-2 flex-row">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={salvando}
+            className="flex-1 h-[50px]"
+          >
             Cancelar
           </Button>
-          <Button type="button" onClick={salvar} disabled={salvando}>
+          <Button
+            type="button"
+            onClick={salvar}
+            disabled={salvando}
+            className="flex-1 h-[50px]"
+          >
             {salvando ? "Salvando..." : modoEdicao ? "Salvar" : "Criar Tarefa"}
           </Button>
         </SheetFooter>

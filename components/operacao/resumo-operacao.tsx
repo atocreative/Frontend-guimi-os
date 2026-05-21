@@ -1,70 +1,126 @@
-import { Package, AlertCircle, Clock, RefreshCw } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
-import type { mockResumoOperacao } from "@/app/(dashboard)/operacao/data/mock"
+import { Archive, DollarSign, BarChart2, Layers, TrendingUp, Percent } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
-type Resumo = typeof mockResumoOperacao
+const formatBRL = (v: number) =>
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(v)
 
-export function ResumoOperacao({ resumo }: { resumo: Resumo }) {
+const formatPct = (v: number) => `${v.toFixed(1)}%`
+
+interface Summary {
+  totalItens?: number
+  totalProdutos?: number
+  valorTotalEstoque?: number
+  ticketMedio?: number
+  margemMedia?: number
+  lucroMedio?: number
+  lastSyncAt?: string | null
+  _meta?: { source?: string; durationMs?: number }
+}
+
+interface Props {
+  summary: Summary | null
+  showFinancial: boolean
+  error?: boolean
+}
+
+function StatCard({
+  icon: Icon,
+  iconClassName,
+  label,
+  value,
+  description,
+}: {
+  icon: React.ElementType
+  iconClassName: string
+  label: string
+  value: React.ReactNode
+  description?: string
+}) {
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <Card>
-        <CardContent className="p-4 flex items-center gap-3">
-          <div className="rounded-lg bg-emerald-500/10 p-2">
-            <Package className="h-4 w-4 text-emerald-500" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Disponíveis</p>
-            <p className="text-xl font-bold text-emerald-500">
-              {resumo.disponiveis}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              de {resumo.totalEstoque} no estoque
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4 flex items-center gap-3">
-          <div className="rounded-lg bg-amber-500/10 p-2">
-            <AlertCircle className="h-4 w-4 text-amber-500" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Reservados</p>
-            <p className="text-xl font-bold text-amber-500">
-              {resumo.reservados}
-            </p>
-            <p className="text-xs text-muted-foreground">aguardando venda</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4 flex items-center gap-3">
-          <div className="rounded-lg bg-blue-500/10 p-2">
-            <Clock className="h-4 w-4 text-blue-500" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Aguard. Retirada</p>
-            <p className="text-xl font-bold text-blue-500">
-              {resumo.aguardandoRetirada}
-            </p>
-            <p className="text-xs text-muted-foreground">cliente a buscar</p>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4 flex items-center gap-3">
-          <div className="rounded-lg bg-purple-500/10 p-2">
-            <RefreshCw className="h-4 w-4 text-purple-500" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Trade-ins</p>
-            <p className="text-xl font-bold text-purple-500">
-              {resumo.tradeInsAbertos}
-            </p>
-            <p className="text-xs text-muted-foreground">em avaliação</p>
-          </div>
-        </CardContent>
-      </Card>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+        <Icon className={`h-4 w-4 ${iconClassName}`} />
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold tabular-nums">{value}</div>
+        {description && (
+          <CardDescription className="mt-1">{description}</CardDescription>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+export function ResumoOperacao({ summary, showFinancial, error }: Props) {
+  // summary null = fetch falhou (auth/network); distinguir de "dados zerados após sync"
+  const noData = summary === null
+  const s = summary ?? {}
+  const totalProdutos = s.totalProdutos ?? 0
+  const totalItens = s.totalItens ?? 0
+
+  // Quando o backend não responde, mostrar "—" ao invés de "0"
+  // para não enganar o usuário
+  const dash = "—"
+  const fmtItens = noData ? dash : totalItens.toLocaleString("pt-BR")
+  const fmtProdutos = noData ? dash : totalProdutos.toLocaleString("pt-BR")
+  const fmtValor = noData ? dash : formatBRL(s.valorTotalEstoque ?? 0)
+  const fmtTicket = noData ? dash : formatBRL(s.ticketMedio ?? 0)
+  const fmtLucro = noData ? dash : formatBRL(s.lucroMedio ?? 0)
+  const fmtMargem = noData ? dash : formatPct(s.margemMedia ?? 0)
+
+  return (
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+      <StatCard
+        icon={Archive}
+        iconClassName="text-muted-foreground"
+        label="Total em Estoque"
+        value={fmtItens}
+        description={noData ? "Aguardando dados…" : `${totalProdutos} SKU${totalProdutos !== 1 ? "s" : ""} cadastrados`}
+      />
+      <StatCard
+        icon={Layers}
+        iconClassName="text-muted-foreground"
+        label="Produtos Cadastrados"
+        value={fmtProdutos}
+        description={noData ? "Aguardando dados…" : "referências únicas"}
+      />
+
+      {showFinancial && (
+        <>
+          <StatCard
+            icon={DollarSign}
+            iconClassName="text-muted-foreground"
+            label="Valor Total em Estoque"
+            value={fmtValor}
+          />
+          <StatCard
+            icon={BarChart2}
+            iconClassName="text-muted-foreground"
+            label="Ticket Médio"
+            value={fmtTicket}
+            description={noData ? undefined : "por produto cadastrado"}
+          />
+          <StatCard
+            icon={TrendingUp}
+            iconClassName="text-muted-foreground"
+            label="Lucro Médio"
+            value={fmtLucro}
+            description={noData ? undefined : "por produto"}
+          />
+          <StatCard
+            icon={Percent}
+            iconClassName="text-muted-foreground"
+            label="Margem Média"
+            value={fmtMargem}
+            description={noData ? undefined : "sobre preço de venda"}
+          />
+        </>
+      )}
     </div>
   )
 }

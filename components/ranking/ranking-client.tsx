@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { RankingPodio } from "./ranking-podio"
 import { RankingTable } from "./ranking-table"
@@ -26,9 +26,13 @@ export function RankingClient() {
   })
   const [entries, setEntries] = useState<PerformanceEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const filtersRef = useRef(filters)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const fetchRanking = useCallback(async (f: RankingFilters) => {
-    setLoading(true)
+  filtersRef.current = filters
+
+  const fetchRanking = useCallback(async (f: RankingFilters, silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const params = new URLSearchParams({
         period: f.period,
@@ -36,19 +40,42 @@ export function RankingClient() {
         year: String(f.year),
       })
       const res = await fetch(`/api/ranking?${params}`, { cache: "no-store" })
-      if (!res.ok) { setEntries([]); return }
+      if (!res.ok) { if (!silent) setEntries([]); return }
       const data = await res.json()
       setEntries(Array.isArray(data?.data) ? data.data : [])
     } catch {
-      setEntries([])
+      if (!silent) setEntries([])
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     fetchRanking(filters)
   }, [filters, fetchRanking])
+
+  // Silent background polling every 30s, pauses when tab hidden
+  useEffect(() => {
+    const poll = () => {
+      if (document.visibilityState === "visible") {
+        fetchRanking(filtersRef.current, true)
+      }
+    }
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchRanking(filtersRef.current, true)
+        timerRef.current = setInterval(poll, 30_000)
+      } else {
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+      }
+    }
+    timerRef.current = setInterval(poll, 30_000)
+    document.addEventListener("visibilitychange", handleVisibility)
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      document.removeEventListener("visibilitychange", handleVisibility)
+    }
+  }, [fetchRanking])
 
   const topScore = entries[0]?.score ?? 0
 

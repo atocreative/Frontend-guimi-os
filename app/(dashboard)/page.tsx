@@ -9,6 +9,7 @@ import {
   sortTarefasByPriority,
 } from "@/lib/tarefas"
 import { getMonthRange } from "@/lib/financeiro-utils"
+import { WidgetStatusLoja } from "@/components/operacao/widget-status-loja"
 
 export const dynamic = "force-dynamic"
 
@@ -84,28 +85,34 @@ export default async function DashboardPage() {
   // Admin/SUPER_USER dashboard
   if (!isColaborador && !isGerente) {
     return (
-      <DashboardAdmin
-        tarefasHoje={tarefasHoje}
-        tarefasPendentes={tarefasPendentes}
-        currentUser={{ id: session.user.id }}
-        mes={currentMonth}
-        ano={currentYear}
-        availableYears={availableYears}
-      />
+      <>
+        <WidgetStatusLoja />
+        <DashboardAdmin
+          tarefasHoje={tarefasHoje}
+          tarefasPendentes={tarefasPendentes}
+          currentUser={{ id: session.user.id }}
+          mes={currentMonth}
+          ano={currentYear}
+          availableYears={availableYears}
+        />
+      </>
     )
   }
 
   // Gerente dashboard
   if (isGerente) {
     return (
-      <DashboardGerente
-        tarefasHoje={tarefasHoje}
-        tarefasPendentes={tarefasPendentes}
-        currentUser={{ id: session.user.id }}
-        mes={currentMonth}
-        ano={currentYear}
-        availableYears={availableYears}
-      />
+      <>
+        <WidgetStatusLoja />
+        <DashboardGerente
+          tarefasHoje={tarefasHoje}
+          tarefasPendentes={tarefasPendentes}
+          currentUser={{ id: session.user.id }}
+          mes={currentMonth}
+          ano={currentYear}
+          availableYears={availableYears}
+        />
+      </>
     )
   }
 
@@ -115,7 +122,10 @@ export default async function DashboardPage() {
   const end = new Date(endDate)
 
   const concluidasMes = tarefas.filter((tarefa) => {
-    if (tarefa.status !== "CONCLUIDA" || !tarefa.completedAt) {
+    if (
+      (tarefa.status !== "CONCLUIDA" && tarefa.status !== "CONCLUIDA_ATRASADA") ||
+      !tarefa.completedAt
+    ) {
       return false
     }
 

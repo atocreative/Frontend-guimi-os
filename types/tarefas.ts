@@ -1,4 +1,4 @@
-export type TaskStatus = "PENDENTE" | "EM_ANDAMENTO" | "CONCLUIDA" | "CANCELADA"
+export type TaskStatus = "PENDENTE" | "EM_ANDAMENTO" | "CONCLUIDA" | "CONCLUIDA_ATRASADA" | "CANCELADA"
 export type TaskPriority = "ALTA" | "MEDIA" | "BAIXA" | null
 
 export interface UsuarioSimples {
@@ -23,6 +23,9 @@ export interface TarefaDB {
   updatedAt: string
   completedAt?: string | null
   createdBy?: string | null
+  lateReason?: string | null
+  completedByName?: string | null
+  pointsAwarded?: number | null
 }
 
 export interface ChecklistItemDB {
@@ -55,4 +58,5 @@ export interface ResumoPainel {
   total: number
   concluidas: number
   pendentes: number
+  atrasadas: number
 }

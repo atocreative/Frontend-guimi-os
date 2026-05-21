@@ -14,7 +14,8 @@ const optionalNullableTimeInput = z
     z.null(),
   ])
   .optional()
-const optionalNullableUuid = z.union([z.string().uuid("Identificador inválido"), z.null()]).optional()
+// Accepts any non-empty string ID (UUID, CUID, nanoid, etc.) or null
+const optionalNullableUuid = z.union([z.string().min(1, "Identificador inválido"), z.null()]).optional()
 
 export const loginSchema = z.object({
   email: z.string().trim().email("Email inválido"),
@@ -33,7 +34,7 @@ export const mfaVerifySchema = z.object({
 
 export const taskCreateSchema = z.object({
   title: z.string().trim().min(1, "Título é obrigatório").max(255, "Título muito longo"),
-  description: optionalNullableString,
+  description: z.string().trim().min(5, "Descrição deve ter no mínimo 5 caracteres").max(1000, "Descrição muito longa"),
   priority: z.enum(["ALTA", "MEDIA", "BAIXA"]).nullable().optional(),
   dueAt: optionalNullableDateInput,
   horario: optionalNullableTimeInput,
@@ -48,10 +49,11 @@ export const taskUpdateSchema = z.object({
   dueAt: optionalNullableDateInput,
   horario: optionalNullableTimeInput,
   assigneeId: optionalNullableUuid,
+  lateReason: z.string().min(50, "Justificativa deve ter no mínimo 50 caracteres").nullable().optional(),
 })
 
 export const taskFiltersSchema = z.object({
-  assigneeId: z.string().uuid("Filtro de responsável inválido").optional(),
+  assigneeId: z.string().min(1, "Filtro de responsável inválido").optional(),
   status: z.enum(["PENDENTE", "EM_ANDAMENTO", "CONCLUIDA", "CANCELADA"]).optional(),
   orderBy: z.enum(["createdAt", "dueAt", "priority", "title"]).optional(),
   sort: z.enum(["asc", "desc"]).optional(),

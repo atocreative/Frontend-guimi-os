@@ -8,62 +8,84 @@ const BACKEND_URL = (() => {
   return url.replace(/\/$/, "")
 })()
 
-export async function GET(_req: NextRequest) {
+async function buildHeaders(): Promise<Record<string, string>> {
   try {
-    const reqHeaders: Record<string, string> = {}
-    try {
-      const session = await getSession()
-      const token = getSessionAccessToken(session)
-      if (token) reqHeaders["Authorization"] = `Bearer ${token}`
-    } catch {
-      // proceed without auth
+    const session = await getSession()
+    const token = getSessionAccessToken(session)
+    if (token) return { Authorization: `Bearer ${token}` }
+  } catch {
+    // sem auth
+  }
+  return {}
+}
+
+export async function GET(req: NextRequest) {
+  const t0 = Date.now()
+  const isSummary = req.nextUrl.searchParams.get("summary") === "1"
+
+  try {
+    const reqHeaders = await buildHeaders()
+    const { searchParams } = req.nextUrl
+
+    const params = new URLSearchParams()
+    const allowed = ["page", "perPage", "search", "status", "tipo", "sort", "order"]
+    for (const key of allowed) {
+      const val = searchParams.get(key)
+      if (val) params.set(key, val)
     }
 
-    const res = await fetch(`${BACKEND_URL}/api/operacao/inventory`, {
+    const endpoint = isSummary
+      ? `${BACKEND_URL}/api/operacao/inventory/summary`
+      : `${BACKEND_URL}/api/operacao/inventory?${params.toString()}`
+
+    console.log(`[BFF:inventory] → ${endpoint}`)
+
+    const res = await fetch(endpoint, {
       headers: reqHeaders,
       cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
-    }).catch(() => null)
+      signal: AbortSignal.timeout(15_000),
+    }).catch((err) => {
+      console.error(`[BFF:inventory] fetch error: ${err?.message} (${Date.now() - t0}ms)`)
+      return null
+    })
 
     if (!res) {
+      console.error(`[BFF:inventory] UNAVAILABLE — backend unreachable (${Date.now() - t0}ms)`)
       return NextResponse.json(
-        { totalEstoque: 0, itens: [], error: "INVENTORY_UNAVAILABLE", pending: false },
+        { data: [], pagination: { page: 1, perPage: 20, total: 0, totalPages: 0 }, error: "UNAVAILABLE" },
         { status: 502 }
       )
     }
 
     if (!res.ok) {
+      const body = await res.text().catch(() => "")
+      console.error(`[BFF:inventory] UPSTREAM_ERROR status=${res.status} body=${body.slice(0, 200)} (${Date.now() - t0}ms)`)
       return NextResponse.json(
-        { totalEstoque: 0, itens: [], error: "INVENTORY_UPSTREAM_ERROR", pending: false },
+        { data: [], pagination: { page: 1, perPage: 20, total: 0, totalPages: 0 }, error: "UPSTREAM_ERROR" },
         { status: res.status }
       )
     }
 
-    const data = await res.json().catch(() => null)
+    const data = await res.json().catch((err) => {
+      console.error(`[BFF:inventory] PARSE_ERROR: ${err?.message}`)
+      return null
+    })
+
     if (!data) {
       return NextResponse.json(
-        { totalEstoque: 0, itens: [], error: "INVENTORY_PARSE_ERROR", pending: false },
+        { data: [], pagination: { page: 1, perPage: 20, total: 0, totalPages: 0 }, error: "PARSE_ERROR" },
         { status: 502 }
       )
     }
 
-    // Backend returns { data: [...] } with items: { id, titulo, estoque, preco_varejo, ... }
-    const itens: any[] = Array.isArray(data.data)
-      ? data.data
-      : Array.isArray(data.itens)
-        ? data.itens
-        : []
+    const count = Array.isArray(data.data) ? data.data.length : "—"
+    console.log(`[BFF:inventory] ✓ items=${count} total=${data.pagination?.total ?? "—"} source=${data._meta?.source ?? "?"} (${Date.now() - t0}ms)`)
 
-    const total = itens.reduce((acc: number, item: any) => {
-      const valorEstoque = Number(item.valor_estoque ?? 0)
-      if (valorEstoque > 0) return acc + valorEstoque
-      return acc + Number(item.estoque ?? 0) * Number(item.preco_varejo ?? 0)
-    }, 0)
-
-    return NextResponse.json({ totalEstoque: total, itens, error: null, pending: false })
-  } catch {
+    return NextResponse.json(data)
+  } catch (err: any) {
+    console.error(`[BFF:inventory] unhandled error: ${err?.message} (${Date.now() - t0}ms)`)
     return NextResponse.json(
-      { totalEstoque: 0, itens: [], error: "INVENTORY_UNAVAILABLE", pending: false },
+      { data: [], pagination: { page: 1, perPage: 20, total: 0, totalPages: 0 }, error: "UNAVAILABLE" },
       { status: 502 }
     )
   }

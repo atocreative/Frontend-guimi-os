@@ -1,8 +1,9 @@
 "use client"
 
-import { memo, useState, useEffect, useCallback, useMemo } from "react"
+import { memo, useState, useEffect, useCallback, useMemo, useRef } from "react"
 import dynamic from "next/dynamic"
-import { Plus } from "lucide-react"
+import { Plus, History } from "lucide-react"
+import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -12,11 +13,11 @@ import { ResumoTime } from "@/components/agenda/resumo-time"
 import { FiltroUsuario } from "@/components/agenda/filtro-usuario"
 import { ColunaPessoa } from "@/components/agenda/coluna-pessoa"
 import { TarefaCard } from "@/components/agenda/tarefa-card"
-import { ChecklistCard } from "@/components/operacao/checklist-card"
-import type { ItemChecklist } from "@/components/operacao/checklist-card"
+import { StatusLoja } from "@/components/operacao/status-loja"
 import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
-import { sortTarefasByPriority } from "@/lib/tarefas"
+import { isTaskAtrasada, normalizeTaskMetrics, sortTarefasByPriority } from "@/lib/tarefas"
 import { api } from "@/lib/api-client"
+import { useRealtimeSync } from "@/hooks/use-realtime-sync"
 import type { TarefaDB, UsuarioSimples, ResumoPainel } from "@/types/tarefas"
 
 const ModalNovaTarefa = dynamic(
@@ -24,43 +25,11 @@ const ModalNovaTarefa = dynamic(
   { ssr: false }
 )
 
-interface ChecklistsGridProps {
-  checklistAbertura: ItemChecklist[]
-  checklistFechamento: ItemChecklist[]
-  onToggle: (id: string) => Promise<void>
-}
-
-const ChecklistsGrid = memo(function ChecklistsGrid({
-  checklistAbertura,
-  checklistFechamento,
-  onToggle,
-}: ChecklistsGridProps) {
-  return (
-    <div>
-      <h3 className="text-sm font-semibold mb-3">Checklists do Dia</h3>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <ChecklistCard
-          titulo="Abertura da Loja"
-          itens={checklistAbertura}
-          tipo="abertura"
-          onToggle={onToggle}
-        />
-        <ChecklistCard
-          titulo="Fechamento da Loja"
-          itens={checklistFechamento}
-          tipo="fechamento"
-          onToggle={onToggle}
-        />
-      </div>
-    </div>
-  )
-})
-
 interface TarefasGridProps {
   usuarios: UsuarioSimples[]
   usuariosFiltrados: UsuarioSimples[]
   tarefasPorUsuario: Map<string, TarefaDB[]>
-  onToggle: (id: string) => Promise<void>
+  onComplete: (id: string, lateReason?: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onEdit: (tarefa: TarefaDB) => void
 }
@@ -69,7 +38,7 @@ const TarefasGrid = memo(function TarefasGrid({
   usuarios,
   usuariosFiltrados,
   tarefasPorUsuario,
-  onToggle,
+  onComplete,
   onDelete,
   onEdit,
 }: TarefasGridProps) {
@@ -95,7 +64,7 @@ const TarefasGrid = memo(function TarefasGrid({
           nome={usuario.name}
           avatarUrl={usuario.avatarUrl}
           tarefas={tarefasPorUsuario.get(usuario.id) ?? []}
-          onToggle={onToggle}
+          onComplete={onComplete}
           onDelete={onDelete}
           onEdit={onEdit}
         />
@@ -115,106 +84,70 @@ export default function AgendaPage() {
   const [modalAberto, setModalAberto] = useState(false)
   const [tarefaEditando, setTarefaEditando] = useState<TarefaDB | null>(null)
 
-  const [checklistAbertura, setChecklistAbertura] = useState<ItemChecklist[]>([])
-  const [checklistFechamento, setChecklistFechamento] = useState<ItemChecklist[]>([])
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
+  const completingRef = useRef(new Set<string>())
 
   const isColaborador = role === "COLABORADOR"
+  const canSeeHistorico = !isColaborador
 
   const tarefasPorId = useMemo(
     () => new Map(tarefas.map((tarefa) => [tarefa.id, tarefa])),
     [tarefas]
   )
-  const checklistPorId = useMemo(
-    () => new Map([...checklistAbertura, ...checklistFechamento].map((item) => [item.id, item])),
-    [checklistAbertura, checklistFechamento]
-  )
-
   const carregarTarefas = useCallback(async () => {
     try {
-      const [tarefasData, usuariosData, checklistAbertura, checklistFechamento] = await Promise.all([
+      const [tarefasData, usuariosData] = await Promise.all([
         api.getTasks().catch(() => ({ tasks: [], total: 0 })),
         api.getUsers().catch(() => ({ users: [], total: 0 })),
-        api.getChecklists("ABERTURA").catch(() => ({ checklists: [] })),
-        api.getChecklists("FECHAMENTO").catch(() => ({ checklists: [] })),
       ])
       setTarefas(tarefasData.tasks || [])
       setUsuarios(usuariosData.users || [])
-
-      // Flatten items from checklists
-      const itensAbertura = checklistAbertura.checklists?.flatMap((c) => c.items || []) || []
-      const itensFechamento = checklistFechamento.checklists?.flatMap((c) => c.items || []) || []
-
-      // Map to ItemChecklist format (PT-BR keys)
-      const formatarItem = (item: any): ItemChecklist => ({
-        id: item.id,
-        titulo: item.title || item.titulo || "",
-        descricao: item.description || item.descricao || null,
-        concluido: item.completed || item.concluido || false,
-        responsavel: item.responsavel || item.createdBy || "Sistema",
-        horario: item.horario || null,
-      })
-
-      setChecklistAbertura(itensAbertura.map(formatarItem))
-      setChecklistFechamento(itensFechamento.map(formatarItem))
     } finally {
       setLoading(false)
     }
   }, [])
 
+  const { triggerSync } = useRealtimeSync(carregarTarefas, {
+    interval: 30_000,
+    immediate: false, // already called on mount via useEffect below
+  })
+
   useEffect(() => {
     carregarTarefas()
   }, [carregarTarefas])
 
-  const toggleChecklist = useCallback(async (id: string) => {
-    const itemAtual = checklistPorId.get(id)
-    const completed = itemAtual ? !itemAtual.concluido : true
-
-    setChecklistAbertura((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
-    )
-    setChecklistFechamento((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
-    )
-
-    try {
-      await api.updateChecklist(id, { completed })
-    } catch (error) {
-      console.error("Erro ao atualizar checklist:", error)
-      setChecklistAbertura((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
-      )
-      setChecklistFechamento((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, concluido: !i.concluido } : i))
-      )
-      toast.error("Falha ao atualizar checklist. Tente novamente.")
-    }
-  }, [checklistPorId])
-
-  const handleToggle = useCallback(async (id: string) => {
+  const handleComplete = useCallback(async (id: string, lateReason?: string) => {
+    if (completingRef.current.has(id)) return
     const tarefa = tarefasPorId.get(id)
     if (!tarefa) return
 
-    const novoStatus = tarefa.status === "CONCLUIDA" ? "PENDENTE" : "CONCLUIDA"
+    completingRef.current.add(id)
 
+    // Optimistic update
     setTarefas((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: novoStatus } : t))
+      prev.map((t) => (t.id === id ? { ...t, status: "CONCLUIDA" } : t))
     )
 
     try {
-      const updatedTarefa = await api.updateTask(id, { status: novoStatus })
+      const updatedTarefa = await api.completeTask(id, lateReason ? { lateReason } : undefined)
       setTarefas((prev) => prev.map((t) => (t.id === id ? updatedTarefa : t)))
-
-      if (novoStatus === "CONCLUIDA") {
-        notifyTaskCompleted({ taskTitle: tarefa.title })
-      }
+      notifyTaskCompleted({ taskTitle: tarefa.title, pointsAwarded: updatedTarefa.pointsAwarded, isLate: updatedTarefa.status === "CONCLUIDA_ATRASADA" })
+      triggerSync()
     } catch (error) {
-      console.error("Erro ao atualizar tarefa:", error)
+      const apiError = error as { status?: number }
+      if (apiError?.status === 409) {
+        toast.info("Essa tarefa já foi concluída.")
+        triggerSync()
+        return
+      }
+      console.error("Erro ao concluir tarefa:", error)
       setTarefas((prev) => prev.map((t) => (t.id === id ? tarefa : t)))
       notifyTaskCompletionError()
-      toast.error("Falha ao atualizar tarefa. Tente novamente.")
+      toast.error("Falha ao concluir tarefa. Tente novamente.")
+    } finally {
+      completingRef.current.delete(id)
     }
-  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasPorId])
+  }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasPorId, triggerSync])
 
   const handleDelete = useCallback(async (id: string) => {
     const tarefaAnterior = tarefasPorId.get(id)
@@ -223,6 +156,12 @@ export default function AgendaPage() {
       await api.deleteTask(id)
       toast.success("Tarefa deletada com sucesso")
     } catch (error) {
+      const apiError = error as { status?: number }
+      if (apiError?.status === 403) {
+        toast.info("Tarefas concluídas fazem parte da auditoria e não podem ser removidas.")
+        if (tarefaAnterior) setTarefas((prev) => [...prev, tarefaAnterior])
+        return
+      }
       console.error("Erro ao deletar tarefa:", error)
       if (tarefaAnterior) {
         setTarefas((prev) => [...prev, tarefaAnterior])
@@ -238,7 +177,8 @@ export default function AgendaPage() {
 
   const handleCriada = useCallback((novaTarefa: TarefaDB) => {
     setTarefas((prev) => [novaTarefa, ...prev])
-  }, [])
+    triggerSync()
+  }, [triggerSync])
 
   const handleAtualizada = useCallback((tarefa: TarefaDB) => {
     setTarefas((prev) => prev.map((t) => (t.id === tarefa.id ? tarefa : t)))
@@ -251,10 +191,6 @@ export default function AgendaPage() {
     setTarefaEditando(null)
   }, [])
 
-  const handleAbrirModal = useCallback(() => {
-    setModalAberto(true)
-  }, [])
-
   const usuariosFiltrados = useMemo(
     () => (filtroId ? usuarios.filter((u) => u.id === filtroId) : usuarios),
     [usuarios, filtroId]
@@ -265,30 +201,41 @@ export default function AgendaPage() {
     [tarefas]
   )
 
-  const resumo: ResumoPainel = useMemo(
-    () => ({
-      total: tarefas.length,
-      concluidas: tarefas.filter((t) => t.status === "CONCLUIDA").length,
-      pendentes: tarefas.filter((t) => t.status !== "CONCLUIDA").length,
-    }),
-    [tarefas]
-  )
+  // Tarefas concluídas somem da agenda após 12h (mas ficam no histórico)
+  const tarefasVisiveis = useMemo(() => {
+    const TWELVE_H = 12 * 60 * 60 * 1000
+    return tarefasOrdenadas.filter((t) => {
+      if (t.status !== "CONCLUIDA" && t.status !== "CONCLUIDA_ATRASADA") return true
+      if (!t.completedAt) return true
+      return Date.now() - new Date(t.completedAt).getTime() < TWELVE_H
+    })
+  }, [tarefasOrdenadas])
+
+  const resumo: ResumoPainel = useMemo(() => {
+    const metrics = normalizeTaskMetrics(tarefas)
+    return {
+      total: metrics.total,
+      concluidas: metrics.completedTasks,
+      pendentes: metrics.pendingTasks,
+      atrasadas: tarefas.filter((t) => isTaskAtrasada(t)).length,
+    }
+  }, [tarefas])
 
   const tarefasPorUsuario = useMemo(() => {
     const map = new Map<string, TarefaDB[]>()
-    const usuariosIds = new Set(usuariosFiltrados.map((usuario) => usuario.id))
+    const usuariosIds = new Set(usuariosFiltrados.map((u) => u.id))
 
     for (const usuario of usuariosFiltrados) {
       map.set(usuario.id, [])
     }
 
-    for (const tarefa of tarefasOrdenadas) {
+    for (const tarefa of tarefasVisiveis) {
       if (!tarefa.assigneeId || !usuariosIds.has(tarefa.assigneeId)) continue
       map.get(tarefa.assigneeId)?.push(tarefa)
     }
 
     return map
-  }, [tarefasOrdenadas, usuariosFiltrados])
+  }, [tarefasVisiveis, usuariosFiltrados])
 
   return (
     <div className="space-y-6">
@@ -299,15 +246,25 @@ export default function AgendaPage() {
             Quadro de tarefas da operação
           </p>
         </div>
-        <Button size="sm" onClick={handleAbrirModal} className="gap-1.5">
-          <Plus className="h-4 w-4" />
-          Nova Tarefa
-        </Button>
+        <div className="flex items-center gap-2">
+          {canSeeHistorico && (
+            <Button variant="outline" size="sm" asChild className="gap-1.5">
+              <Link href="/agenda/historico">
+                <History className="h-4 w-4" />
+                Histórico
+              </Link>
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setModalAberto(true)} className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            Nova Tarefa
+          </Button>
+        </div>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-3 gap-3">
-          {Array.from({ length: 3 }).map((_, i) => (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[72px] rounded-xl" />
           ))}
         </div>
@@ -328,11 +285,7 @@ export default function AgendaPage() {
         </div>
       )}
 
-      <ChecklistsGrid
-        checklistAbertura={checklistAbertura}
-        checklistFechamento={checklistFechamento}
-        onToggle={toggleChecklist}
-      />
+      <StatusLoja />
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -343,18 +296,18 @@ export default function AgendaPage() {
       ) : isColaborador ? (
         <Card>
           <CardContent className="flex flex-col gap-2 pt-4">
-            {tarefas.length === 0 ? (
+            {tarefasVisiveis.length === 0 ? (
               <div className="rounded-lg border border-dashed p-8 text-center">
                 <p className="text-sm text-muted-foreground">
                   Nenhuma tarefa atribuída a você.
                 </p>
               </div>
             ) : (
-              tarefasOrdenadas.map((tarefa) => (
+              tarefasVisiveis.map((tarefa) => (
                 <TarefaCard
                   key={tarefa.id}
                   tarefa={tarefa}
-                  onToggle={() => handleToggle(tarefa.id)}
+                  onComplete={handleComplete}
                   onDelete={() => handleDelete(tarefa.id)}
                   onEdit={() => handleEdit(tarefa)}
                 />
@@ -367,7 +320,7 @@ export default function AgendaPage() {
           usuarios={usuarios}
           usuariosFiltrados={usuariosFiltrados}
           tarefasPorUsuario={tarefasPorUsuario}
-          onToggle={handleToggle}
+          onComplete={handleComplete}
           onDelete={handleDelete}
           onEdit={handleEdit}
         />

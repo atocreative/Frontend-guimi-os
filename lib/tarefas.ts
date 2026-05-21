@@ -54,12 +54,30 @@ export function isTaskDueToday(value: DueAtValue, referenceDate?: Date | string)
   return new Date(value).toDateString() === getReferenceDate(referenceDate).toDateString()
 }
 
+const COMPLETED_STATUSES = ["CONCLUIDA", "CONCLUIDA_ATRASADA", "CANCELADA"] as const
+
+export function isCompletedStatus(status: string): boolean {
+  return COMPLETED_STATUSES.includes(status as (typeof COMPLETED_STATUSES)[number])
+}
+
+export function normalizeTaskMetrics(tarefas: { status: string; completedAt?: string | null; dueAt?: string | null }[]) {
+  const completed = tarefas.filter((t) => t.status === "CONCLUIDA" || t.status === "CONCLUIDA_ATRASADA")
+  const pending = tarefas.filter((t) => t.status !== "CONCLUIDA" && t.status !== "CONCLUIDA_ATRASADA")
+  const lateCompleted = tarefas.filter((t) => t.status === "CONCLUIDA_ATRASADA")
+  return {
+    total: tarefas.length,
+    completedTasks: completed.length,
+    lateCompletedTasks: lateCompleted.length,
+    pendingTasks: pending.length,
+  }
+}
+
 export function isTaskAtrasada(
   tarefa: { dueAt: DueAtValue; status: string },
   referenceDate?: Date | string
 ): boolean {
   if (!tarefa.dueAt) return false
-  if (tarefa.status === "CONCLUIDA" || tarefa.status === "CANCELADA") return false
+  if (isCompletedStatus(tarefa.status)) return false
   const hoje = getReferenceDate(referenceDate)
   hoje.setHours(0, 0, 0, 0)
   const prazo = new Date(tarefa.dueAt)
@@ -76,7 +94,7 @@ export function sortTarefasByPriority<T extends { priority: TaskPriority; dueAt:
 
   function isAtrasada(t: T): boolean {
     if (!t.dueAt) return false
-    if (t.status === "CONCLUIDA" || t.status === "CANCELADA") return false
+    if (isCompletedStatus(t.status)) return false
     const prazo = new Date(t.dueAt)
     prazo.setHours(0, 0, 0, 0)
     return prazo < hoje

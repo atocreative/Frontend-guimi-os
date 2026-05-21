@@ -70,6 +70,9 @@ function normalizeTask(input: unknown): TarefaDB {
     updatedAt: typeof task.updatedAt === "string" ? task.updatedAt : new Date(0).toISOString(),
     completedAt: typeof task.completedAt === "string" ? task.completedAt : null,
     createdBy: typeof task.createdBy === "string" ? task.createdBy : null,
+    lateReason: typeof task.lateReason === "string" ? task.lateReason : null,
+    completedByName: typeof task.completedByName === "string" ? task.completedByName : null,
+    pointsAwarded: typeof task.pointsAwarded === "number" ? task.pointsAwarded : null,
   }
 }
 

@@ -1,5 +1,6 @@
 "use client"
 
+import { Trophy, Award, Flame } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -13,23 +14,23 @@ const MEDALS = [
   {
     label: "1º",
     ring: "ring-2 ring-amber-400/70",
-    glow: "shadow-[0_0_28px_rgba(251,191,36,0.22)]",
     badge: "bg-amber-500/15 text-amber-500 border-amber-400/30",
     avatarBg: "bg-amber-500/20 text-amber-400",
     scoreColor: "text-amber-400",
-    icon: "🥇",
+    Icon: Trophy,
+    iconCls: "text-amber-400",
     avatarSize: "h-20 w-20",
     textName: "text-base font-bold",
-    cardCls: "border-amber-400/25 bg-gradient-to-b from-amber-500/8 to-transparent scale-[1.04] z-10",
+    cardCls: "border-amber-400/25 bg-gradient-to-b from-amber-500/8 to-transparent z-10",
   },
   {
     label: "2º",
     ring: "ring-2 ring-zinc-400/50",
-    glow: "shadow-[0_0_16px_rgba(161,161,170,0.12)]",
     badge: "bg-zinc-400/10 text-zinc-400 border-zinc-400/25",
     avatarBg: "bg-zinc-500/20 text-zinc-300",
     scoreColor: "text-zinc-300",
-    icon: "🥈",
+    Icon: Award,
+    iconCls: "text-zinc-400",
     avatarSize: "h-14 w-14",
     textName: "text-sm font-semibold",
     cardCls: "border-zinc-400/15 bg-gradient-to-b from-zinc-500/5 to-transparent",
@@ -37,11 +38,11 @@ const MEDALS = [
   {
     label: "3º",
     ring: "ring-2 ring-orange-700/40",
-    glow: "shadow-[0_0_16px_rgba(180,83,9,0.10)]",
     badge: "bg-orange-900/20 text-orange-400 border-orange-700/25",
     avatarBg: "bg-orange-900/20 text-orange-400",
     scoreColor: "text-orange-400",
-    icon: "🥉",
+    Icon: Award,
+    iconCls: "text-orange-400",
     avatarSize: "h-14 w-14",
     textName: "text-sm font-semibold",
     cardCls: "border-orange-700/15 bg-gradient-to-b from-orange-900/8 to-transparent",
@@ -54,18 +55,17 @@ function PodioCard({ entry, rank, isTop1 }: { entry: PerformanceEntry; rank: 0 |
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center rounded-2xl border text-center transition-colors duration-200",
+        "relative flex flex-col items-center rounded-2xl border text-center",
         m.cardCls,
-        m.glow,
         isTop1 ? "px-6 py-7" : "px-4 py-5"
       )}
     >
-      <span className={cn("absolute right-3 top-3", isTop1 ? "text-2xl" : "text-xl")}>{m.icon}</span>
+      <m.Icon className={cn("absolute right-3 top-3 shrink-0", m.iconCls, isTop1 ? "h-5 w-5" : "h-4 w-4")} />
 
       {/* Streak badge */}
       {entry.streak > 1 && (
         <span className="absolute left-3 top-3 flex items-center gap-0.5 rounded-full bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-orange-400">
-          🔥 {entry.streak}d
+          <Flame className="h-3 w-3" />{entry.streak}d
         </span>
       )}
 

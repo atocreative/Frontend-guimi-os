@@ -1,5 +1,6 @@
 "use client"
 
+import { Trophy, Award, Flame } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -16,7 +17,12 @@ const posCls: Record<number, string> = {
   3: "text-orange-600 font-bold",
 }
 
-const posMedal: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" }
+function PosMedal({ pos }: { pos: number }) {
+  if (pos === 1) return <Trophy className="h-4 w-4 text-amber-500 mx-auto" />
+  if (pos === 2) return <Award className="h-4 w-4 text-zinc-400 mx-auto" />
+  if (pos === 3) return <Award className="h-4 w-4 text-orange-600 mx-auto" />
+  return <span className={cn("text-sm", posCls[pos] ?? "text-muted-foreground")}>{pos}º</span>
+}
 
 export function RankingTable({ entries }: { entries: PerformanceEntry[] }) {
   if (entries.length === 0) {
@@ -48,15 +54,10 @@ export function RankingTable({ entries }: { entries: PerformanceEntry[] }) {
             return (
               <TableRow
                 key={entry.userId}
-                className={cn(
-                  "transition-colors",
-                  entry.posicao === 1 && "bg-amber-500/4 hover:bg-amber-500/8",
-                )}
+                className={cn(entry.posicao === 1 && "bg-amber-500/4 hover:bg-amber-500/8")}
               >
                 <TableCell className="text-center">
-                  <span className={cn("text-sm", posCls[entry.posicao] ?? "text-muted-foreground")}>
-                    {posMedal[entry.posicao] ?? `${entry.posicao}º`}
-                  </span>
+                  <PosMedal pos={entry.posicao} />
                 </TableCell>
 
                 <TableCell>
@@ -81,7 +82,9 @@ export function RankingTable({ entries }: { entries: PerformanceEntry[] }) {
                       </Badge>
                     )}
                     {entry.streak > 2 && (
-                      <span className="text-[11px] text-orange-400 hidden sm:inline">🔥{entry.streak}d</span>
+                      <span className="hidden sm:inline-flex items-center gap-0.5 text-[11px] text-orange-400">
+                        <Flame className="h-3 w-3" />{entry.streak}d
+                      </span>
                     )}
                   </div>
                 </TableCell>

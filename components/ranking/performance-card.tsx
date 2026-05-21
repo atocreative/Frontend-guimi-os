@@ -1,5 +1,7 @@
 "use client"
 
+import React from "react"
+import { Trophy, Award, Flame, Minus, CheckCircle2, Clock3 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -41,7 +43,12 @@ function getLevelProgress(score: number): number {
   return Math.round(((score - tier.min) / range) * 100)
 }
 
-const posMedal: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" }
+function PosIcon({ pos }: { pos: number }) {
+  if (pos === 1) return <Trophy className="h-3.5 w-3.5 text-amber-400" />
+  if (pos === 2) return <Award className="h-3.5 w-3.5 text-zinc-400" />
+  if (pos === 3) return <Award className="h-3.5 w-3.5 text-orange-600" />
+  return null
+}
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
@@ -52,7 +59,7 @@ export function PerformanceCard({ entry }: { entry: PerformanceEntry }) {
 
   return (
     <Card className={cn(
-      "overflow-hidden transition-colors duration-200 hover:bg-muted/30",
+      "overflow-hidden hover:bg-muted/30",
       isTop3 && tier.border,
     )}>
       <CardContent className="p-4 space-y-4">
@@ -66,8 +73,8 @@ export function PerformanceCard({ entry }: { entry: PerformanceEntry }) {
               </AvatarFallback>
             </Avatar>
             {entry.posicao <= 3 && (
-              <span className="absolute -right-1 -top-1 text-sm leading-none">
-                {posMedal[entry.posicao]}
+              <span className="absolute -right-1 -top-1 leading-none">
+                <PosIcon pos={entry.posicao} />
               </span>
             )}
           </div>
@@ -128,15 +135,15 @@ export function PerformanceCard({ entry }: { entry: PerformanceEntry }) {
         {/* Bottom row: streak + checklists + no prazo */}
         <div className="flex flex-wrap gap-2 border-t pt-3">
           <Chip
-            icon={entry.streak > 0 ? "🔥" : "💤"}
+            icon={entry.streak > 0 ? <Flame className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
             label={entry.streak > 0 ? `${entry.streak}d streak` : "Sem streak"}
             className={entry.streak > 2 ? "text-orange-400" : "text-muted-foreground"}
           />
           {entry.checklistsConcluidos > 0 && (
-            <Chip icon="✅" label={`${entry.checklistsConcluidos} checklist${entry.checklistsConcluidos > 1 ? "s" : ""}`} className="text-emerald-500" />
+            <Chip icon={<CheckCircle2 className="h-3 w-3" />} label={`${entry.checklistsConcluidos} checklist${entry.checklistsConcluidos > 1 ? "s" : ""}`} className="text-emerald-500" />
           )}
           {entry.tarefasNoPrazo > 0 && (
-            <Chip icon="⏱" label={`${entry.tarefasNoPrazo} no prazo`} className="text-cyan-400" />
+            <Chip icon={<Clock3 className="h-3 w-3" />} label={`${entry.tarefasNoPrazo} no prazo`} className="text-cyan-400" />
           )}
         </div>
       </CardContent>
@@ -154,10 +161,10 @@ function StatBox({ label, value, sub, valueColor }: { label: string; value: numb
   )
 }
 
-function Chip({ icon, label, className }: { icon: string; label: string; className?: string }) {
+function Chip({ icon, label, className }: { icon: React.ReactNode; label: string; className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full bg-muted/50 px-2 py-0.5 text-[11px] font-medium", className)}>
-      <span>{icon}</span>
+      {icon}
       {label}
     </span>
   )

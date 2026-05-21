@@ -268,7 +268,7 @@ export const api = {
     return data
   },
 
-  async getTasks(filters?: { assigneeId?: string; status?: string; orderBy?: string; sort?: string; limit?: number }) {
+  async getTasks(filters?: { assigneeId?: string; status?: string; orderBy?: string; sort?: string; limit?: number; skip?: number; includeOld?: boolean }) {
     const data = await apiCall("/api/tasks", { params: filters })
     return extractTasksPayload(data)
   },
@@ -312,9 +312,22 @@ export const api = {
     return extractTaskPayload(data)
   },
 
+  async completeTask(taskId: string, payload?: { lateReason?: string }) {
+    const data = await apiCall(`/api/tasks/${taskId}/complete`, {
+      method: "POST",
+      body: JSON.stringify(payload ?? {}),
+    })
+    return extractTaskPayload(data)
+  },
+
   async deleteTask(id: string) {
     await apiCall(`/api/tasks/${id}`, { method: "DELETE" })
     return null
+  },
+
+  async restoreTask(id: string) {
+    const data = await apiCall(`/api/tasks/${id}/restore`, { method: "POST" })
+    return extractTaskPayload(data)
   },
 
   async getUsers(filters?: { active?: boolean; orderBy?: string }) {
