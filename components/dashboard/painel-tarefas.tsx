@@ -1,35 +1,50 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangle, CheckCircle2, Circle, Clock } from "lucide-react"
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Circle, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { isTaskAtrasada } from "@/lib/tarefas"
-import { PRIORITY_COLORS, COMPLETION_COLORS } from "@/lib/colors-config"
-import type { TarefaDB } from "@/types/tarefas"
+import { PRIORITY_COLORS } from "@/lib/colors-config"
+import type { TarefaDB, TaskPriority } from "@/types/tarefas"
 
-const prioridadeCor = PRIORITY_COLORS
+const PAGE_SIZE = 5
+
+const PRIORITY_ORDER: Record<NonNullable<TaskPriority> | "null", number> = {
+  ALTA: 0,
+  MEDIA: 1,
+  BAIXA: 2,
+  null: 3,
+}
+
+function priorityRank(p: TaskPriority): number {
+  return PRIORITY_ORDER[p ?? "null"]
+}
+
+function sortTarefas(tarefas: TarefaDB[]): TarefaDB[] {
+  return [...tarefas].sort((a, b) => {
+    const pDiff = priorityRank(a.priority) - priorityRank(b.priority)
+    if (pDiff !== 0) return pDiff
+    const aDate = a.dueAt ? new Date(a.dueAt).getTime() : Infinity
+    const bDate = b.dueAt ? new Date(b.dueAt).getTime() : Infinity
+    return aDate - bDate
+  })
+}
 
 function formatarPrazo(dueAt: string | null): string {
   if (!dueAt) return ""
-
   const data = new Date(dueAt)
   const hoje = new Date()
   const amanha = new Date(hoje)
   amanha.setDate(hoje.getDate() + 1)
-
   const dStr = data.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
   const hStr = hoje.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
   const aStr = amanha.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
-
   if (dStr === hStr) return "Hoje"
   if (dStr === aStr) return "Amanhã"
-  return data.toLocaleDateString("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit",
-    month: "2-digit",
-  })
+  return data.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" })
 }
 
 interface PainelTarefasProps {
@@ -42,12 +57,18 @@ interface PainelTarefasProps {
 
 export function PainelTarefas({
   tarefas,
-  title = "Tarefas Prioritárias",
+  title = "Tarefas",
   emptyMessage = "Nenhuma tarefa pendente.",
   onConcluir,
   riscados = new Set(),
 }: PainelTarefasProps) {
   const [concluindo, setConcluindo] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
+
+  const sorted = sortTarefas(tarefas)
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages - 1)
+  const paginated = sorted.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
 
   async function handleConcluir(id: string) {
     if (!onConcluir) return
@@ -59,115 +80,104 @@ export function PainelTarefas({
     }
   }
 
-  const concluidos = tarefas.filter((t) => riscados.has(t.id)).length
-  const total = tarefas.length
-  const percentual = total > 0 ? Math.round((concluidos / total) * 100) : 0
-
-  if (tarefas.length === 0) {
-    return (
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="py-4 text-center text-xs text-muted-foreground">
-            {emptyMessage}
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="flex flex-col">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-xs",
-              percentual === 100
-                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                : "bg-amber-500/10 text-amber-600 border-amber-500/20"
-            )}
-          >
-            {concluidos}/{total} — {percentual}%
-          </Badge>
-        </div>
-
-        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-          <div
-            className={cn(
-              "h-full rounded-full transition-all",
-              percentual === 100 ? "bg-emerald-500" : "bg-amber-500"
-            )}
-            style={{ width: `${percentual}%` }}
-          />
+          {tarefas.length > 0 && (
+            <Badge variant="secondary" className="text-[10px]">
+              {tarefas.length} pendente{tarefas.length !== 1 ? "s" : ""}
+            </Badge>
+          )}
         </div>
       </CardHeader>
-      <CardContent className="max-h-72 space-y-2 overflow-y-auto">
-        {tarefas.map((tarefa) => {
-          const riscado = riscados.has(tarefa.id)
-          const atrasada = isTaskAtrasada(tarefa)
-          return (
-            <div
-              key={tarefa.id}
-              onClick={() => !riscado && concluindo === null && handleConcluir(tarefa.id)}
-              className={cn(
-                "flex items-start gap-3 rounded-lg px-3 py-2 border cursor-pointer hover:bg-muted/50 transition-colors",
-                concluindo === tarefa.id && "opacity-50",
-                riscado && "opacity-60 bg-muted/30",
-                atrasada && !riscado && "border-red-400/50 bg-red-500/5"
-              )}
-            >
-              {riscado || concluindo === tarefa.id ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-              ) : (
-                <Circle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className={cn(
-                  "text-xs font-medium",
-                  riscado && "line-through text-muted-foreground"
-                )}>
-                  {tarefa.title}
-                </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {tarefa.assignee?.name && (
-                    <span className="text-xs text-muted-foreground">
-                      {tarefa.assignee.name}
-                    </span>
-                  )}
-                  {(tarefa.dueAt || tarefa.horario) && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {[formatarPrazo(tarefa.dueAt), tarefa.horario].filter(Boolean).join(" • ")}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                {atrasada && !riscado && (
-                  <span className="flex items-center gap-1 text-[11px] font-medium text-red-500">
-                    <AlertTriangle className="h-3 w-3" />
-                    Atrasada
-                  </span>
-                )}
-                {tarefa.priority && (
-                  <Badge
-                    variant="outline"
-                    className={cn("px-1.5 py-0 text-xs", prioridadeCor[tarefa.priority])}
+      <CardContent className="flex flex-1 flex-col gap-0 p-0 pb-2">
+        {tarefas.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs text-muted-foreground">{emptyMessage}</p>
+        ) : (
+          <>
+            <div className="space-y-1 px-4">
+              {paginated.map((tarefa) => {
+                const riscado = riscados.has(tarefa.id)
+                const atrasada = isTaskAtrasada(tarefa)
+                return (
+                  <div
+                    key={tarefa.id}
+                    onClick={() => !riscado && concluindo === null && handleConcluir(tarefa.id)}
+                    className={cn(
+                      "flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 transition-colors hover:bg-muted/50",
+                      concluindo === tarefa.id && "opacity-50",
+                      riscado && "bg-muted/30 opacity-60",
+                      atrasada && !riscado && "border-red-400/50 bg-red-500/5",
+                    )}
                   >
-                    {tarefa.priority}
-                  </Badge>
-                )}
-              </div>
+                    {riscado || concluindo === tarefa.id ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                    ) : (
+                      <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("text-xs font-medium", riscado && "line-through text-muted-foreground")}>
+                        {tarefa.title}
+                      </p>
+                      <div className="mt-0.5 flex items-center gap-2">
+                        {tarefa.assignee?.name && (
+                          <span className="text-[10px] text-muted-foreground">{tarefa.assignee.name}</span>
+                        )}
+                        {tarefa.dueAt && (
+                          <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {formatarPrazo(tarefa.dueAt)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {atrasada && !riscado && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-medium text-red-500">
+                          <AlertTriangle className="h-3 w-3" />
+                          Atrasada
+                        </span>
+                      )}
+                      {tarefa.priority && (
+                        <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px]", PRIORITY_COLORS[tarefa.priority])}>
+                          {tarefa.priority}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-          )
-        })}
+
+            {totalPages > 1 && (
+              <div className="mt-2 flex items-center justify-center gap-2 px-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={safePage === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span className="text-[11px] text-muted-foreground">
+                  {safePage + 1} / {totalPages}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={safePage === totalPages - 1}
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   )

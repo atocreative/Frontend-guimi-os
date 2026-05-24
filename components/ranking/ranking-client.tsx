@@ -18,12 +18,8 @@ function periodLabel(f: RankingFilters) {
 }
 
 export function RankingClient() {
-  const now = new Date()
-  const [filters, setFilters] = useState<RankingFilters>({
-    period: "mes",
-    month: now.getMonth() + 1,
-    year: now.getFullYear(),
-  })
+  const [filters, setFilters] = useState<RankingFilters>({ period: "mes", month: 1, year: 2025 })
+  const [mounted, setMounted] = useState(false)
   const [entries, setEntries] = useState<PerformanceEntry[]>([])
   const [loading, setLoading] = useState(true)
   const filtersRef = useRef(filters)
@@ -50,9 +46,16 @@ export function RankingClient() {
     }
   }, [])
 
+  // Set real current month/year after hydration to avoid SSR mismatch
   useEffect(() => {
-    fetchRanking(filters)
-  }, [filters, fetchRanking])
+    const now = new Date()
+    setFilters((f) => ({ ...f, month: now.getMonth() + 1, year: now.getFullYear() }))
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (mounted) fetchRanking(filters)
+  }, [filters, fetchRanking, mounted])
 
   // Silent background polling every 30s, pauses when tab hidden
   useEffect(() => {
@@ -64,12 +67,12 @@ export function RankingClient() {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         fetchRanking(filtersRef.current, true)
-        timerRef.current = setInterval(poll, 30_000)
+        timerRef.current = setInterval(poll, 60_000)
       } else {
         if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
       }
     }
-    timerRef.current = setInterval(poll, 30_000)
+    timerRef.current = setInterval(poll, 60_000)
     document.addEventListener("visibilitychange", handleVisibility)
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
@@ -91,7 +94,7 @@ export function RankingClient() {
               : `${entries.length} colaborador(es) · ${periodLabel(filters)}${topScore > 0 ? ` · líder com ${topScore.toLocaleString("pt-BR")} pts` : ""}`}
           </p>
         </div>
-        <RankingFiltersBar filters={filters} onChange={setFilters} />
+        {mounted && <RankingFiltersBar filters={filters} onChange={setFilters} />}
       </div>
 
       {/* Podium */}

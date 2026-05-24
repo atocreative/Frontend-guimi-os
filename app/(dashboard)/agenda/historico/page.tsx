@@ -234,7 +234,7 @@ export default function HistoricoPage() {
         setTarefas(merged)
       } catch { /* silent */ }
     }
-    timerRef.current = setInterval(silentRefetch, 30_000)
+    timerRef.current = setInterval(silentRefetch, 60_000)
     const handleVisibility = () => {
       if (document.visibilityState === "visible") silentRefetch()
     }

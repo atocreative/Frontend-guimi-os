@@ -135,7 +135,7 @@ const UserStatsContent = memo(function UserStatsContent({ data, unlockedBadges }
   )
 })
 
-export function UserStats({ userId, pollMs = 10000 }: UserStatsProps) {
+export function UserStats({ userId, pollMs = 60_000 }: UserStatsProps) {
   const [data, setData] = useState<GamificationUserStats | null>(null)
   const [loading, setLoading] = useState(true)
 

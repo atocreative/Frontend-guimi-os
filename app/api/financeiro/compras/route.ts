@@ -6,8 +6,8 @@ const BACKEND_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PU
 
 /**
  * BFF — GET /api/financeiro/compras?startDate=...&endDate=...
- * Proxy para /dashboard/compras do backend (custo de mercadoria).
- * Retorna: { totalCompras, raw }
+ * Proxy para /api/financeiro/receitas do backend (PostgreSQL).
+ * Retorna: { total, raw }
  */
 export async function GET(req: NextRequest) {
   const session = await getSession()
@@ -18,14 +18,20 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = req.nextUrl
-  const params = new URLSearchParams()
   const startDate = searchParams.get("startDate")
-  const endDate = searchParams.get("endDate")
-  if (startDate) params.set("startDate", startDate)
-  if (endDate) params.set("endDate", endDate)
+
+  // Extrai month/year do startDate (o endpoint receitas usa month/year)
+  const params = new URLSearchParams()
+  if (startDate) {
+    const d = new Date(startDate)
+    if (!isNaN(d.getTime())) {
+      params.set("month", String(d.getMonth() + 1))
+      params.set("year", String(d.getFullYear()))
+    }
+  }
 
   const res = await fetch(
-    `${BACKEND_URL}/dashboard/compras?${params.toString()}`,
+    `${BACKEND_URL}/api/financeiro/receitas?${params.toString()}`,
     {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
@@ -35,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   if (!res || !res.ok) {
     return NextResponse.json(
-      { totalCompras: 0, raw: [], error: "COMPRAS_UNAVAILABLE" },
+      { total: 0, raw: [], error: "RECEITAS_UNAVAILABLE" },
       { status: 502 }
     )
   }
@@ -43,15 +49,13 @@ export async function GET(req: NextRequest) {
   const data = await res.json().catch(() => null)
   if (!data) {
     return NextResponse.json(
-      { totalCompras: 0, raw: [], error: "COMPRAS_PARSE_ERROR" },
+      { total: 0, raw: [], error: "RECEITAS_PARSE_ERROR" },
       { status: 502 }
     )
   }
 
-  // Normaliza: aceita array direto, { data: [] } ou { total, data }
   const raw: any[] = Array.isArray(data) ? data : (data?.data ?? [])
-
-  const total = raw.reduce((acc, item) => acc + Number(item?.valor_total || 0), 0)
+  const total = raw.reduce((acc, item) => acc + Number(item?.amount ?? item?.valor ?? 0), 0)
 
   return NextResponse.json({ total, raw })
 }

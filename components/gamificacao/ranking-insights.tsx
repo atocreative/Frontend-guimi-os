@@ -45,7 +45,7 @@ const RankingInsights = memo(function RankingInsights({ entries, scope }: Rankin
         <CardContent>
           <p className="text-2xl font-bold">{topPoints.toLocaleString()}</p>
           <p className="text-xs text-muted-foreground">
-            {entries[0]?.name.split(" ")[0]}
+            {entries[0]?.name?.split(" ")[0] ?? "—"}
           </p>
         </CardContent>
       </Card>

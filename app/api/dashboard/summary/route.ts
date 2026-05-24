@@ -2,41 +2,38 @@ import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth-session"
 import { getSessionAccessToken } from "@/lib/backend-api"
 
-const BACKEND_URL = (() => {
-  const url = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL
-  if (!url) {
-    throw new Error("NEXT_PUBLIC_API_BASE_URL is not defined in environment")
-  }
-  return url.replace(/\/$/, "")
-})()
+const BACKEND_URL = (
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:3001"
+).replace(/\/$/, "")
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
-  let startDate = searchParams.get("startDate")
-  let endDate = searchParams.get("endDate")
+  const now = new Date()
 
-  // Support year/month/day params from dashboard-summary service
-  if (!startDate || !endDate) {
-    const yearParam = searchParams.get("year")
+  let month1: number // 1-indexed for backend
+  let year: number
+
+  const startDate = searchParams.get("startDate")
+  if (startDate) {
+    const d = new Date(startDate)
+    month1 = isNaN(d.getTime()) ? now.getMonth() + 1 : d.getMonth() + 1
+    year   = isNaN(d.getTime()) ? now.getFullYear()  : d.getFullYear()
+  } else {
+    // Called with year=YYYY&month=M where month is 0-indexed (JS convention)
+    const yearParam  = searchParams.get("year")
     const monthParam = searchParams.get("month")
-    const dayParam = searchParams.get("day")
-    if (yearParam && monthParam !== null) {
-      const year = parseInt(yearParam, 10)
-      const month = parseInt(monthParam, 10) // 0-indexed
-      if (dayParam) {
-        const day = parseInt(dayParam, 10)
-        startDate = new Date(Date.UTC(year, month, day)).toISOString()
-        endDate = new Date(Date.UTC(year, month, day + 1) - 1).toISOString()
-      } else {
-        startDate = new Date(Date.UTC(year, month, 1)).toISOString()
-        endDate = new Date(Date.UTC(year, month + 1, 1) - 1).toISOString()
-      }
-    }
+    year   = yearParam  ? parseInt(yearParam,  10) : now.getFullYear()
+    month1 = monthParam ? parseInt(monthParam, 10) + 1 : now.getMonth() + 1
   }
 
-  const params = new URLSearchParams()
-  if (startDate) params.set("startDate", startDate)
-  if (endDate) params.set("endDate", endDate)
+  const dayParam = searchParams.get("day")
+  const day = dayParam ? parseInt(dayParam, 10) : null
+
+  const params = new URLSearchParams({ month: String(month1), year: String(year) })
+
+  console.log(`[FRONT_DAILY_FETCH] month=${month1} year=${year} day=${day ?? "none"}`)
 
   const reqHeaders: Record<string, string> = {}
   try {
@@ -47,38 +44,88 @@ export async function GET(req: NextRequest) {
     // proceed without auth
   }
 
-  const res = await fetch(`${BACKEND_URL}/api/dashboard?${params.toString()}`, {
-    headers: reqHeaders,
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  }).catch(() => null)
+  // Fetch DB summary + daily breakdown in parallel (PostgreSQL source of truth)
+  const [resumoRes, diarioRes] = await Promise.all([
+    fetch(`${BACKEND_URL}/api/financeiro/db/summary?${params}`, {
+      headers: reqHeaders,
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    }).catch(() => null),
+    fetch(`${BACKEND_URL}/api/financeiro/diario?${params}`, {
+      headers: reqHeaders,
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    }).catch(() => null),
+  ])
 
-  if (!res || !res.ok) {
+  if (!resumoRes || !resumoRes.ok) {
     return NextResponse.json(
-      {
-        error: "DASHBOARD_SUMMARY_FAILED",
-        message: `Backend returned ${res?.status ?? "no response"}`,
-        status: 502,
-      },
+      { error: "DASHBOARD_SUMMARY_FAILED", message: `Backend returned ${resumoRes?.status ?? "no response"}` },
       { status: 502 }
     )
   }
 
-  const contentType = res.headers.get("content-type") ?? ""
-  if (!contentType.includes("application/json")) {
-    return NextResponse.json(
-      { error: "DASHBOARD_SUMMARY_FAILED", message: "Backend returned non-JSON", status: 502 },
-      { status: 502 }
-    )
+  const resumo = await resumoRes.json().catch(() => null)
+  if (!resumo) {
+    return NextResponse.json({ error: "DASHBOARD_SUMMARY_FAILED", message: "Failed to parse response" }, { status: 502 })
   }
 
-  const data = await res.json().catch(() => null)
-  if (!data) {
-    return NextResponse.json(
-      { error: "DASHBOARD_SUMMARY_FAILED", message: "Failed to parse backend response", status: 502 },
-      { status: 502 }
-    )
+  // Map backend fields to DashboardSummary shape (needed before grafico to compute margin)
+  const totalRevenue  = resumo.faturamentoMes ?? resumo.totalRevenue  ?? 0
+  const grossProfit   = resumo.grossProfit    ?? 0
+  const netProfit     = resumo.lucroLiquido   ?? resumo.netProfit     ?? 0
+
+  // Net margin ratio used to estimate daily profit from daily revenue
+  const netMarginRatio = totalRevenue > 0 ? netProfit / totalRevenue : 0
+
+  // Build grafico from daily breakdown; also extract specific day revenue
+  let grafico: Array<{ data: string; entradas: number; saidas: number; saldo: number }> = []
+  let faturamentoDia: number | null = null
+  let lucroLiquidoDia: number | null = null
+  if (diarioRes?.ok) {
+    const diario = await diarioRes.json().catch(() => null)
+    if (Array.isArray(diario?.days)) {
+      grafico = diario.days.map((d: { date: string; revenue: number }) => ({
+        data: d.date,
+        entradas: d.revenue,
+        saidas: 0,
+        // Estimated daily profit = daily revenue × monthly net margin ratio
+        saldo: Math.round(d.revenue * netMarginRatio),
+      }))
+      if (day !== null) {
+        // Match by day-of-month in the date string (YYYY-MM-DD)
+        const match = diario.days.find((d: { date: string; revenue: number }) => {
+          const parsed = new Date(d.date)
+          return parsed.getUTCDate() === day
+        })
+        faturamentoDia = match ? Number(match.revenue) : 0
+        lucroLiquidoDia = faturamentoDia !== null ? Math.round(faturamentoDia * netMarginRatio) : null
+        console.log(`[FRONT_DAILY_RESULT] day=${day} matched=${!!match} faturamentoDia=${faturamentoDia} lucroLiquidoDia=${lucroLiquidoDia}`)
+      }
+    }
+  }
+  const fixedExpenses = resumo.fixedExpenses ?? 0
+  const cogs          = totalRevenue - grossProfit
+  const totalExpenses = resumo.despesasMes ?? resumo.totalExpense ?? (cogs + fixedExpenses)
+
+  const result = {
+    faturamentoMes:      totalRevenue,
+    despesasMes:         totalExpenses,
+    lucroOperacionalMes: grossProfit,
+    lucroLiquidoMes:     netProfit,
+    margemBruta:         resumo.margemBruta ?? (totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0),
+    margemLiquida:       resumo.margem      ?? (totalRevenue > 0 ? (netProfit   / totalRevenue) * 100 : 0),
+    totalVendas:         resumo.totalVendas ?? resumo.revenueCount ?? 0,
+    ticketMedio:         resumo.ticketMedio ?? 0,
+    faturamentoDia,
+    lucroLiquidoDia,
+    grafico,
+    updatedAt:  resumo.updatedAt ?? null,
+    sourceType: resumo.sourceType ?? null,
+    _meta: { source: resumo._source ?? "postgresql", sourceType: resumo.sourceType ?? null },
   }
 
-  return NextResponse.json(data)
+  console.log(`[FRONT_MONTHLY_RESULT] faturamentoMes=${result.faturamentoMes} lucroOperacionalMes=${result.lucroOperacionalMes} totalVendas=${result.totalVendas}`)
+
+  return NextResponse.json(result)
 }

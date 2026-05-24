@@ -108,7 +108,7 @@ export default function AgendaPage() {
   }, [])
 
   const { triggerSync } = useRealtimeSync(carregarTarefas, {
-    interval: 30_000,
+    interval: 60_000,
     immediate: false, // already called on mount via useEffect below
   })
 

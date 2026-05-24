@@ -50,13 +50,13 @@ export function RankingPageClient({ currentUserId, currentUserRole }: RankingPag
           {/* Leaderboard completo */}
           <section>
             <h2 className="mb-4 text-lg font-semibold">Ranking Completo</h2>
-            <Leaderboard currentUserId={currentUserId} pollMs={30000} />
+            <Leaderboard currentUserId={currentUserId} pollMs={60_000} />
           </section>
 
           {/* Seu progresso */}
           <section>
             <h2 className="mb-4 text-lg font-semibold">Seu Desempenho</h2>
-            <UserStats userId={currentUserId} pollMs={30000} />
+            <UserStats userId={currentUserId} pollMs={60_000} />
           </section>
         </TabsContent>
 
@@ -76,13 +76,13 @@ export function RankingPageClient({ currentUserId, currentUserRole }: RankingPag
           {/* Leaderboard completo */}
           <section>
             <h2 className="mb-4 text-lg font-semibold">Ranking Geral</h2>
-            <Leaderboard currentUserId={currentUserId} pollMs={30000} />
+            <Leaderboard currentUserId={currentUserId} pollMs={60_000} />
           </section>
 
           {/* Seu progresso */}
           <section>
             <h2 className="mb-4 text-lg font-semibold">Seu Progresso</h2>
-            <UserStats userId={currentUserId} pollMs={30000} />
+            <UserStats userId={currentUserId} pollMs={60_000} />
           </section>
         </TabsContent>
 
