@@ -2,6 +2,84 @@
  * Utilitários financeiros — funções puras, sem side-effects, sem chamadas HTTP
  */
 
+const MESES_LABEL = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+]
+
+/**
+ * Retorna o label de período para cards e headers.
+ * - dia selecionado      → "14/05/2026"
+ * - mês/ano = hoje       → "Hoje"
+ * - outro mês            → "Maio 2026"
+ */
+export function getPeriodoLabel(params: {
+  dia?: number | null
+  mes: number      // 0-indexed
+  ano: number
+  mesAtual: number // 0-indexed
+  anoAtual: number
+}): string {
+  const { dia, mes, ano, mesAtual, anoAtual } = params
+  if (dia) {
+    const d = String(dia).padStart(2, "0")
+    const m = String(mes + 1).padStart(2, "0")
+    return `${d}/${m}/${ano}`
+  }
+  if (mes === mesAtual && ano === anoAtual) return "Hoje"
+  return `${MESES_LABEL[mes]} ${ano}`
+}
+
+export const formatBRL = (valor: number) =>
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(valor)
+
+/**
+ * Metadados unificados para o card "Faturamento do Dia".
+ * Fonte única de verdade para Dashboard e Financeiro.
+ *
+ * - dia selecionado  → "22/05/2026 · Lucro Líquido R$ 4.100,00"
+ * - hoje sem dia     → "Hoje · Lucro Líquido R$ 1.200,00"
+ * - mês sem dia      → "Maio 2026"
+ */
+export function getDailyCardMeta(params: {
+  dia?: number | null
+  mes: number       // 0-indexed
+  ano: number
+  mesAtual: number  // 0-indexed
+  anoAtual: number
+  diaAtual: number
+  lucroLiquidoDia?: number | null
+}): { descricao: string; isToday: boolean } {
+  const { dia, mes, ano, mesAtual, anoAtual, diaAtual, lucroLiquidoDia } = params
+
+  const isToday = !dia && mes === mesAtual && ano === anoAtual
+
+  // Sem dia selecionado e não é o mês atual → sem contexto diário
+  if (!dia && !isToday) {
+    return { descricao: `${MESES_LABEL[mes]} ${ano}`, isToday: false }
+  }
+
+  const periodoStr = isToday
+    ? `Hoje (${String(diaAtual).padStart(2, "0")}/${String(mesAtual + 1).padStart(2, "0")})`
+    : (() => {
+        const d = String(dia!).padStart(2, "0")
+        const m = String(mes + 1).padStart(2, "0")
+        return `${d}/${m}/${ano}`
+      })()
+
+  const lucroStr =
+    lucroLiquidoDia != null && lucroLiquidoDia > 0
+      ? ` · Lucro Líquido ${formatBRL(lucroLiquidoDia)}`
+      : ""
+
+  return { descricao: `${periodoStr}${lucroStr}`, isToday }
+}
+
 export interface SalesFilters {
   startDate: string
   endDate: string

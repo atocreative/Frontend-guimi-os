@@ -10,58 +10,108 @@ const BACKEND_URL = (
   "http://localhost:3001"
 ).replace(/\/$/, "")
 
-async function fetchDashboardSummaryServer(
+async function fetchDbSummaryServer(
   token: string | null | undefined,
-  startDate: string,
-  endDate: string
+  month: number,
+  year: number
 ): Promise<DashboardSummary | null> {
   try {
-    const params = new URLSearchParams({ startDate, endDate })
+    const params = new URLSearchParams({ month: String(month), year: String(year) })
     const reqHeaders: Record<string, string> = {}
     if (token) reqHeaders["Authorization"] = `Bearer ${token}`
 
-    const res = await fetch(`${BACKEND_URL}/api/dashboard?${params}`, {
-      headers: reqHeaders,
-      cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
-    })
+    const [resumoRes, diarioRes] = await Promise.all([
+      fetch(`${BACKEND_URL}/api/financeiro/db/summary?${params}`, {
+        headers: reqHeaders,
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      }).catch(() => null),
+      fetch(`${BACKEND_URL}/api/financeiro/diario?${params}`, {
+        headers: reqHeaders,
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      }).catch(() => null),
+    ])
 
-    if (!res.ok) {
-      console.warn("[FinanceiroPage] Backend status:", res.status)
+    if (!resumoRes?.ok) {
+      console.warn("[FinanceiroPage] db/summary status:", resumoRes?.status)
       return null
     }
-    return (await res.json()) ?? null
+
+    const resumo = await resumoRes.json().catch(() => null)
+    if (!resumo) return null
+
+    let grafico: DashboardSummary["grafico"] = []
+    if (diarioRes?.ok) {
+      const diario = await diarioRes.json().catch(() => null)
+      if (Array.isArray(diario?.days)) {
+        grafico = diario.days.map((d: { date: string; revenue: number }) => ({
+          data: d.date,
+          entradas: d.revenue,
+          saidas: 0,
+          saldo: d.revenue,
+        }))
+      }
+    }
+
+    const totalRevenue  = resumo.faturamentoMes ?? resumo.totalRevenue ?? 0
+    const grossProfit   = resumo.grossProfit ?? 0
+    const netProfit     = resumo.lucroLiquido ?? resumo.netProfit ?? 0
+    const fixedExpenses = resumo.fixedExpenses ?? 0
+    const cogs          = totalRevenue - grossProfit
+    const totalExpenses = resumo.despesasMes ?? resumo.totalExpense ?? (cogs + fixedExpenses)
+
+    return {
+      faturamentoMes:       totalRevenue,
+      despesasMes:          totalExpenses,
+      lucroOperacionalMes:  grossProfit,
+      lucroLiquidoMes:      netProfit,
+      margemBruta:          resumo.margemBruta ?? (totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0),
+      margemLiquida:        resumo.margem      ?? (totalRevenue > 0 ? (netProfit   / totalRevenue) * 100 : 0),
+      totalVendas:          resumo.totalVendas ?? resumo.revenueCount ?? 0,
+      ticketMedio:          resumo.ticketMedio ?? 0,
+      grafico,
+      updatedAt: resumo.updatedAt ?? null,
+      _meta: { source: resumo._source ?? "postgresql" },
+    }
   } catch (err) {
-    console.warn("[FinanceiroPage] Falha ao buscar dashboard summary", err)
+    console.warn("[FinanceiroPage] Falha ao buscar db/resumo", err)
     return null
   }
 }
 
-export default async function FinanceiroPage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | undefined>>
+}
+
+export default async function FinanceiroPage({ searchParams }: PageProps) {
   await protectPage({ featureId: "FINANCEIRO", requiredRole: "ADMIN" })
 
   const session = await getSession()
   const accessToken = getSessionAccessToken(session)
+  const params = await searchParams
 
   const now = new Date()
-  const initialMes = now.getMonth()
-  const initialAno = now.getFullYear()
+  const currentMes = now.getMonth()
+  const currentAno = now.getFullYear()
+
+  // Respect query params from client-side navigation
+  const mParam = Number(params.m)
+  const yParam = Number(params.y)
+  const initialMes = mParam >= 0 && mParam <= 11 ? mParam : currentMes
+  const initialAno = yParam >= 2024 && yParam <= currentAno ? yParam : currentAno
+
   const availableYears = Array.from(
-    { length: initialAno - 2023 },
+    { length: currentAno - 2023 },
     (_, i) => 2024 + i
   )
 
   const antMes = initialMes === 0 ? 11 : initialMes - 1
   const antAno = initialMes === 0 ? initialAno - 1 : initialAno
 
-  const startDate = new Date(Date.UTC(initialAno, initialMes, 1)).toISOString()
-  const endDate = new Date(Date.UTC(initialAno, initialMes + 1, 1) - 1).toISOString()
-  const antStart = new Date(Date.UTC(antAno, antMes, 1)).toISOString()
-  const antEnd = new Date(Date.UTC(antAno, antMes + 1, 1) - 1).toISOString()
-
   const [summary, summaryAnterior] = await Promise.all([
-    fetchDashboardSummaryServer(accessToken, startDate, endDate),
-    fetchDashboardSummaryServer(accessToken, antStart, antEnd),
+    fetchDbSummaryServer(accessToken, initialMes + 1, initialAno),
+    fetchDbSummaryServer(accessToken, antMes + 1, antAno),
   ])
 
   return (

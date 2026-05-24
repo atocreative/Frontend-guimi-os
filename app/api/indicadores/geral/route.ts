@@ -6,9 +6,9 @@ import { NextRequest, NextResponse } from "next/server"
  * This endpoint now acts as a wrapper for backward compatibility.
  */
 export async function GET(req: NextRequest) {
-  const { searchParams } = req.nextUrl
+  const { searchParams, origin } = req.nextUrl
   const queryString = searchParams.toString()
-  const url = `/api/dashboard/summary${queryString ? `?${queryString}` : ""}`
+  const url = `${origin}/api/dashboard/summary${queryString ? `?${queryString}` : ""}`
 
   const res = await fetch(url, {
     headers: req.headers,

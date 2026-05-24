@@ -5,7 +5,7 @@ import { useEffect, useRef, useCallback } from "react"
 type SyncCallback = () => void | Promise<void>
 
 interface UseRealtimeSyncOptions {
-  /** Polling interval in ms. Default: 30000 (30s) */
+  /** Polling interval in ms. Default: 60000 (60s) */
   interval?: number
   /** Pause polling when tab is hidden. Default: true */
   pauseWhenHidden?: boolean
@@ -29,7 +29,7 @@ export function useRealtimeSync(
   callback: SyncCallback,
   options: UseRealtimeSyncOptions = {}
 ) {
-  const { interval = 30_000, pauseWhenHidden = true, immediate = true } = options
+  const { interval = 60_000, pauseWhenHidden = true, immediate = true } = options
 
   const callbackRef = useRef<SyncCallback>(callback)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)

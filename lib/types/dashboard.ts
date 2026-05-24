@@ -30,15 +30,21 @@ export type DashboardSummary = {
   financeiro?: DashboardFinanceiro
   periodo?: DashboardPeriodo
   faturamentoDia?: number
+  lucroLiquidoDia?: number
   faturamentoMes?: number
-  despesasMes?: number
+  despesasMes?: number        // COGS + fixedExpenses
   comprasMes?: number
-  lucroLiquidoMes?: number
+  lucroOperacionalMes?: number // grossProfit (revenue - COGS)
+  lucroLiquidoMes?: number    // netProfit (grossProfit - fixedExpenses)
+  margemBruta?: number        // grossProfit / revenue * 100
+  margemLiquida?: number      // netProfit / revenue * 100
   ticketMedio?: number
   totalVendas?: number
   grafico?: DashboardGraficoItem[]
+  sourceType?: "CSV" | "API" | string
   _meta?: {
     source?: string
+    sourceType?: "CSV" | "API" | string
     filtered?: boolean
     lojaId?: string
   }

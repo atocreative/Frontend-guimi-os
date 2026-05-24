@@ -129,7 +129,7 @@ interface LeaderboardProps {
 export function Leaderboard({
   currentUserId,
   compact = false,
-  pollMs = 10000,
+  pollMs = 60_000,
 }: LeaderboardProps) {
   const [scope, setScope] = useState<GamificationScope>("month")
   const [data, setData] = useState<GamificationLeaderboardData | null>(null)
@@ -171,7 +171,7 @@ export function Leaderboard({
     [compact, entries]
   )
 
-  if (!loading && (!data?.available || entries.length === 0)) return null
+  const isEmpty = !loading && (!data?.available || entries.length === 0)
 
   return (
     <Card>
@@ -196,7 +196,11 @@ export function Leaderboard({
               <Skeleton key={index} className="h-12 rounded-lg" />
             ))}
           </div>
-        ) : !data?.available || entries.length === 0 ? null : (
+        ) : isEmpty ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Nenhum dado de ranking disponível ainda.
+          </p>
+        ) : (
           <>
             <div className="space-y-2">
               {visibleEntries.map((entry, index) => (
@@ -209,13 +213,13 @@ export function Leaderboard({
               ))}
             </div>
 
-            {data.currentUserRank ? (
+            {data?.currentUserRank ? (
               <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                 Sua posição atual: <span className="font-semibold text-foreground">#{data.currentUserRank}</span>
               </div>
             ) : null}
 
-            {scope === "all" && data.message ? (
+            {scope === "all" && data?.message ? (
               <p className="text-[11px] text-muted-foreground">{data.message}</p>
             ) : null}
           </>

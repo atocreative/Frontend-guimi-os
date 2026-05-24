@@ -528,10 +528,10 @@ export function StatusLoja() {
     }
   }, [fetchStatus])
 
-  // Timeline: initial + poll 15s
+  // Timeline: initial + poll 30s (same cadence as status)
   useEffect(() => {
     fetchTimeline()
-    timelinePollRef.current = setInterval(fetchTimeline, 15_000)
+    timelinePollRef.current = setInterval(fetchTimeline, 30_000)
     return () => { if (timelinePollRef.current) clearInterval(timelinePollRef.current) }
   }, [fetchTimeline])
 
