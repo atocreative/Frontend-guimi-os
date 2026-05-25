@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { MetricasComercial } from "@/components/comercial/metricas-comercial"
 import { LeadCard } from "@/components/comercial/lead-card"
-import { AnalyticsPanel } from "@/components/comercial/analytics-panel"
+import { BIDashboard } from "@/components/comercial/bi-dashboard"
 import { getComercialLeads } from "@/lib/services/comercial-service"
 
 function calcularMetricas(leads: any[]) {
@@ -73,8 +73,8 @@ export default async function ComercialPage() {
       {/* Métricas server-side */}
       {metricas && <MetricasComercial metricas={metricas} />}
 
-      {/* Analytics client-side: pipeline, origens, alertas, vendedores */}
-      <AnalyticsPanel />
+      {/* BI Dashboard: KPIs executivos, ROI, Forecast, Pipeline, Alertas, Equipe */}
+      <BIDashboard />
 
       {/* Leads prioritários (server-rendered, ordenados por urgência) */}
       <div>
