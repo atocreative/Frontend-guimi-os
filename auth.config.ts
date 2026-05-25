@@ -1,5 +1,18 @@
 import type { NextAuthConfig } from "next-auth"
 
+function isBackendJwtExpired(accessToken: string): boolean {
+  try {
+    const parts = accessToken.split(".")
+    if (parts.length !== 3) return false
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/")
+    const payload = JSON.parse(atob(base64)) as { exp?: number }
+    if (!payload.exp) return false
+    return Date.now() / 1000 > payload.exp
+  } catch {
+    return false
+  }
+}
+
 export const authConfig = {
   pages: {
     signIn: "/login",
@@ -27,6 +40,12 @@ export const authConfig = {
         if (user.email) {
           token.email = user.email
         }
+      }
+
+      // Invalidate session when backend JWT has expired — forces clean re-login
+      const accessToken = (token as any).accessToken as string | undefined
+      if (accessToken && isBackendJwtExpired(accessToken)) {
+        return null
       }
 
       return token

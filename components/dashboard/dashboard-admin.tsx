@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import {
-  Clock,
   DollarSign,
   RefreshCw,
   ShoppingCart,
@@ -13,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { GraficoVazio } from "@/components/dashboard/grafico-vazio"
 import { KpiCard } from "@/components/dashboard/kpi-card"
+import { OrigemLeadsCard } from "@/components/dashboard/origem-leads-card"
 import { KpiSkeleton } from "@/components/dashboard/kpi-skeleton"
 import { VendedoresRanking } from "@/components/dashboard/vendedores-ranking"
 import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
@@ -463,14 +463,8 @@ export function DashboardAdmin({
           )}
         </div>
 
-        {/* Origem dos leads — Kommo CRM */}
-        <Card className="flex items-center justify-center">
-          <CardContent className="p-6 text-center">
-            <Clock className="mx-auto mb-2 h-6 w-6 opacity-30" />
-            <p className="text-sm font-medium text-muted-foreground">Origem dos Leads</p>
-            <p className="mt-1 text-xs text-muted-foreground/60">Aguardando conexão com Kommo CRM</p>
-          </CardContent>
-        </Card>
+        {/* Origem dos leads — dados reais do PostgreSQL */}
+        <OrigemLeadsCard />
       </div>
 
       {/* ── Linha 4: Ranking + Tarefas lado a lado ────────────────────────── */}

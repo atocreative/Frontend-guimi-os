@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import {
-  Clock,
   DollarSign,
   RefreshCw,
   ShoppingCart,
@@ -17,6 +16,7 @@ import { GraficoVazio } from "@/components/dashboard/grafico-vazio"
 import { KpiCard } from "@/components/dashboard/kpi-card"
 import { KpiSkeleton } from "@/components/dashboard/kpi-skeleton"
 import { VendedoresRanking } from "@/components/dashboard/vendedores-ranking"
+import { OrigemLeadsCard } from "@/components/dashboard/origem-leads-card"
 import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
 import { PainelAlertasGlobal } from "@/components/dashboard/painel-alertas-global"
 import { useIntegrationStatus } from "@/hooks/use-integration-status"
@@ -326,11 +326,8 @@ export function DashboardGerente({
         <GraficoVazio mensagem={`Sem dados de gráfico para ${MESES[mes]} ${ano}`} />
       ) : null}
 
-      {/* Origem leads — placeholder */}
-      <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-4 text-center text-sm text-muted-foreground">
-        <Clock className="mx-auto mb-1 h-4 w-4 opacity-50" />
-        Origem dos leads — aguardando conexão com Kommo CRM
-      </div>
+      {/* Origem leads — dados reais */}
+      <OrigemLeadsCard />
 
       {/* Ranking + Tarefas lado a lado */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
