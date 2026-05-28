@@ -151,15 +151,11 @@ export function GlobalDateFilter({
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end" sideOffset={8}>
             <Calendar
-              mode="single"
               selected={selectedDate ?? undefined}
-              defaultMonth={new Date(year, month)}
-              onSelect={(date: Date | undefined) => {
+              onSelect={(date: Date) => {
                 onDateSelect(date ?? null)
                 setOpen(false)
               }}
-              disabled={(date: Date) => date > max || date < min}
-              initialFocus
             />
           </PopoverContent>
         </Popover>
