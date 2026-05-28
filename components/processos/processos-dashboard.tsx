@@ -1,37 +1,48 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-  DollarSign, TrendingUp, TrendingDown, Wallet,
-  AlertTriangle, CheckCircle2, ArrowUpRight, RefreshCw,
-  CreditCard, Repeat, CalendarClock, Clock,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowUpRight,
+  RefreshCw,
+  Radio,
+  Database,
+  Wallet,
+  PieChart as PieIcon,
+  TrendingDown,
 } from "lucide-react"
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ReferenceLine,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { KpiCard } from "@/components/dashboard/kpi-card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { GlobalDateFilter } from "@/components/global/global-date-filter"
-import { TabelaDespesas } from "@/components/financeiro/tabela-despesas"
-import { TabelaEntradas } from "@/components/financeiro/tabela-entradas"
-import { getDashboardSummary } from "@/lib/services/dashboard-summary"
 import { getPeriodoLabel } from "@/lib/financeiro-utils"
-import type { DashboardSummary } from "@/lib/types/dashboard"
-import type { DespesaItem } from "@/components/financeiro/tabela-despesas"
-import type { VendaRecente } from "@/components/financeiro/tabela-entradas"
+import {
+  useProcessosDespesasMensais,
+  useProcessosSaldoHistorico,
+  type ProcessosDespesaItem,
+} from "@/lib/queries/use-processos-financeiros"
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const MESES_ABBR = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
-const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
-
-function toNum(v: unknown): number {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : 0
-}
+const PALETA = [
+  "#ef4444","#f97316","#f59e0b","#eab308","#84cc16",
+  "#22c55e","#06b6d4","#3b82f6","#6366f1","#8b5cf6",
+  "#ec4899","#64748b",
+]
 
 function brl(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -39,580 +50,331 @@ function brl(valor: number) {
     currency: "BRL",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(toNum(valor))
-}
-
-function brlCompact(valor: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(toNum(valor))
+  }).format(Number.isFinite(valor) ? valor : 0)
 }
 
 function mesAnterior(mes: number, ano: number) {
   return mes === 0 ? { mes: 11, ano: ano - 1 } : { mes: mes - 1, ano }
 }
 
-function gerarPeriodo(mes: number, ano: number, dia?: number | null) {
-  if (dia) {
-    const start = new Date(Date.UTC(ano, mes, dia))
-    const end   = new Date(Date.UTC(ano, mes, dia, 23, 59, 59, 999))
-    return { startDate: start.toISOString(), endDate: end.toISOString() }
+interface GrupoCategoria {
+  categoria: string
+  abs: number
+  signed: number
+  count: number
+}
+
+function agrupar(items: ProcessosDespesaItem[]): {
+  total: number
+  totalAbs: number
+  grupos: GrupoCategoria[]
+  semCategoria: number
+} {
+  const map = new Map<string, { abs: number; count: number }>()
+  let semCategoria = 0
+
+  for (const item of items) {
+    const abs = Math.abs(item.amount)
+    if (!abs) continue
+    const cat = item.categoria
+    if (cat === "Não classificado" || cat === "Outros") semCategoria += Number(item.count ?? 1)
+    const prev = map.get(cat) ?? { abs: 0, count: 0 }
+    map.set(cat, { abs: prev.abs + abs, count: prev.count + Number(item.count ?? 1) })
   }
-  const start = new Date(Date.UTC(ano, mes, 1))
-  const end   = new Date(Date.UTC(ano, mes + 1, 1) - 1)
-  return { startDate: start.toISOString(), endDate: end.toISOString() }
+
+  const grupos: GrupoCategoria[] = Array.from(map.entries())
+    .map(([categoria, v]) => ({ categoria, abs: v.abs, signed: -v.abs, count: v.count }))
+    .sort((a, b) => b.abs - a.abs)
+
+  const totalAbs = grupos.reduce((s, g) => s + g.abs, 0)
+  return { total: -totalAbs, totalAbs, grupos, semCategoria }
 }
 
-function agruparDespesasPorCategoria(despesas: DespesaItem[]) {
-  const grupos: Record<string, number> = {}
-  for (const d of despesas) {
-    const cat = String((d as any).categoria ?? (d as any).category ?? "Outros")
-    const val = toNum((d as any).valor ?? (d as any).value ?? (d as any).totalCusto ?? (d as any).amount ?? 0)
-    grupos[cat] = (grupos[cat] ?? 0) + val
+interface Alerta { tipo: "warning" | "success" | "info"; mensagem: string }
+
+function gerarAlertas(
+  aggAtual: ReturnType<typeof agrupar>,
+  aggAnterior: ReturnType<typeof agrupar>,
+  maxAlertas = 4,
+): Alerta[] {
+  const cand: Array<Alerta & { score: number }> = []
+  const ctx = "vs mês anterior"
+  const prevAbs = aggAnterior.totalAbs
+
+  if (prevAbs > 0) {
+    const delta = ((aggAtual.totalAbs - prevAbs) / prevAbs) * 100
+    if (Math.abs(delta) >= 10) {
+      cand.push({
+        tipo: delta > 0 ? "warning" : "success",
+        score: 200 + Math.abs(delta),
+        mensagem: delta > 0
+          ? `Despesas ↑ ${delta.toFixed(0)}% ${ctx} (${brl(aggAtual.totalAbs)})`
+          : `Despesas ↓ ${Math.abs(delta).toFixed(0)}% ${ctx} (${brl(aggAtual.totalAbs)})`,
+      })
+    }
   }
-  const total = Object.values(grupos).reduce((a, b) => a + b, 0)
-  return Object.entries(grupos)
-    .filter(([, v]) => v > 0)
-    .sort(([, a], [, b]) => b - a)
-    .map(([categoria, valor], i) => ({
-      categoria,
-      valor,
-      percentual: total > 0 ? (valor / total) * 100 : 0,
-      cor: PIE_CORES[i % PIE_CORES.length],
-    }))
+
+  if (aggAtual.totalAbs > 0) {
+    for (const g of aggAtual.grupos.slice(0, 3)) {
+      const peso = (g.abs / aggAtual.totalAbs) * 100
+      if (peso >= 35) {
+        cand.push({
+          tipo: "warning",
+          score: 150 + peso,
+          mensagem: `${g.categoria} concentra ${peso.toFixed(0)}% do gasto (${brl(g.abs)})`,
+        })
+      }
+    }
+  }
+
+  const prevMap = new Map(aggAnterior.grupos.map((g) => [g.categoria, g.abs]))
+  for (const g of aggAtual.grupos) {
+    const prev = prevMap.get(g.categoria) ?? 0
+    if (prev <= 0) continue
+    const delta = ((g.abs - prev) / prev) * 100
+    if (Math.abs(delta) >= 50) {
+      cand.push({
+        tipo: delta > 0 ? "warning" : "info",
+        score: 120 + Math.abs(delta) * 0.5,
+        mensagem: delta > 0
+          ? `${g.categoria} ↑ ${delta.toFixed(0)}% ${ctx}`
+          : `${g.categoria} ↓ ${Math.abs(delta).toFixed(0)}% ${ctx}`,
+      })
+    }
+  }
+
+  if (aggAtual.semCategoria > 0) {
+    cand.push({
+      tipo: "info",
+      score: 50,
+      mensagem: `${aggAtual.semCategoria} despesa${aggAtual.semCategoria > 1 ? "s" : ""} sem classificação — revisar no MeuAssessor`,
+    })
+  }
+
+  return cand.sort((a, b) => b.score - a.score).slice(0, maxAlertas)
 }
-
-const PIE_CORES = [
-  "#6366f1", "#f97316", "#10b981", "#f59e0b",
-  "#3b82f6", "#ec4899", "#64748b", "#8b5cf6",
-]
-
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
-interface HistoricoMes {
-  label: string
-  receitas: number
-  despesas: number
-  saldo: number
-}
-
-interface OperacionalKpis {
-  atrasadas: number | null
-  parceladas: number | null
-  recorrentes: number | null
-  compromissosHoje: number | null
-}
-
-// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  initialSummary: DashboardSummary | null
+  initialSummary?: unknown   // aceito mas ignorado — domínio comercial
   initialMes: number
   initialAno: number
   availableYears: number[]
 }
 
-// ─── Componente ───────────────────────────────────────────────────────────────
-
-export function ProcessosDashboard({
-  initialSummary,
-  initialMes,
-  initialAno,
-  availableYears,
-}: Props) {
-  const router = useRouter()
+export function ProcessosDashboard({ initialMes, initialAno }: Props) {
+  const router       = useRouter()
   const searchParams = useSearchParams()
-  const today = new Date()
-  const mesAtual = initialMes
-  const anoAtual = initialAno
+  const today        = new Date()
+  const mesAtual     = initialMes
+  const anoAtual     = initialAno
 
   const [mes, setMes] = useState(() => {
     const raw = searchParams.get("m")
-    const m = raw !== null ? Number(raw) : NaN
+    const m   = raw !== null ? Number(raw) : NaN
     return !isNaN(m) && m >= 0 && m <= 11 ? m : initialMes
   })
   const [ano, setAno] = useState(() => {
     const y = Number(searchParams.get("y"))
     return y >= 2024 ? y : initialAno
   })
-  const [dia, setDia] = useState<number | null>(() => {
-    const d = Number(searchParams.get("d"))
-    return d >= 1 && d <= 31 ? d : null
-  })
 
-  const [summary, setSummary]         = useState<DashboardSummary | null>(initialSummary)
-  const [despesas, setDespesas]       = useState<DespesaItem[]>([])
-  const [entradas, setEntradas]       = useState<VendaRecente[]>([])
-  const [historico, setHistorico]     = useState<HistoricoMes[]>([])
-  const [operacional, setOperacional] = useState<OperacionalKpis>({
-    atrasadas: null, parceladas: null, recorrentes: null, compromissosHoje: null,
-  })
-  const [loading, setLoading]         = useState(false)
-  const [erro, setErro]               = useState(false)
+  const maxMes      = ano === anoAtual ? mesAtual : 11
+  const mesEfetivo  = Math.min(mes, maxMes)
+  const month1      = mesEfetivo + 1
+  const { mes: prevMesIdx, ano: prevAnoN } = mesAnterior(mesEfetivo, ano)
 
-  // Sync URL
-  useEffect(() => {
-    const params = new URLSearchParams()
-    params.set("m", String(mes))
-    params.set("y", String(ano))
-    if (dia) params.set("d", String(dia))
-    router.replace(`/processos?${params.toString()}`, { scroll: false })
-  }, [mes, ano, dia, router])
+  const syncUrl = useCallback(
+    (m: number, a: number) => {
+      const p = new URLSearchParams()
+      p.set("m", String(m))
+      p.set("y", String(a))
+      router.replace(`/processos?${p.toString()}`, { scroll: false })
+    },
+    [router],
+  )
 
-  const maxMes = ano === anoAtual ? mesAtual : 11
-  const mesEfetivo = Math.min(mes, maxMes)
+  const mensal    = useProcessosDespesasMensais(ano, month1)
+  const anterior  = useProcessosDespesasMensais(prevAnoN, prevMesIdx + 1)
+  const historico = useProcessosSaldoHistorico(ano, month1, 5)
 
-  // Fetch histórico dos últimos 5 meses
-  const fetchHistorico = useCallback(async (currentMes: number, currentAno: number) => {
-    const meses: { mes: number; ano: number }[] = []
-    let m = currentMes, a = currentAno
-    for (let i = 0; i < 5; i++) {
-      meses.unshift({ mes: m, ano: a })
-      const prev = mesAnterior(m, a)
-      m = prev.mes; a = prev.ano
-    }
-    const results = await Promise.all(
-      meses.map(({ mes: mm, ano: aa }) =>
-        getDashboardSummary({ year: aa, month: mm }).catch(() => null)
-      )
-    )
-    setHistorico(
-      meses.map(({ mes: mm, ano: aa }, i) => {
-        const s = results[i]
-        const receitas  = toNum(s?.faturamentoMes ?? s?.financeiro?.receita)
-        const despesasV = toNum(s?.despesasMes    ?? s?.financeiro?.despesasVariaveis)
-        return {
-          label: `${MESES_ABBR[mm]}/${String(aa).slice(2)}`,
-          receitas,
-          despesas: despesasV,
-          saldo: receitas - despesasV,
-        }
-      })
-    )
-  }, [])
+  const loadingMes  = mensal.isLoading  && !mensal.data
+  const loadingHist = historico.isLoading && historico.data.length === 0
+  const refreshingMes = mensal.isFetching  && !loadingMes
 
-  // Fetch operacional (overview)
-  const fetchOperacional = useCallback(async (m: number, a: number, d: number | null) => {
-    const { startDate, endDate } = gerarPeriodo(m, a, d)
-    const params = `startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
-    try {
-      const res = await fetch(`/api/financeiro/overview?${params}`)
-      if (!res.ok) return
-      const data = await res.json().catch(() => null)
-      if (!data?.resumo) return
-      const r = data.resumo
-      setOperacional({
-        atrasadas:        r.contasAtrasadas  ?? r.atrasadas  ?? null,
-        parceladas:       r.parceladas       ?? null,
-        recorrentes:      r.recorrentes      ?? null,
-        compromissosHoje: r.compromissosHoje ?? r.compromissos_hoje ?? null,
-      })
-    } catch { /* silent */ }
-  }, [])
+  const lastSyncTs = mensal.dataUpdatedAt ?? 0
+  const lastSync   = lastSyncTs > 0 ? new Date(lastSyncTs) : null
 
-  const fetchAll = useCallback(async (m: number, a: number, d: number | null) => {
-    setLoading(true)
-    setErro(false)
-    const { startDate, endDate } = gerarPeriodo(m, a, d)
-    const params = `startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
-    type ComprasRes = { data?: DespesaItem[] }
-    type VendasRes  = { data?: VendaRecente[] }
+  const isMesAtual = mesEfetivo === today.getMonth() && ano === today.getFullYear()
 
-    const [atual, despesasRes, entradasRes] = await Promise.all([
-      getDashboardSummary({ year: a, month: m, ...(d ? { day: d } : {}) }),
-      fetch(`/api/financeiro/compras/recentes?${params}`)
-        .then((r) => r.ok ? r.json() as Promise<ComprasRes> : ({} as ComprasRes))
-        .catch(() => ({} as ComprasRes)),
-      fetch(`/api/financeiro/vendas/recentes?${params}`)
-        .then((r) => r.ok ? r.json() as Promise<VendasRes> : ({} as VendasRes))
-        .catch(() => ({} as VendasRes)),
-    ])
+  const aggAtual    = useMemo(() => agrupar(mensal.data?.items ?? []),   [mensal.data])
+  const aggAnterior = useMemo(() => agrupar(anterior.data?.items ?? []), [anterior.data])
 
-    if (!atual) setErro(true)
-    setSummary(atual)
-    setDespesas(Array.isArray(despesasRes?.data) ? despesasRes.data : [])
-    setEntradas(Array.isArray(entradasRes?.data) ? entradasRes.data : [])
-    setLoading(false)
+  const categorias = useMemo(
+    () => aggAtual.grupos.map((g, i) => ({
+      categoria: g.categoria,
+      valorAbs : g.abs,
+      valor    : g.signed,
+      count    : g.count,
+      cor      : PALETA[i % PALETA.length],
+    })),
+    [aggAtual],
+  )
 
-    // Histórico e operacional em background (não bloqueiam o render principal)
-    fetchHistorico(m, a)
-    fetchOperacional(m, a, d)
-  }, [fetchHistorico, fetchOperacional])
+  const rowsExibidas = mensal.data?.items ?? []
 
-  useEffect(() => {
-    fetchAll(mesEfetivo, ano, dia)
-  }, [mesEfetivo, ano, dia, fetchAll])
+  const alertas = useMemo(
+    () => gerarAlertas(aggAtual, aggAnterior),
+    [aggAtual, aggAnterior],
+  )
 
-  // Handlers filtro
-  const handleMonthChange = useCallback((m: number, y: number) => { setMes(m); setAno(y); setDia(null) }, [])
-  const handleToday       = useCallback(() => {
+  const handleMonthChange = useCallback((m: number, y: number) => {
+    setMes(m); setAno(y)
+    syncUrl(m, y)
+  }, [syncUrl])
+
+  const handleToday = useCallback(() => {
     const now = new Date()
-    setMes(now.getMonth()); setAno(now.getFullYear()); setDia(now.getDate())
-  }, [])
-  const handleDateSelect  = useCallback((date: Date | null) => {
-    if (!date) { setDia(null); return }
-    setMes(date.getMonth()); setAno(date.getFullYear()); setDia(date.getDate())
-  }, [])
+    setMes(now.getMonth()); setAno(now.getFullYear())
+    syncUrl(now.getMonth(), now.getFullYear())
+  }, [syncUrl])
 
-  // ── KPIs ──
-  const receitas   = toNum(summary?.faturamentoMes  ?? summary?.financeiro?.receita)
-  const despesasV  = toNum(summary?.despesasMes     ?? summary?.financeiro?.despesasVariaveis)
-  const saldo      = receitas - despesasV
-  const fluxo      = toNum(summary?.lucroLiquidoMes ?? summary?.financeiro?.netProfit)
-  const margemBruta  = toNum(summary?.margemBruta)
-  const margemLiq    = toNum(summary?.margemLiquida)
-  const totalVendas  = toNum(summary?.totalVendas)
-  const ticketMedio  = toNum(summary?.ticketMedio)
+  // Backend não suporta filtro de dia — preserva apenas mês/ano
+  const handleDateSelect = useCallback((date: Date | null) => {
+    if (!date) return
+    setMes(date.getMonth()); setAno(date.getFullYear())
+    syncUrl(date.getMonth(), date.getFullYear())
+  }, [syncUrl])
 
-  // ── Categorias despesas ──
-  const categorias = useMemo(() => agruparDespesasPorCategoria(despesas), [despesas])
-
-  // ── Alertas ──
-  const alertas = useMemo(() => {
-    const list: Array<{ tipo: "warning" | "success" | "info"; mensagem: string }> = []
-    if (saldo < 0)
-      list.push({ tipo: "warning", mensagem: `Saldo negativo no período: ${brl(saldo)}` })
-    if (margemLiq < 5 && receitas > 0)
-      list.push({ tipo: "warning", mensagem: `Margem líquida baixa: ${margemLiq.toFixed(1)}%` })
-    if (despesasV > receitas * 0.9 && receitas > 0)
-      list.push({ tipo: "warning", mensagem: `Despesas representam ${((despesasV / receitas) * 100).toFixed(0)}% da receita` })
-    if (operacional.atrasadas && operacional.atrasadas > 0)
-      list.push({ tipo: "warning", mensagem: `${operacional.atrasadas} conta(s) em atraso` })
-    if (saldo > 0 && margemLiq >= 10)
-      list.push({ tipo: "success", mensagem: `Fluxo positivo com margem líquida de ${margemLiq.toFixed(1)}%` })
-    return list.slice(0, 4)
-  }, [saldo, margemLiq, despesasV, receitas, operacional.atrasadas])
-
-  // ── Label ──
   const periodoLabel = getPeriodoLabel({
-    dia, mes: mesEfetivo, ano,
+    dia: null, mes: mesEfetivo, ano,
     mesAtual: today.getMonth(), anoAtual: today.getFullYear(),
   })
-
-  const selectedDate = dia ? new Date(ano, mesEfetivo, dia) : null
-  const isMesAtual   = mesEfetivo === today.getMonth() && ano === today.getFullYear()
+  const erro = mensal.isError
 
   return (
     <div className="space-y-5">
 
-      {/* ── Header ── */}
       <div>
-        <h2 className="text-xl font-semibold">Processos</h2>
+        <h2 className="text-xl font-semibold">Despesas Administrativas</h2>
         <p className="text-sm text-muted-foreground">
           {periodoLabel}
-          {loading && <span className="ml-2 text-xs text-muted-foreground/60">atualizando…</span>}
+          {loadingMes && <span className="ml-2 text-xs text-muted-foreground/60">carregando…</span>}
         </p>
       </div>
 
-      {/* ── Filtro ── */}
       <GlobalDateFilter
         month={mesEfetivo}
         year={ano}
-        selectedDate={selectedDate}
+        selectedDate={null}
         maxDate={new Date(anoAtual, mesAtual, today.getDate())}
         onMonthChange={handleMonthChange}
         onToday={handleToday}
         onDateSelect={handleDateSelect}
       />
 
-      {/* ── Loading badge ── */}
-      {loading && (
-        <div className="flex">
-          <Badge variant="outline" className="gap-1">
-            <RefreshCw className="h-3 w-3 animate-spin" />
-            Carregando
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Badge variant="outline" className="gap-1 font-normal">
+          <Database className="h-3 w-3" />
+          MeuAssessor
+        </Badge>
+        {isMesAtual && (
+          <Badge variant="outline" className="gap-1 font-normal text-emerald-600 border-emerald-300 dark:border-emerald-700">
+            <Radio className="h-3 w-3 animate-pulse" />
+            Realtime · 30s
           </Badge>
-        </div>
-      )}
+        )}
+        {lastSync && (
+          <span className="tabular-nums">
+            Sync:{" "}
+            {lastSync.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+        )}
+        {refreshingMes && (
+          <Badge variant="outline" className="gap-1 font-normal text-muted-foreground/70">
+            <RefreshCw className="h-3 w-3 animate-spin" /> mês
+          </Badge>
+        )}
+        <span className="ml-auto tabular-nums">
+          {rowsExibidas.length} categoria{rowsExibidas.length !== 1 ? "s" : ""}
+        </span>
+      </div>
 
-      {/* ── Erros ── */}
       {erro && (
         <Card className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-900/20">
           <CardContent className="px-4 py-3 text-sm text-red-800 dark:text-red-400">
-            Não foi possível carregar dados para este período.
-          </CardContent>
-        </Card>
-      )}
-      {!loading && !erro && !summary && (
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-900/20">
-          <CardContent className="px-4 py-3 text-sm text-amber-800 dark:text-amber-400">
-            Nenhum dado disponível para {periodoLabel}.
+            Não foi possível carregar despesas para este período.
           </CardContent>
         </Card>
       )}
 
-      {/* ── Row 1 — KPIs Financeiros ── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          titulo="Saldo do Período"
-          valor={brl(saldo)}
-          descricao={saldo >= 0 ? "Resultado positivo" : "Resultado negativo"}
-          icone={saldo >= 0 ? TrendingUp : TrendingDown}
-          tendencia={saldo >= 0 ? "up" : "down"}
-          destaque
-        />
-        <KpiCard
-          titulo="Receitas"
-          valor={brl(receitas)}
-          descricao={`${totalVendas} venda${totalVendas !== 1 ? "s" : ""}`}
-          icone={DollarSign}
-          tendencia={receitas > 0 ? "up" : "neutral"}
-        />
-        <KpiCard
-          titulo="Despesas"
-          valor={brl(despesasV)}
-          descricao={`${((despesasV / (receitas || 1)) * 100).toFixed(1)}% da receita`}
-          icone={TrendingDown}
-          tendencia="down"
-        />
-        <KpiCard
-          titulo="Fluxo de Caixa"
-          valor={brl(fluxo)}
-          descricao={`Margem ${margemLiq.toFixed(1)}%`}
-          icone={Wallet}
-          tendencia={fluxo >= 0 ? "up" : "down"}
-        />
-      </div>
-
-      {/* ── Row 2 — KPIs Operacionais ── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Card>
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Contas Atrasadas
-                </p>
-                <p className="text-2xl font-bold tracking-tight">
-                  {operacional.atrasadas !== null ? operacional.atrasadas : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {operacional.atrasadas === null ? "N/D neste período" : operacional.atrasadas === 0 ? "Nenhuma em atraso" : "Requer atenção"}
-                </p>
-              </div>
-              <div className="rounded-lg p-2 bg-muted">
-                <AlertTriangle className={`h-4 w-4 ${operacional.atrasadas ? "text-amber-500" : "text-muted-foreground"}`} />
-              </div>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Total Despesas do Mês
+              </p>
+              <TrendingDown className="h-4 w-4 text-red-400" />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Parceladas
-                </p>
-                <p className="text-2xl font-bold tracking-tight">
-                  {operacional.parceladas !== null ? operacional.parceladas : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {operacional.parceladas === null ? "N/D neste período" : "Transações parceladas"}
-                </p>
-              </div>
-              <div className="rounded-lg p-2 bg-muted">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Recorrentes
-                </p>
-                <p className="text-2xl font-bold tracking-tight">
-                  {operacional.recorrentes !== null ? operacional.recorrentes : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {operacional.recorrentes === null ? "N/D neste período" : "Cobranças recorrentes"}
-                </p>
-              </div>
-              <div className="rounded-lg p-2 bg-muted">
-                <Repeat className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Compromissos Hoje
-                </p>
-                <p className="text-2xl font-bold tracking-tight">
-                  {operacional.compromissosHoje !== null ? operacional.compromissosHoje : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {!isMesAtual ? "Selecione mês atual" : operacional.compromissosHoje === null ? "N/D" : "Para hoje"}
-                </p>
-              </div>
-              <div className="rounded-lg p-2 bg-muted">
-                <CalendarClock className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── Row 3 — Gráficos ── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-
-        {/* Line chart — histórico 5 meses */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">
-              Histórico — Receitas, Despesas e Saldo
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">Últimos 5 meses</p>
-          </CardHeader>
-          <CardContent>
-            {historico.length === 0 ? (
-              <div className="h-[220px] flex items-center justify-center">
-                <div className="h-3 w-48 rounded bg-muted animate-pulse" />
-              </div>
+            {loadingMes ? (
+              <Skeleton className="h-8 w-32 rounded" />
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={historico} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 11 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={brlCompact}
-                    width={56}
-                  />
-                  <RechartsTooltip
-                    formatter={(v) => brl(Number(v))}
-                    contentStyle={{ fontSize: "11px", borderRadius: "8px" }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="receitas"
-                    name="Receitas"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                    activeDot={{ r: 5 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="despesas"
-                    name="Despesas"
-                    stroke="#f97316"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                    activeDot={{ r: 5 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="saldo"
-                    name="Saldo"
-                    stroke="#6366f1"
-                    strokeWidth={2}
-                    strokeDasharray="4 2"
-                    dot={{ r: 3 }}
-                    activeDot={{ r: 5 }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-                </LineChart>
-              </ResponsiveContainer>
+              <p className="text-2xl font-bold tabular-nums text-red-500">
+                {brl(aggAtual.total)}
+              </p>
             )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              {aggAtual.grupos.length} categoria{aggAtual.grupos.length !== 1 ? "s" : ""}
+              {aggAtual.semCategoria > 0 && (
+                <span className="ml-1 text-amber-500">
+                  · {aggAtual.semCategoria} sem classificação
+                </span>
+              )}
+            </p>
           </CardContent>
         </Card>
 
-        {/* Pie chart — despesas por categoria */}
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">
-              Despesas por Categoria
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {categorias.length === 0 ? (
-              <div className="h-[220px] flex items-center justify-center">
-                <p className="text-sm text-muted-foreground">
-                  {loading ? "Carregando…" : "Sem dados"}
-                </p>
-              </div>
-            ) : (
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Maior Categoria
+              </p>
+              <PieIcon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            {loadingMes ? (
+              <Skeleton className="h-8 w-40 rounded" />
+            ) : aggAtual.grupos.length > 0 ? (
               <>
-                <ResponsiveContainer width="100%" height={160}>
-                  <PieChart>
-                    <Pie
-                      data={categorias}
-                      dataKey="valor"
-                      nameKey="categoria"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={64}
-                      innerRadius={28}
-                      label={({ percent }) => `${Math.round((percent ?? 0) * 100)}%`}
-                      labelLine={false}
-                    >
-                      {categorias.map((d, i) => (
-                        <Cell key={i} fill={d.cor} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip
-                      formatter={(v) => brl(Number(v))}
-                      contentStyle={{ fontSize: "11px", borderRadius: "8px" }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="mt-2 space-y-1.5">
-                  {categorias.map((item) => (
-                    <div key={item.categoria} className="flex items-center justify-between text-xs gap-2">
-                      <span className="flex items-center gap-1.5 text-muted-foreground truncate">
-                        <span
-                          className="inline-block h-2 w-2 rounded-full shrink-0"
-                          style={{ background: item.cor }}
-                        />
-                        <span className="truncate">{item.categoria}</span>
-                        <span className="text-muted-foreground/60 shrink-0">
-                          {item.percentual.toFixed(0)}%
-                        </span>
-                      </span>
-                      <span className="font-medium tabular-nums shrink-0">{brl(item.valor)}</span>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-lg font-bold truncate">{aggAtual.grupos[0].categoria}</p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {brl(aggAtual.grupos[0].abs)}{" "}
+                  <span className="text-muted-foreground/60">
+                    ({aggAtual.totalAbs > 0 ? ((aggAtual.grupos[0].abs / aggAtual.totalAbs) * 100).toFixed(0) : 0}% do total)
+                  </span>
+                </p>
               </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sem dados</p>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* ── Alertas ── */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             Alertas Financeiros
-            {isMesAtual && dia === null && (
-              <span className="ml-auto text-xs font-normal text-muted-foreground">
-                {MESES[mesEfetivo]} {ano}
-              </span>
-            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
-          {alertas.length === 0 ? (
+          {loadingMes ? (
+            <div className="flex gap-2 w-full">
+              <Skeleton className="h-8 flex-1 rounded-md" />
+              <Skeleton className="h-8 flex-1 rounded-md" />
+            </div>
+          ) : alertas.length === 0 ? (
             <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground w-full">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
               Nenhum desvio relevante no período.
@@ -623,12 +385,12 @@ export function ProcessosDashboard({
               return (
                 <div
                   key={i}
-                  className={`flex items-start gap-2 rounded-md px-3 py-2 text-xs leading-snug flex-1 min-w-[200px] ${
+                  className={`flex items-start gap-2 rounded-md px-3 py-2 text-xs leading-snug flex-1 min-w-[220px] ${
                     a.tipo === "success"
                       ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400"
                       : a.tipo === "warning"
-                      ? "bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
-                      : "bg-blue-50 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
+                        ? "bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
+                        : "bg-blue-50 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400"
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -640,43 +402,170 @@ export function ProcessosDashboard({
         </CardContent>
       </Card>
 
-      {/* ── Row 4 — Tabelas ── */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <TabelaDespesas despesas={despesas} loading={loading} />
-        <TabelaEntradas entradas={entradas} />
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+            Saldo Administrativo — últimos 5 meses
+            <span className="ml-auto text-xs font-normal text-muted-foreground">
+              entradas − despesas (MeuAssessor)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="h-[220px]">
+          {loadingHist ? (
+            <Skeleton className="h-full w-full rounded-md" />
+          ) : historico.data.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              Sem dados históricos.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={historico.data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                <YAxis
+                  tick={{ fontSize: 11 }}
+                  stroke="hsl(var(--muted-foreground))"
+                  tickFormatter={(v) =>
+                    new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(Number(v))
+                  }
+                />
+                <ReferenceLine y={0} stroke="hsl(var(--border))" />
+                <Tooltip
+                  formatter={(v) => brl(Number(v))}
+                  contentStyle={{ fontSize: "11px", borderRadius: "8px" }}
+                  cursor={{ fill: "transparent" }}
+                />
+                <Bar dataKey="saldo" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                  {historico.data.map((d, i) => (
+                    <Cell key={i} fill={d.saldo >= 0 ? "#22c55e" : "#ef4444"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* ── KPIs adicionais ── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          titulo="Margem Bruta"
-          valor={`${margemBruta.toFixed(1)}%`}
-          descricao="Receita - COGS"
-          icone={TrendingUp}
-          tendencia={margemBruta >= 20 ? "up" : margemBruta >= 10 ? "neutral" : "down"}
-        />
-        <KpiCard
-          titulo="Margem Líquida"
-          valor={`${margemLiq.toFixed(1)}%`}
-          descricao="Após despesas fixas"
-          icone={TrendingUp}
-          tendencia={margemLiq >= 10 ? "up" : margemLiq >= 5 ? "neutral" : "down"}
-        />
-        <KpiCard
-          titulo="Total Vendas"
-          valor={String(totalVendas)}
-          descricao="Transações no período"
-          icone={Clock}
-          tendencia={totalVendas > 0 ? "up" : "neutral"}
-        />
-        <KpiCard
-          titulo="Ticket Médio"
-          valor={brl(ticketMedio)}
-          descricao="Por venda"
-          icone={DollarSign}
-          tendencia={ticketMedio > 0 ? "up" : "neutral"}
-        />
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <PieIcon className="h-4 w-4 text-muted-foreground" />
+            Despesas por Categoria
+            <span className="ml-auto text-xs font-normal text-muted-foreground tabular-nums">
+              Total: {brl(aggAtual.total)}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col md:flex-row gap-4">
+          {loadingMes ? (
+            <Skeleton className="h-[220px] w-full rounded-md" />
+          ) : categorias.length === 0 ? (
+            <div className="flex h-[160px] w-full items-center justify-center text-xs text-muted-foreground">
+              Nenhuma despesa no período.
+            </div>
+          ) : (
+            <>
+              <div className="flex-1 min-h-[220px]">
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={categorias}
+                      dataKey="valorAbs"
+                      nameKey="categoria"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      innerRadius={36}
+                      isAnimationActive={false}
+                      label={({ percent }) => `${Math.round((percent ?? 0) * 100)}%`}
+                      labelLine={false}
+                    >
+                      {categorias.map((d, i) => (
+                        <Cell key={i} fill={d.cor} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v) => brl(Number(v))}
+                      contentStyle={{ fontSize: "11px", borderRadius: "8px" }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="flex flex-col justify-center gap-2 min-w-[180px]">
+                {categorias.map((item) => (
+                  <div key={item.categoria} className="flex items-center justify-between text-xs gap-4">
+                    <span className="flex items-center gap-1.5 text-muted-foreground truncate">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full shrink-0"
+                        style={{ background: item.cor }}
+                      />
+                      {item.categoria}
+                    </span>
+                    <span className="font-medium tabular-nums text-red-500 shrink-0">
+                      {brl(item.valor)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold">
+            Despesas MeuAssessor por categoria
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loadingMes ? (
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full rounded" />
+              ))}
+            </div>
+          ) : rowsExibidas.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+              <p className="text-sm">Nenhuma despesa encontrada.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-muted/30 text-left">
+                    <th className="px-4 py-2 font-semibold">Categoria</th>
+                    <th className="px-4 py-2 font-semibold text-right">Transações</th>
+                    <th className="px-4 py-2 font-semibold text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rowsExibidas.slice(0, 50).map((item, i) => (
+                    <tr key={String(item.id ?? i)} className="border-t hover:bg-muted/20">
+                      <td className="px-4 py-2.5 font-medium">{item.categoria}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                        {item.count}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-bold tabular-nums text-red-500">
+                        {brl(item.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {rowsExibidas.length > 50 && (
+                <p className="px-4 py-2 text-xs text-muted-foreground">
+                  Exibindo 50 de {rowsExibidas.length} registros.
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
     </div>
   )
