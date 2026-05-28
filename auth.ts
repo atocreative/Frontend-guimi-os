@@ -30,6 +30,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         user: { label: "User", type: "text" },
       },
       async authorize(credentials) {
+        // ── TEMP DEBUG ────────────────────────────────────────────────────
+        console.log("[authorize] credentials keys:", credentials ? Object.keys(credentials) : "null")
+        console.log("[authorize] credentials.token len:", (credentials?.token as string | undefined)?.length ?? 0)
+        console.log("[authorize] credentials.token prefix:", (credentials?.token as string | undefined)?.slice(0, 20) ?? "null")
+        // ─────────────────────────────────────────────────────────────────
+
         const parsed = tokenSessionSchema.safeParse(credentials)
 
         if (!parsed.success) {
@@ -64,6 +70,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           accessToken: String(parsed.data.token),
         }
 
+        // ── TEMP DEBUG ────────────────────────────────────────────────────
+        console.log("[authorize] returning user with accessToken len:", returnedUser.accessToken.length)
+        // ─────────────────────────────────────────────────────────────────
 
         return returnedUser
       },

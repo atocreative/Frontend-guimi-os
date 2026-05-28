@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { AtoLogo } from "@/components/ui/ato-logo"
 
 // Links focados em ajuda e institucional, não em navegação de páginas que já estão no menu
 const footerLinks = [
@@ -22,8 +23,8 @@ export function Footer() {
             <span className="hidden md:inline text-border">|</span>
             <span>© {currentYear} · Todos os direitos reservados</span>
           </p>
-          <p className="text-muted-foreground/60 italic">
-            Desenvolvido por <span className="font-bold text-foreground/80 hover:text-primary transition-colors cursor-default">ATO.</span>
+          <p className="flex items-center gap-1.5 text-muted-foreground/60 italic">
+            Desenvolvido por <AtoLogo height={14} />
           </p>
         </div>
 

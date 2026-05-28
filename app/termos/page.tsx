@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { AtoLogo } from "@/components/ui/ato-logo"
 
 export const metadata = {
   title: "Termos de Uso — GuimiCell OS",
@@ -103,7 +104,7 @@ export default function TermosPage() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-border text-sm text-muted-foreground flex justify-between">
-          <span>GuimiCell OS · Desenvolvido por ATO.</span>
+          <span className="flex items-center gap-1.5">GuimiCell OS · Desenvolvido por <AtoLogo height={14} /></span>
           <Link href="/privacidade" className="hover:text-primary transition-colors">
             Política de Privacidade →
           </Link>

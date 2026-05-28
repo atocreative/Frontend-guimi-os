@@ -13,6 +13,7 @@ import { api, ApiError } from "@/lib/api-client"
 import { loginSchema } from "@/lib/schemas"
 import { RefreshCcw, Moon, Sun, AlertCircle } from "lucide-react"
 import { useTheme } from "next-themes"
+import { AtoLogo } from "@/components/ui/ato-logo"
 
 // --- Tipos ---
 type LoginForm = { email: string; password: string }
@@ -166,7 +167,7 @@ export default function LoginPage() {
         {/* 3. Rodapé */}
         <footer className="text-center lg:text-left space-y-1">
           <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold">GuimiCell OS © 2026</p>
-          <p className="text-[10px] text-muted-foreground/50 uppercase tracking-[0.1em]">Desenvolvido por <span className="text-foreground/80 font-black">ATO.</span></p>
+          <p className="flex items-center gap-1.5 text-[10px] text-muted-foreground/50 uppercase tracking-[0.1em]">Desenvolvido por <AtoLogo height={12} /></p>
         </footer>
       </div>
 
