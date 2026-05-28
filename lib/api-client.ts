@@ -248,6 +248,22 @@ export const api = {
       throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), payloadData?.code)
     }
 
+    // ── TEMP DEBUG — descobrir shape real da resposta do backend ──────────
+    console.log("[api.login] top-level keys:", data && typeof data === "object" ? Object.keys(data) : typeof data)
+    if (data && typeof data === "object" && "data" in data) {
+      const inner = (data as any).data
+      console.log("[api.login] data.keys:", inner && typeof inner === "object" ? Object.keys(inner) : typeof inner)
+      console.log("[api.login] data.accessToken len:", (inner?.accessToken as string | undefined)?.length ?? 0)
+      console.log("[api.login] data.token len:", (inner?.token as string | undefined)?.length ?? 0)
+      console.log("[api.login] data.access_token len:", (inner?.access_token as string | undefined)?.length ?? 0)
+    } else {
+      const d = data as any
+      console.log("[api.login] accessToken len:", (d?.accessToken as string | undefined)?.length ?? 0)
+      console.log("[api.login] token len:", (d?.token as string | undefined)?.length ?? 0)
+      console.log("[api.login] access_token len:", (d?.access_token as string | undefined)?.length ?? 0)
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     // Backend retorna { data: { accessToken, user, ... } }
     // Extrair .data se existir
     if (data && typeof data === 'object' && 'data' in data) {
