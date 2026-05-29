@@ -23,8 +23,8 @@ export async function GET(req: NextRequest) {
   if (startDate) {
     const d = new Date(startDate)
     if (!isNaN(d.getTime())) {
-      params.set("month", String(d.getMonth() + 1))
-      params.set("year", String(d.getFullYear()))
+      params.set("month", String(d.getUTCMonth() + 1))
+      params.set("year", String(d.getUTCFullYear()))
     }
   }
 
@@ -47,6 +47,5 @@ export async function GET(req: NextRequest) {
   }
 
   const data: unknown[] = Array.isArray(json) ? json : (json?.data ?? json?.raw ?? [])
-  if (data.length > 0) console.log("[compras/recentes] shape sample:", JSON.stringify(data[0], null, 2))
   return NextResponse.json({ data })
 }

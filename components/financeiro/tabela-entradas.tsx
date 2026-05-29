@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
@@ -133,9 +133,18 @@ function resolveData(v: VendaRecente): string {
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
+  // ── HOOKS — sempre no topo, antes de qualquer return ─────────────────
   const [page, setPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil((entradas?.length ?? 0) / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageItems = useMemo(
+    () => (entradas ?? []).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [entradas, currentPage],
+  )
 
-  if (!entradas || entradas.length === 0) {
+  const isEmpty = !entradas || entradas.length === 0
+
+  if (isEmpty) {
     return (
       <Card>
         <CardHeader className="pb-2">
@@ -153,10 +162,6 @@ export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
       </Card>
     )
   }
-
-  const totalPages = Math.ceil(entradas.length / PAGE_SIZE)
-  const currentPage = Math.min(page, totalPages)
-  const pageItems = entradas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   return (
     <Card className="overflow-hidden">
@@ -201,38 +206,38 @@ export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
                 return (
                   <TableRow
                     key={String(v.id ?? i)}
-                    className="hover:bg-muted/20 transition-colors"
+                    className="hover:bg-muted/10 transition-colors"
                   >
                     {/* Cliente */}
-                    <TableCell className="py-2.5">
+                    <TableCell className="py-1.5">
                       <span className="text-xs font-medium leading-snug">
                         {resolveName(v.cliente ?? v.customer)}
                       </span>
                     </TableCell>
 
                     {/* Vendedor */}
-                    <TableCell className="py-2.5">
+                    <TableCell className="py-1.5">
                       <span className="text-xs text-muted-foreground">
                         {resolveVendedor(v)}
                       </span>
                     </TableCell>
 
                     {/* Qtd */}
-                    <TableCell className="py-2.5 text-center">
+                    <TableCell className="py-1.5 text-center">
                       <span className="text-xs tabular-nums font-medium">
                         {resolveQtd(v)}
                       </span>
                     </TableCell>
 
                     {/* Valor Total — destaque */}
-                    <TableCell className="py-2.5 text-right">
+                    <TableCell className="py-1.5 text-right">
                       <span className="text-xs font-bold tabular-nums">
                         {brl(resolveValorTotal(v))}
                       </span>
                     </TableCell>
 
                     {/* Recebimento */}
-                    <TableCell className="py-2.5">
+                    <TableCell className="py-1.5">
                       {recebimento === "N/A" ? (
                         <span className="text-xs text-muted-foreground/50">N/A</span>
                       ) : isMonetary ? (
@@ -247,14 +252,14 @@ export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
                     </TableCell>
 
                     {/* Custo */}
-                    <TableCell className="py-2.5 text-right">
+                    <TableCell className="py-1.5 text-right">
                       <span className="text-xs tabular-nums text-muted-foreground">
                         {brl(resolveCusto(v))}
                       </span>
                     </TableCell>
 
                     {/* Lucro */}
-                    <TableCell className="py-2.5 text-right">
+                    <TableCell className="py-1.5 text-right">
                       <span
                         className={`text-xs font-semibold tabular-nums ${
                           lucro > 0
@@ -269,7 +274,7 @@ export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
                     </TableCell>
 
                     {/* Margem */}
-                    <TableCell className="py-2.5 text-center">
+                    <TableCell className="py-1.5 text-center">
                       <Badge
                         variant="secondary"
                         className={`text-xs px-1.5 py-0 tabular-nums ${
@@ -287,7 +292,7 @@ export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
                     </TableCell>
 
                     {/* Data */}
-                    <TableCell className="py-2.5">
+                    <TableCell className="py-1.5">
                       <span className="text-xs text-muted-foreground tabular-nums">
                         {resolveData(v)}
                       </span>

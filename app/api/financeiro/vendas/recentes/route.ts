@@ -23,8 +23,8 @@ export async function GET(req: NextRequest) {
   if (startDate) {
     const d = new Date(startDate)
     if (!isNaN(d.getTime())) {
-      params.set("month", String(d.getMonth() + 1))
-      params.set("year", String(d.getFullYear()))
+      params.set("month", String(d.getUTCMonth() + 1))
+      params.set("year", String(d.getUTCFullYear()))
     }
   }
 
