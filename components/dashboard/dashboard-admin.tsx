@@ -30,6 +30,8 @@ import { GlobalDateFilter } from "@/components/global/global-date-filter"
 import { useFinanceiroConsolidado } from "@/lib/queries/use-financeiro-consolidado"
 import type { TarefaDB } from "@/types/tarefas"
 import { getDailyCardMeta } from "@/lib/financeiro-utils"
+import { api } from "@/lib/api-client"
+import { sortTarefasByPriority } from "@/lib/tarefas"
 
 interface DashboardAdminUser {
   id: string
@@ -147,6 +149,22 @@ export function DashboardAdmin({
   const [sourceType, setSourceType] = useState<string | null>(null)
   const [nullFlags, setNullFlags] = useState({ lucro: false, totalVendas: false })
 
+  // Local tarefas state — initialized from server props, refreshed client-side on mount
+  const [tarefasPendentesLive, setTarefasPendentesLive] = useState<TarefaDB[]>(tarefasPendentes)
+  useEffect(() => {
+    api.getTasks().then(({ tasks }) => {
+      const now = new Date()
+      const pending = sortTarefasByPriority(
+        tasks.filter((t) => t.status === "PENDENTE" || t.status === "EM_ANDAMENTO"),
+        now
+      )
+      setTarefasPendentesLive(pending)
+    }).catch(() => {
+      // keep server-rendered data on error
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
@@ -252,7 +270,7 @@ export function DashboardAdmin({
   useEffect(() => { fetchHoje() }, [fetchHoje])
   useEffect(() => { fetchDiario(mes, ano, diaValido === "" ? "" : diaValido) }, [mes, ano, diaValido, fetchDiario])
 
-  // ── Consolidado financeiro (source of truth para Lucro Líquido Real) ──────
+  // ── Consolidado financeiro (source of truth — mesmos bindings do Financeiro) ──
   const consolidadoQuery = useFinanceiroConsolidado(ano, mes + 1)
   const consolidado = consolidadoQuery.data
   const lucroLiquidoReal = toNum(consolidado?.realCompanyProfit)
@@ -260,6 +278,7 @@ export function DashboardAdmin({
   const adminExpenses = toNum(consolidado?.administrativeExpenses)
   const fixedExpenses = toNum(consolidado?.fixedExpenses)
   const burnRate = adminExpenses + fixedExpenses
+  // grossProfitCanonical computed after faturamento is available (see below)
 
   // ── auto-refresh integration status após cada atualização de dados ──────────
   useEffect(() => {
@@ -269,6 +288,11 @@ export function DashboardAdmin({
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
   const { faturamento, lucro } = indicadores
+  // grossProfit canônico: consolidado primeiro (= FinanceiroFiltrado), fallback → summary
+  const grossProfitCanonical = toNum(consolidado?.grossProfit ?? lucro)
+  const margemBrutaEffective = consolidado && faturamento > 0
+    ? (grossProfitCanonical / faturamento) * 100
+    : margemBruta
   // Day card: uses selected day if active, otherwise always shows today
   const faturamentoDia = diaValido !== ""
     ? Number(faturamentoDiaSelecionado ?? 0)
@@ -304,8 +328,8 @@ export function DashboardAdmin({
         integrationStatus,
         faturamentoDia,
         loadingKpi,
-        tarefasPendentes,
-        margemBruta,
+        tarefasPendentes: tarefasPendentesLive,
+        margemBruta: margemBrutaEffective,
         margemReal,
         burnRate,
         lucroLiquidoReal,
@@ -314,7 +338,7 @@ export function DashboardAdmin({
         isHoje: diaValido === "" && mes === currentMonth && ano === currentYear,
       }),
     [
-      integrationStatus, faturamentoDia, loadingKpi, tarefasPendentes, margemBruta,
+      integrationStatus, faturamentoDia, loadingKpi, tarefasPendentesLive, margemBrutaEffective,
       margemReal, burnRate, lucroLiquidoReal, adminExpenses,
       indicadores.faturamento, diaValido, mes, ano, currentMonth, currentYear,
     ]
@@ -333,8 +357,8 @@ export function DashboardAdmin({
 
   // ── tarefas ─────────────────────────────────────────────────────────────────
   const tarefasPorId = useMemo(
-    () => new Map([...tarefasHoje, ...tarefasPendentes].map((t) => [t.id, t])),
-    [tarefasHoje, tarefasPendentes]
+    () => new Map([...tarefasHoje, ...tarefasPendentesLive].map((t) => [t.id, t])),
+    [tarefasHoje, tarefasPendentesLive]
   )
 
   const concluirTarefa = useCallback(async (id: string) => {
@@ -355,8 +379,8 @@ export function DashboardAdmin({
   }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasPorId])
 
   const pendentesVisiveis = useMemo(
-    () => tarefasPendentes.filter((t) => !concluidos.has(t.id)),
-    [tarefasPendentes, concluidos]
+    () => tarefasPendentesLive.filter((t) => !concluidos.has(t.id)),
+    [tarefasPendentesLive, concluidos]
   )
   const load = (v: string) => loadingKpi ? "…" : v
 
