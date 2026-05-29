@@ -13,6 +13,8 @@ import {
   ArrowUpRight,
   RefreshCw,
   PercentCircle,
+  BarChart2,
+  Layers,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { KpiCard } from "@/components/dashboard/kpi-card"
@@ -233,14 +235,17 @@ export function FinanceiroFiltrado({
     diaAtual: today.getDate(),
     lucroLiquidoDia: summary?.lucroLiquidoDia ?? null,
   })
-  const lucroOperacional  = toNum(summary?.lucroOperacionalMes ?? summary?.financeiro?.grossProfit)
-  const lucro             = toNum(summary?.lucroLiquidoMes  ?? summary?.financeiro?.netProfit)
-  const totalDesp         = toNum(summary?.despesasMes      ?? summary?.financeiro?.despesasVariaveis)
+  // Waterfall contábil: Receita Bruta → Lucro Bruto → Lucro Operacional → Lucro Líquido
+  const lucroBruto        = toNum(summary?.lucroBrutoMes       ?? summary?.financeiro?.grossProfit)
+  const lucroOperacional  = toNum(summary?.lucroOperacionalMes ?? (summary?.lucroBrutoMes ? null : summary?.financeiro?.grossProfit))
+  const lucro             = toNum(summary?.lucroLiquidoMes     ?? summary?.financeiro?.netProfit)
+  const totalDesp         = toNum(summary?.despesasMes         ?? summary?.financeiro?.despesasVariaveis)
   const totalVendas       = toNum(summary?.totalVendas)
   const ticketMedio       = toNum(summary?.ticketMedio)
   // Prefer backend-computed margins; fall back to local calculation
-  const margemBruta   = toNum(summary?.margemBruta   ?? (faturamento > 0 ? (lucroOperacional / faturamento) * 100 : 0))
-  const margemLiquida = toNum(summary?.margemLiquida ?? (faturamento > 0 ? (lucro            / faturamento) * 100 : 0))
+  const margemBruta   = toNum(summary?.margemBruta   ?? (faturamento > 0 ? (lucroBruto        / faturamento) * 100 : 0))
+  const margemOperac  = faturamento > 0 ? (lucroOperacional / faturamento) * 100 : 0
+  const margemLiquida = toNum(summary?.margemLiquida ?? (faturamento > 0 ? (lucro             / faturamento) * 100 : 0))
   const margem        = margemLiquida  // alias kept for internal use
 
   const fatAnt = toNum(summaryAnterior?.faturamentoMes ?? summaryAnterior?.financeiro?.receita)
@@ -350,41 +355,55 @@ export function FinanceiroFiltrado({
         </Card>
       )}
 
-      {/* ── KPIs Linha 1 — 4 cards ───────────────────────────────────── */}
+      {/* ── KPIs Linha 1 — waterfall contábil ───────────────────────── */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          titulo="Receita Bruta"
+          valor={brl(faturamento)}
+          descricao={crescLabel}
+          icone={DollarSign}
+          tendencia={crescimento === null ? "neutral" : crescimento >= 0 ? "up" : "down"}
+          destaque
+        />
+        <KpiCard
+          titulo="Lucro Bruto"
+          valor={brl(lucroBruto)}
+          descricao={`Margem bruta ${margemBruta.toFixed(1)}%`}
+          icone={TrendingUp}
+          tendencia={lucroBruto > 0 ? "up" : "down"}
+        />
+        <KpiCard
+          titulo="Lucro Operacional"
+          valor={brl(lucroOperacional)}
+          descricao={`Margem op. ${margemOperac.toFixed(1)}%`}
+          icone={BarChart2}
+          tendencia={lucroOperacional > 0 ? "up" : "down"}
+        />
+        <KpiCard
+          titulo="Lucro Líquido"
+          valor={brl(lucro)}
+          descricao={`Margem líquida ${margemLiquida.toFixed(1)}%`}
+          icone={Wallet}
+          tendencia={lucro > 0 ? "up" : "down"}
+        />
+      </div>
+
+      {/* ── KPIs Linha 2 — operacional ───────────────────────────────── */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           titulo="Faturamento do Dia"
           valor={brl(fatDia)}
           descricao={dailyCardMeta.descricao}
-          icone={DollarSign}
+          icone={Layers}
           tendencia={fatDia > 0 ? "up" : "neutral"}
-        />
-        <KpiCard
-          titulo="Faturamento do Mês"
-          valor={brl(faturamento)}
-          descricao={crescLabel}
-          icone={TrendingUp}
-          tendencia={crescimento === null ? "neutral" : crescimento >= 0 ? "up" : "down"}
-          destaque
-        />
-        <KpiCard
-          titulo="Lucro Líquido"
-          valor={brl(lucro)}
-          descricao={`Bruta ${margemBruta.toFixed(1)}% · Líquida ${margemLiquida.toFixed(1)}%`}
-          icone={Wallet}
-          tendencia={lucro > 0 ? "up" : "down"}
         />
         <KpiCard
           titulo="Total Despesas"
           valor={brl(totalDesp)}
-          descricao={`COGS + despesas fixas`}
+          descricao="COGS + despesas fixas"
           icone={Receipt}
           tendencia="down"
         />
-      </div>
-
-      {/* ── KPIs Linha 2 — 2 cards ───────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Meta produtos — card expandido com progresso */}
         <Card>
           <CardContent className="p-4">

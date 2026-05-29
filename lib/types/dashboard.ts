@@ -34,8 +34,9 @@ export type DashboardSummary = {
   faturamentoMes?: number
   despesasMes?: number        // COGS + fixedExpenses
   comprasMes?: number
-  lucroOperacionalMes?: number // grossProfit (revenue - COGS)
-  lucroLiquidoMes?: number    // netProfit (grossProfit - fixedExpenses)
+  lucroBrutoMes?: number       // grossProfit (revenue - COGS)
+  lucroOperacionalMes?: number // operating income (grossProfit - fixedExpenses)
+  lucroLiquidoMes?: number    // netProfit (operatingIncome - taxes/financial)
   margemBruta?: number        // grossProfit / revenue * 100
   margemLiquida?: number      // netProfit / revenue * 100
   ticketMedio?: number
