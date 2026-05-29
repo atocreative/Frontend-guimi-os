@@ -55,7 +55,6 @@ export async function GET(req: NextRequest) {
   }
 
   const upstreamUrl = `${BACKEND_URL}/api/processos-financeiros/despesas?month=${month}&year=${year}`
-  console.log(`[BFF despesas] month=${month} year=${year} → ${upstreamUrl}`)
 
   const res = await fetch(upstreamUrl, {
     headers: { Authorization: `Bearer ${token}` },
@@ -75,7 +74,6 @@ export async function GET(req: NextRequest) {
   }
 
   const data = (await res.json().catch(() => null)) as BackendDespesasResponse | null
-  console.log(`[BFF despesas] upstream payload keys=${data ? Object.keys(data).join(",") : "null"} categorias.len=${data?.categorias?.length ?? 0}`)
 
   if (!data || !Array.isArray(data.categorias)) {
     return NextResponse.json(
@@ -100,7 +98,6 @@ export async function GET(req: NextRequest) {
   })
 
   const totalAbs = items.reduce((s, i) => s + Math.abs(i.amount), 0)
-  console.log(`[BFF despesas] mapped items=${items.length} totalAbs=${totalAbs.toFixed(2)} first=${items[0]?.categoria ?? "none"}`)
 
   return NextResponse.json({ total: -totalAbs, totalAbs, items })
 }

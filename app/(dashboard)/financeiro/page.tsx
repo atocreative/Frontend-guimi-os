@@ -95,10 +95,10 @@ export default async function FinanceiroPage({ searchParams }: PageProps) {
   const currentMes = now.getMonth()
   const currentAno = now.getFullYear()
 
-  // Respect query params from client-side navigation
+  // URL convention: m = 1-indexed month (Jan=1 … Dec=12). State stays 0-indexed internamente.
   const mParam = Number(params.m)
   const yParam = Number(params.y)
-  const initialMes = mParam >= 0 && mParam <= 11 ? mParam : currentMes
+  const initialMes = mParam >= 1 && mParam <= 12 ? mParam - 1 : currentMes
   const initialAno = yParam >= 2024 && yParam <= currentAno ? yParam : currentAno
 
   const availableYears = Array.from(

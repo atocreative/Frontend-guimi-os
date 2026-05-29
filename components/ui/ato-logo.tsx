@@ -1,33 +1,35 @@
-import Image from "next/image"
-
 interface AtoLogoProps {
   height?: number
   className?: string
 }
 
 export function AtoLogo({ height = 16, className = "" }: AtoLogoProps) {
+  const width = height * 3
   return (
     <a
       href="https://siteato.vercel.app/"
       target="_blank"
       rel="noopener noreferrer"
       className={`inline-flex items-center opacity-70 hover:opacity-100 transition-opacity ${className}`}
+      style={{ height: `${height}px`, lineHeight: 0 }}
     >
-      <Image
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src="/ato-preto.svg"
         alt="ATO"
+        width={width}
         height={height}
-        width={height * 3}
         className="block dark:hidden"
-        style={{ height, width: "auto" }}
+        style={{ width: `${width}px`, height: `${height}px` }}
       />
-      <Image
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src="/ato-branco.svg"
         alt="ATO"
+        width={width}
         height={height}
-        width={height * 3}
         className="hidden dark:block"
-        style={{ height, width: "auto" }}
+        style={{ width: `${width}px`, height: `${height}px` }}
       />
     </a>
   )

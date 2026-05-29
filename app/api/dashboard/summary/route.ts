@@ -21,19 +21,17 @@ export async function GET(req: NextRequest) {
     month1 = isNaN(d.getTime()) ? now.getMonth() + 1 : d.getMonth() + 1
     year   = isNaN(d.getTime()) ? now.getFullYear()  : d.getFullYear()
   } else {
-    // Called with year=YYYY&month=M where month is 0-indexed (JS convention)
+    // Called with year=YYYY&month=M where month is 1-indexed (Jan=1 … Dec=12)
     const yearParam  = searchParams.get("year")
     const monthParam = searchParams.get("month")
     year   = yearParam  ? parseInt(yearParam,  10) : now.getFullYear()
-    month1 = monthParam ? parseInt(monthParam, 10) + 1 : now.getMonth() + 1
+    month1 = monthParam ? parseInt(monthParam, 10) : now.getMonth() + 1
   }
 
   const dayParam = searchParams.get("day")
   const day = dayParam ? parseInt(dayParam, 10) : null
 
   const params = new URLSearchParams({ month: String(month1), year: String(year) })
-
-  console.log(`[FRONT_DAILY_FETCH] month=${month1} year=${year} day=${day ?? "none"}`)
 
   const reqHeaders: Record<string, string> = {}
   try {
@@ -100,7 +98,6 @@ export async function GET(req: NextRequest) {
         })
         faturamentoDia = match ? Number(match.revenue) : 0
         lucroLiquidoDia = faturamentoDia !== null ? Math.round(faturamentoDia * netMarginRatio) : null
-        console.log(`[FRONT_DAILY_RESULT] day=${day} matched=${!!match} faturamentoDia=${faturamentoDia} lucroLiquidoDia=${lucroLiquidoDia}`)
       }
     }
   }
@@ -125,7 +122,6 @@ export async function GET(req: NextRequest) {
     _meta: { source: resumo._source ?? "postgresql", sourceType: resumo.sourceType ?? null },
   }
 
-  console.log(`[FRONT_MONTHLY_RESULT] faturamentoMes=${result.faturamentoMes} lucroOperacionalMes=${result.lucroOperacionalMes} totalVendas=${result.totalVendas}`)
 
   return NextResponse.json(result)
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { ChevronLeft, ChevronRight, ShoppingCart } from "lucide-react"
@@ -28,12 +28,16 @@ const PAGE_SIZE = 10
 // ─── Formatadores ─────────────────────────────────────────────────────────────
 
 function brl(valor: number) {
-  return new Intl.NumberFormat("pt-BR", {
+  const n = Number.isFinite(valor) ? valor : 0
+  const abs = Math.abs(n)
+  const formatted = new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(Number.isFinite(valor) ? valor : 0)
+  }).format(abs)
+  // Compras = saída financeira → sempre exibe com sinal negativo
+  return `-${formatted}`
 }
 
 function formatData(raw: string | null | undefined): string {
@@ -81,7 +85,7 @@ function SkeletonRow() {
   return (
     <TableRow>
       {[70, 55, 30, 45, 40].map((w, i) => (
-        <TableCell key={i} className="py-2.5">
+        <TableCell key={i} className="py-1.5">
           <div className="h-3 rounded bg-muted animate-pulse" style={{ width: `${w}%` }} />
         </TableCell>
       ))}
@@ -97,9 +101,18 @@ interface Props {
 }
 
 export function TabelaDespesas({ despesas, loading = false }: Props) {
+  // ── HOOKS — sempre no topo, antes de qualquer return ─────────────────
   const [page, setPage] = useState(1)
+  const totalPages = Math.ceil((despesas?.length ?? 0) / PAGE_SIZE)
+  const currentPage = Math.min(page, Math.max(1, totalPages))
+  const pageItems = useMemo(
+    () => (despesas ?? []).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [despesas, currentPage],
+  )
 
-  if (!loading && (!despesas || despesas.length === 0)) {
+  const isEmpty = !loading && (!despesas || despesas.length === 0)
+
+  if (isEmpty) {
     return (
       <Card>
         <CardHeader className="pb-2">
@@ -117,10 +130,6 @@ export function TabelaDespesas({ despesas, loading = false }: Props) {
       </Card>
     )
   }
-
-  const totalPages = Math.ceil((despesas?.length ?? 0) / PAGE_SIZE)
-  const currentPage = Math.min(page, Math.max(1, totalPages))
-  const pageItems = (despesas ?? []).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   return (
     <Card className="overflow-hidden">
@@ -156,23 +165,23 @@ export function TabelaDespesas({ despesas, loading = false }: Props) {
                 : pageItems.map((c, i) => (
                     <TableRow
                       key={String(c.id ?? i)}
-                      className="hover:bg-muted/20 transition-colors"
+                      className="hover:bg-muted/10 transition-colors"
                     >
-                      <TableCell className="py-2.5">
+                      <TableCell className="py-1.5">
                         <span className="text-xs font-medium">{resolveProduto(c)}</span>
                       </TableCell>
-                      <TableCell className="py-2.5">
+                      <TableCell className="py-1.5">
                         <span className="text-xs text-muted-foreground">{resolveFornecedor(c)}</span>
                       </TableCell>
-                      <TableCell className="py-2.5 text-center">
+                      <TableCell className="py-1.5 text-center">
                         <span className="text-xs tabular-nums text-muted-foreground">{resolveQtd(c)}</span>
                       </TableCell>
-                      <TableCell className="py-2.5 text-right">
+                      <TableCell className="py-1.5 text-right">
                         <span className="text-xs font-bold tabular-nums text-red-500">
                           {brl(resolveValor(c))}
                         </span>
                       </TableCell>
-                      <TableCell className="py-2.5">
+                      <TableCell className="py-1.5">
                         <span className="text-xs text-muted-foreground tabular-nums">{resolveData(c)}</span>
                       </TableCell>
                     </TableRow>

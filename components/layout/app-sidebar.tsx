@@ -25,6 +25,7 @@
 "use client"
 
 import * as React from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
@@ -128,7 +129,10 @@ interface AppSidebarProps {
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
-  const isDark = resolvedTheme !== "light"
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  const isDark = mounted ? resolvedTheme !== "light" : false
 
   return (
     <SidebarMenu className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
@@ -137,8 +141,9 @@ function ThemeToggle() {
           onClick={() => setTheme(isDark ? "light" : "dark")}
           tooltip="Alternar tema"
           className="transition-colors duration-200 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground cursor-pointer"
+          suppressHydrationWarning
         >
-          <div className="relative h-4 w-4">
+          <div className="relative h-4 w-4" suppressHydrationWarning>
             <Sun className="absolute h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </div>

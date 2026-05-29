@@ -33,7 +33,6 @@ export async function GET(req: NextRequest) {
 
   const months = req.nextUrl.searchParams.get("months") ?? "12"
   const upstreamUrl = `${BACKEND_URL}/api/processos-financeiros/historico?months=${months}`
-  console.log(`[BFF historico] months=${months} → ${upstreamUrl}`)
 
   const res = await fetch(upstreamUrl, {
     headers: { Authorization: `Bearer ${token}` },
@@ -51,7 +50,6 @@ export async function GET(req: NextRequest) {
 
   const data = (await res.json().catch(() => null)) as BackendHistoricoResponse | null
   const series = Array.isArray(data?.series) ? data!.series : []
-  console.log(`[BFF historico] series.len=${series.length} first=${series[0]?.mes ?? "none"}`)
 
   return NextResponse.json({ series })
 }

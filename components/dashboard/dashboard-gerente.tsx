@@ -118,7 +118,8 @@ export function DashboardGerente({
     setLoadingKpi(true)
     setErroFetch(false)
     try {
-      const s = await getDashboardSummary({ year: a, month: m })
+      // month 1-indexed (Jan=1)
+      const s = await getDashboardSummary({ year: a, month: m + 1 })
       if (s) {
         const fat = toNum(s.faturamentoMes ?? s.financeiro?.receita)
         const tv = s.totalVendas
@@ -147,7 +148,7 @@ export function DashboardGerente({
 
   const fetchHoje = useCallback(async () => {
     try {
-      const s = await getDashboardSummary({ year: currentYear, month: currentMonth, day: currentDay })
+      const s = await getDashboardSummary({ year: currentYear, month: currentMonth + 1, day: currentDay })
       const val = s ? toNum(s.faturamentoDia) : null
       setFaturamentoHoje(val)
       setFaturamentoDiaHojeNulo(isNull(val))
@@ -159,7 +160,7 @@ export function DashboardGerente({
   const fetchDiario = useCallback(async (m: number, a: number, d: number | "") => {
     if (d === "") { setFaturamentoDiaSelecionado(null); return }
     try {
-      const s = await getDashboardSummary({ year: a, month: m, day: d })
+      const s = await getDashboardSummary({ year: a, month: m + 1, day: d })
       setFaturamentoDiaSelecionado(s ? toNum(s.faturamentoDia) : null)
     } catch {
       setFaturamentoDiaSelecionado(null)
