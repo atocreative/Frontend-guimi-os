@@ -296,20 +296,35 @@ export function FinanceiroFiltrado({
   const ticketMedio   = toNum(summary?.ticketMedio)
   const margemBruta   = toNum(summary?.margemBruta)
 
-  // Lucro Bruto: consolidado.grossProfit (canonical) → summary.lucroOperacionalMes (mapeado do grossProfit no /api/dashboard/summary) → fallback
+  // ── Hierarquia contábil canônica — fonte exclusiva: consolidado (backend) ──
+  // Receita Bruta → Lucro Bruto → Lucro Operacional → Lucro Líquido
+  const receitaBruta = toNum(
+    consolidado?.revenue
+    ?? summary?.faturamentoMes
+    ?? summary?.financeiro?.receita
+  )
   const lucroBruto = toNum(
     consolidado?.grossProfit
     ?? summary?.lucroBrutoMes
     ?? summary?.lucroOperacionalMes
     ?? summary?.financeiro?.grossProfit
   )
+  const lucroOperacional = toNum(
+    consolidado?.operationalProfit
+    ?? summary?.lucroOperacionalMes
+  )
+  const lucroLiquido = toNum(
+    consolidado?.netProfit
+    ?? summary?.lucroLiquidoMes
+    ?? summary?.financeiro?.netProfit
+  )
 
-  // Consolidado (FN + MA)
+  // Resultado real consolidado (FN + MA)
   const lucroLiquidoReal = toNum(consolidado?.realCompanyProfit)
   const margemReal       = toNum(consolidado?.realMargin)
   const adminExpenses    = toNum(consolidado?.administrativeExpenses)
   const fixedExpensesFn  = toNum(consolidado?.fixedExpenses)
-  const netProfitFn      = toNum(consolidado?.netProfit ?? summary?.lucroLiquidoMes)
+  const netProfitFn      = lucroLiquido
   const totalDespesas    = totalDespFn + adminExpenses
   const burnRate         = adminExpenses + fixedExpensesFn
 
@@ -331,7 +346,9 @@ export function FinanceiroFiltrado({
       ? `↑ ${crescimento.toFixed(1)}% vs ${MESES[mesAnterior(mesEfetivo, ano).mes]}`
       : `↓ ${Math.abs(crescimento).toFixed(1)}% vs ${MESES[mesAnterior(mesEfetivo, ano).mes]}`
 
-  const margemBrutaCalc = margemBruta || (faturamento > 0 ? (lucroBruto / faturamento) * 100 : 0)
+  const margemBrutaCalc       = margemBruta || (receitaBruta > 0 ? (lucroBruto / receitaBruta) * 100 : 0)
+  const margemOperacionalCalc = receitaBruta > 0 ? (lucroOperacional / receitaBruta) * 100 : 0
+  const margemLiquidaCalc     = receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0
 
   const pctVendas  = META_MES_VENDAS > 0 ? Math.min((totalVendas / META_MES_VENDAS) * 100, 100) : 0
   const faltamVend = Math.max(0, META_MES_VENDAS - totalVendas)
@@ -635,26 +652,19 @@ export function FinanceiroFiltrado({
       )}
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 1 — Receita e Resultado
+          SECTION 1 — Hierarquia Contábil (canônica)
+          Receita Bruta → Lucro Bruto → Lucro Operacional → Lucro Líquido
           ═══════════════════════════════════════════════════════════════ */}
       <section className="space-y-2.5">
-        <h3 className="text-sm font-semibold tracking-tight">Receita e Resultado</h3>
+        <h3 className="text-sm font-semibold tracking-tight">Hierarquia Contábil</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi
-            label="Faturamento do Dia"
-            value={brl(fatDia)}
-            sub={dailyCardMeta.descricao}
-            icon={Calendar}
-            accent="info"
-            loading={loading && !summary}
-          />
-          <Kpi
-            label="Faturamento do Mês"
-            value={brl(faturamento)}
+            label="Receita Bruta"
+            value={brl(receitaBruta)}
             sub={crescLabel}
             icon={DollarSign}
             accent="info"
-            loading={loading && !summary}
+            loading={(loading && !summary) || (consolidadoLoading && !receitaBruta)}
           />
           <Kpi
             label="Lucro Bruto"
@@ -665,12 +675,54 @@ export function FinanceiroFiltrado({
             loading={(loading && !summary) || (consolidadoLoading && !lucroBruto)}
           />
           <Kpi
+            label="Lucro Operacional"
+            value={brl(lucroOperacional)}
+            sub={`Margem ${margemOperacionalCalc.toFixed(1)}%`}
+            icon={TrendingUp}
+            accent={lucroOperacional >= 0 ? "positive" : "negative"}
+            loading={consolidadoLoading && !lucroOperacional}
+          />
+          <Kpi
+            label="Lucro Líquido"
+            value={brl(lucroLiquido)}
+            sub={`Margem ${margemLiquidaCalc.toFixed(1)}%`}
+            icon={Wallet}
+            accent={lucroLiquido >= 0 ? "positive" : "negative"}
+            emphasized
+            loading={consolidadoLoading && !lucroLiquido}
+          />
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          SECTION 1B — Realizado (diário) e Resultado Real consolidado
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="space-y-2.5">
+        <h3 className="text-sm font-semibold tracking-tight">Realizado e Resultado Real</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Kpi
+            label="Faturamento do Dia"
+            value={brl(fatDia)}
+            sub={dailyCardMeta.descricao}
+            icon={Calendar}
+            accent="info"
+            loading={loading && !summary}
+          />
+          <Kpi
             label="Lucro Líquido Real"
             value={brl(lucroLiquidoReal)}
             sub={`Margem real ${margemReal.toFixed(1)}%`}
             icon={Wallet}
             accent={lucroLiquidoReal >= 0 ? "positive" : "negative"}
             emphasized
+            loading={consolidadoLoading}
+          />
+          <Kpi
+            label="Burn Rate"
+            value={brlNeg(burnRate)}
+            sub="admin + fixos"
+            icon={Flame}
+            accent="negative"
             loading={consolidadoLoading}
           />
         </div>

@@ -2,7 +2,9 @@ import { getSession } from "@/lib/auth-session"
 import { ResumoOperacao } from "@/components/operacao/resumo-operacao"
 import { InventarioEstoque } from "@/components/operacao/inventario-estoque"
 import { ProdutosMaisVendidos } from "@/components/operacao/produtos-mais-vendidos"
-import { AppleIntelligence } from "@/components/operacao/apple-intelligence"
+import { ApplePerformance } from "@/components/operacao/apple-intelligence"
+import { AppleTrendCard } from "@/components/operacao/apple-trend-card"
+import { AlertasOperacionais } from "@/components/operacao/alertas-operacionais"
 
 // Acessa o backend diretamente — evita o self-call frágil via BFF interno.
 const BACKEND_URL = (
@@ -121,7 +123,7 @@ export default async function OperacaoPage({ searchParams }: PageProps) {
 
   const inventoryParams: Record<string, string> = {
     page: params.page ?? "1",
-    perPage: params.perPage ?? "20",
+    perPage: params.perPage ?? "10",
     ...(params.search ? { search: params.search } : {}),
     ...(params.status ? { status: params.status } : {}),
     ...(params.tipo ? { tipo: params.tipo } : {}),
@@ -158,7 +160,18 @@ export default async function OperacaoPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <ResumoOperacao summary={summary} showFinancial={showFinancial} />
+      <ResumoOperacao
+        summary={summary}
+        showFinancial={showFinancial}
+        totalVendidos={
+          Array.isArray(topProducts)
+            ? topProducts.reduce(
+                (acc: number, p: any) => acc + (Number(p?.quantidadeVendida) || 0),
+                0,
+              )
+            : undefined
+        }
+      />
 
       <InventarioEstoque
         initialData={inventoryResult.data}
@@ -175,10 +188,14 @@ export default async function OperacaoPage({ searchParams }: PageProps) {
         showFinancial={showFinancial}
       />
 
-      <AppleIntelligence
+      <ApplePerformance
         data={appleInsights}
         showFinancial={showFinancial}
       />
+
+      <AppleTrendCard />
+
+      <AlertasOperacionais />
     </div>
   )
 }

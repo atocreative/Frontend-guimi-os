@@ -217,12 +217,13 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
         </Card>
       )}
 
-      {/* --- BLOCO 1: Operação (FoneNinja snapshot) --- */}
+      {/* --- BLOCO 1: Hierarquia Contábil canônica (FoneNinja) ---
+          Receita Bruta → Lucro Bruto → Lucro Operacional → Lucro Líquido */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Operação · FoneNinja
+          Hierarquia Contábil · FoneNinja
         </p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <KpiCard
             label="Receita Bruta"
             value={brl(revenue)}
@@ -245,6 +246,14 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
             trend={operationalProfit >= 0 ? "up" : "down"}
             loading={loading}
             accent={operationalProfit >= 0 ? "green" : "red"}
+          />
+          <KpiCard
+            label="Lucro Líquido"
+            value={brl(netProfit)}
+            sub={revenue > 0 ? `Margem ${pct((netProfit / revenue) * 100)}` : undefined}
+            trend={netProfit >= 0 ? "up" : "down"}
+            loading={loading}
+            accent={netProfit >= 0 ? "green" : "red"}
           />
         </div>
       </div>
@@ -331,7 +340,7 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
           <KpiCard
             label="Lucro Líquido Real"
             value={brl(realCompanyProfit)}
-            sub={`Resultado ERP: ${brl(netProfit)}`}
+            sub={`Lucro Líquido (ERP): ${brl(netProfit)}`}
             trend={realCompanyProfit >= 0 ? "up" : "down"}
             loading={loading}
             accent={realCompanyProfit >= 0 ? "green" : "red"}
@@ -367,7 +376,8 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
                 data={[
                   { name: "Receita",            valor: fnBreakdown.revenue,                kind: "in"  },
                   { name: "Lucro Bruto",        valor: fnBreakdown.grossProfit,            kind: "in"  },
-                  { name: "Resultado ERP",      valor: fnBreakdown.netProfit,              kind: "in"  },
+                  { name: "Lucro Operacional",  valor: fnBreakdown.operationalProfit,      kind: "in"  },
+                  { name: "Lucro Líquido",      valor: fnBreakdown.netProfit,              kind: "in"  },
                   { name: "Despesas Admin",     valor: maBreakdown.administrativeExpenses, kind: "out" },
                   { name: "Lucro Real",         valor: realCompanyProfit,                  kind: realCompanyProfit >= 0 ? "in" : "out" },
                 ]}
@@ -389,11 +399,12 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
                   {[
                     fnBreakdown.revenue,
                     fnBreakdown.grossProfit,
+                    fnBreakdown.operationalProfit,
                     fnBreakdown.netProfit,
                     maBreakdown.administrativeExpenses,
                     realCompanyProfit,
                   ].map((v, i) => (
-                    <Cell key={i} fill={i === 3 ? "#ef4444" : v >= 0 ? "#22c55e" : "#ef4444"} />
+                    <Cell key={i} fill={i === 4 ? "#ef4444" : v >= 0 ? "#22c55e" : "#ef4444"} />
                   ))}
                 </Bar>
               </BarChart>

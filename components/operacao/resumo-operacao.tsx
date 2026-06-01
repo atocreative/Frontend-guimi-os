@@ -1,4 +1,4 @@
-import { Archive, DollarSign, BarChart2, Layers, TrendingUp, Percent } from "lucide-react"
+import { Archive, DollarSign, Layers, ShoppingCart } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 const formatBRL = (v: number) =>
@@ -8,15 +8,10 @@ const formatBRL = (v: number) =>
     maximumFractionDigits: 0,
   }).format(v)
 
-const formatPct = (v: number) => `${v.toFixed(1)}%`
-
 interface Summary {
   totalItens?: number
   totalProdutos?: number
   valorTotalEstoque?: number
-  ticketMedio?: number
-  margemMedia?: number
-  lucroMedio?: number
   lastSyncAt?: string | null
   _meta?: { source?: string; durationMs?: number }
 }
@@ -24,6 +19,7 @@ interface Summary {
 interface Props {
   summary: Summary | null
   showFinancial: boolean
+  totalVendidos?: number
   error?: boolean
 }
 
@@ -56,31 +52,26 @@ function StatCard({
   )
 }
 
-export function ResumoOperacao({ summary, showFinancial, error }: Props) {
-  // summary null = fetch falhou (auth/network); distinguir de "dados zerados após sync"
+export function ResumoOperacao({ summary, showFinancial, totalVendidos }: Props) {
   const noData = summary === null
   const s = summary ?? {}
   const totalProdutos = s.totalProdutos ?? 0
   const totalItens = s.totalItens ?? 0
 
-  // Quando o backend não responde, mostrar "—" ao invés de "0"
-  // para não enganar o usuário
   const dash = "—"
   const fmtItens = noData ? dash : totalItens.toLocaleString("pt-BR")
   const fmtProdutos = noData ? dash : totalProdutos.toLocaleString("pt-BR")
   const fmtValor = noData ? dash : formatBRL(s.valorTotalEstoque ?? 0)
-  const fmtTicket = noData ? dash : formatBRL(s.ticketMedio ?? 0)
-  const fmtLucro = noData ? dash : formatBRL(s.lucroMedio ?? 0)
-  const fmtMargem = noData ? dash : formatPct(s.margemMedia ?? 0)
+  const fmtVendidos = totalVendidos == null ? dash : totalVendidos.toLocaleString("pt-BR")
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
         icon={Archive}
         iconClassName="text-muted-foreground"
         label="Total em Estoque"
         value={fmtItens}
-        description={noData ? "Aguardando dados…" : `${totalProdutos} SKU${totalProdutos !== 1 ? "s" : ""} cadastrados`}
+        description={noData ? "Aguardando dados…" : "unidades"}
       />
       <StatCard
         icon={Layers}
@@ -89,38 +80,21 @@ export function ResumoOperacao({ summary, showFinancial, error }: Props) {
         value={fmtProdutos}
         description={noData ? "Aguardando dados…" : "referências únicas"}
       />
-
       {showFinancial && (
-        <>
-          <StatCard
-            icon={DollarSign}
-            iconClassName="text-muted-foreground"
-            label="Valor Total em Estoque"
-            value={fmtValor}
-          />
-          <StatCard
-            icon={BarChart2}
-            iconClassName="text-muted-foreground"
-            label="Ticket Médio"
-            value={fmtTicket}
-            description={noData ? undefined : "por produto cadastrado"}
-          />
-          <StatCard
-            icon={TrendingUp}
-            iconClassName="text-muted-foreground"
-            label="Lucro Médio"
-            value={fmtLucro}
-            description={noData ? undefined : "por produto"}
-          />
-          <StatCard
-            icon={Percent}
-            iconClassName="text-muted-foreground"
-            label="Margem Média"
-            value={fmtMargem}
-            description={noData ? undefined : "sobre preço de venda"}
-          />
-        </>
+        <StatCard
+          icon={DollarSign}
+          iconClassName="text-muted-foreground"
+          label="Valor Total em Estoque"
+          value={fmtValor}
+        />
       )}
+      <StatCard
+        icon={ShoppingCart}
+        iconClassName="text-muted-foreground"
+        label="Produtos Vendidos"
+        value={fmtVendidos}
+        description={totalVendidos == null ? "Aguardando dados…" : "unidades vendidas"}
+      />
     </div>
   )
 }

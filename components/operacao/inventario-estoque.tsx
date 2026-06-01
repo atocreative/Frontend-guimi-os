@@ -222,7 +222,7 @@ function ErrorState({
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
-function TableSkeleton({ rows = 8 }: { rows?: number }) {
+function TableSkeleton({ rows = 10 }: { rows?: number }) {
   return (
     <div className="animate-pulse divide-y">
       {Array.from({ length: rows }).map((_, i) => (
@@ -481,12 +481,12 @@ export function InventarioEstoque({
           ) : (
             <div
               className={cn(
-                "overflow-auto max-h-[560px] transition-opacity duration-150",
+                "transition-opacity duration-150",
                 isPending && "opacity-50 pointer-events-none"
               )}
             >
               <table className="w-full text-sm">
-                <thead className="sticky top-0 z-10 bg-card border-b">
+                <thead className="bg-card border-b">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground w-10">#</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Produto</th>
@@ -581,55 +581,36 @@ export function InventarioEstoque({
             </div>
           )}
 
-          {/* Pagination */}
+          {/* Pagination — Anterior | Página X de Y | Próxima */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t">
-              <p className="text-sm text-muted-foreground">
-                Página {currentPage} de {totalPages}
+            <div className="flex items-center justify-between gap-3 px-6 py-4 border-t">
+              <button
+                disabled={currentPage <= 1 || isPending}
+                onClick={() => navigate({ page: String(currentPage - 1) })}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-input bg-background hover:bg-accent text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </button>
+
+              <p className="text-sm text-muted-foreground tabular-nums">
+                Página <span className="font-medium text-foreground">{currentPage}</span> de{" "}
+                <span className="font-medium text-foreground">{totalPages}</span>
                 <span className="hidden sm:inline">
                   {" "}· {total.toLocaleString("pt-BR")} item{total !== 1 ? "s" : ""}
                 </span>
               </p>
-              <div className="flex items-center gap-1">
-                <button
-                  disabled={currentPage <= 1 || isPending}
-                  onClick={() => navigate({ page: String(currentPage - 1) })}
-                  className="h-8 w-8 flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  aria-label="Página anterior"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pg: number
-                  if (totalPages <= 5) pg = i + 1
-                  else if (currentPage <= 3) pg = i + 1
-                  else if (currentPage >= totalPages - 2) pg = totalPages - 4 + i
-                  else pg = currentPage - 2 + i
-                  return (
-                    <button
-                      key={pg}
-                      disabled={isPending}
-                      onClick={() => navigate({ page: String(pg) })}
-                      className={cn(
-                        "h-8 min-w-[2rem] px-2 flex items-center justify-center rounded-md border text-sm transition-colors",
-                        pg === currentPage
-                          ? "border-primary bg-primary text-primary-foreground font-medium"
-                          : "border-input bg-background hover:bg-accent disabled:opacity-40"
-                      )}
-                    >
-                      {pg}
-                    </button>
-                  )
-                })}
-                <button
-                  disabled={currentPage >= totalPages || isPending}
-                  onClick={() => navigate({ page: String(currentPage + 1) })}
-                  className="h-8 w-8 flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  aria-label="Próxima página"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
+
+              <button
+                disabled={currentPage >= totalPages || isPending}
+                onClick={() => navigate({ page: String(currentPage + 1) })}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-input bg-background hover:bg-accent text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Próxima página"
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
           )}
         </CardContent>
