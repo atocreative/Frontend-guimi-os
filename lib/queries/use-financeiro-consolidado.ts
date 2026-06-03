@@ -41,6 +41,10 @@ export interface ConsolidadoPayload {
   netProfit: number
   administrativeExpenses: number
   fixedExpenses: number
+  operationalExpenses?: number   // canonical "Despesas Operacionais" (snapshot)
+  totalExpense?: number          // canonical "Total Despesas" (snapshot, singular)
+  totalExpenses?: number         // alias retrocompat (algumas versões do backend usam plural)
+  burnRate?: number              // canonical "Burn Rate" (snapshot)
   taxes: number
   realCompanyProfit: number
   realMargin: number

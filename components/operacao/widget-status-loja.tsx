@@ -72,7 +72,7 @@ export function WidgetStatusLoja() {
 
   return (
     <Link
-      href="/operacao"
+      href="/agenda"
       className="group flex items-start gap-3 rounded-xl border bg-card px-4 py-3.5 transition-colors hover:bg-muted/50 no-underline"
     >
       {/* Status indicator */}

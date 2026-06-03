@@ -5,8 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   TrendingUp, TrendingDown, Wallet, ShoppingBag,
   AlertTriangle, CheckCircle2, ArrowUpRight, RefreshCw,
-  Target, Calendar, DollarSign, Flame, AlertCircle, Sparkles,
+  Target, Calendar, DollarSign, Flame, AlertCircle, Sparkles, Info,
 } from "lucide-react"
+import {
+  Tooltip as UiTooltip,
+  TooltipContent as UiTooltipContent,
+  TooltipProvider as UiTooltipProvider,
+  TooltipTrigger as UiTooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from "recharts"
@@ -91,9 +97,11 @@ interface KpiProps {
   accent?: "positive" | "negative" | "info" | "neutral"
   emphasized?: boolean
   loading?: boolean
+  /** Texto explicativo acionado por ícone (i) ao lado do label. */
+  tooltip?: string
 }
 
-function Kpi({ label, value, sub, icon: Icon, accent = "neutral", emphasized, loading }: KpiProps) {
+function Kpi({ label, value, sub, icon: Icon, accent = "neutral", emphasized, loading, tooltip }: KpiProps) {
   const valueClass =
     accent === "positive" ? "text-emerald-600 dark:text-emerald-400"
     : accent === "negative" ? "text-rose-500"
@@ -115,12 +123,30 @@ function Kpi({ label, value, sub, icon: Icon, accent = "neutral", emphasized, lo
   return (
     <Card className={emphasized ? "border-emerald-200/50 dark:border-emerald-800/40 bg-emerald-50/20 dark:bg-emerald-950/10" : ""}>
       <CardContent className="p-3.5">
-        <div className="flex items-start justify-between mb-1.5">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            {label}
-          </p>
+        <div className="flex items-start justify-between mb-1.5 gap-2">
+          <div className="flex items-center gap-1 min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground truncate">
+              {label}
+            </p>
+            {tooltip && (
+              <UiTooltip>
+                <UiTooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`Sobre ${label}`}
+                    className="rounded-full p-0.5 text-muted-foreground/60 hover:text-foreground hover:bg-muted/60 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Info className="h-3 w-3" />
+                  </button>
+                </UiTooltipTrigger>
+                <UiTooltipContent side="top" className="max-w-[260px] whitespace-pre-line text-xs leading-snug">
+                  {tooltip}
+                </UiTooltipContent>
+              </UiTooltip>
+            )}
+          </div>
           {Icon && (
-            <div className={`rounded-md p-1.5 ${iconBgClass}`}>
+            <div className={`rounded-md p-1.5 shrink-0 ${iconBgClass}`}>
               <Icon className={`h-3.5 w-3.5 ${iconClass}`} />
             </div>
           )}
@@ -288,45 +314,38 @@ export function FinanceiroFiltrado({
 
   const today = new Date()
 
-  // KPIs do summary (FN) — source bindings revisados
-  const faturamento   = toNum(summary?.faturamentoMes   ?? summary?.financeiro?.receita)
+  // KPIs do summary (FN) — apenas campos NÃO contábeis (vendas, ticket, dia).
+  // Métricas contábeis (faturamento, despesas, lucros) lêem do consolidado/snapshot.
   const fatDia        = toNum(summary?.faturamentoDia)
-  const totalDespFn   = toNum(summary?.despesasMes      ?? summary?.financeiro?.despesasVariaveis)
   const totalVendas   = toNum(summary?.totalVendas)
   const ticketMedio   = toNum(summary?.ticketMedio)
   const margemBruta   = toNum(summary?.margemBruta)
 
-  // ── Hierarquia contábil canônica — fonte exclusiva: consolidado (backend) ──
-  // Receita Bruta → Lucro Bruto → Lucro Operacional → Lucro Líquido
-  const receitaBruta = toNum(
-    consolidado?.revenue
-    ?? summary?.faturamentoMes
-    ?? summary?.financeiro?.receita
-  )
-  const lucroBruto = toNum(
-    consolidado?.grossProfit
-    ?? summary?.lucroBrutoMes
-    ?? summary?.lucroOperacionalMes
-    ?? summary?.financeiro?.grossProfit
-  )
-  const lucroOperacional = toNum(
-    consolidado?.operationalProfit
-    ?? summary?.lucroOperacionalMes
-  )
-  const lucroLiquido = toNum(
-    consolidado?.netProfit
-    ?? summary?.lucroLiquidoMes
-    ?? summary?.financeiro?.netProfit
-  )
-
-  // Resultado real consolidado (FN + MA)
+  // ─────────────────────────────────────────────────────────────────────────
+  //  FONTE ÚNICA DE VERDADE: FinancialSnapshot via /api/financeiro/consolidado
+  //  Frontend APENAS RENDERIZA. Sem fallback para `summary`, sem cálculo local.
+  //  Se o snapshot não estiver disponível, o card carrega em estado de loading.
+  // ─────────────────────────────────────────────────────────────────────────
+  const receitaBruta     = toNum(consolidado?.revenue)             // snapshot.totalRevenue
+  const lucroBruto       = toNum(consolidado?.grossProfit)         // snapshot.grossProfit
+  const lucroLiquido     = toNum(consolidado?.netProfit)           // snapshot.netProfit
+  const fixedExpensesFn  = toNum(consolidado?.fixedExpenses)       // snapshot.fixedExpenses
+  const adminExpenses    = toNum(consolidado?.administrativeExpenses) // MA breakdown (não snapshot)
   const lucroLiquidoReal = toNum(consolidado?.realCompanyProfit)
   const margemReal       = toNum(consolidado?.realMargin)
-  const adminExpenses    = toNum(consolidado?.administrativeExpenses)
-  const fixedExpensesFn  = toNum(consolidado?.fixedExpenses)
   const netProfitFn      = lucroLiquido
-  const totalDespesas    = totalDespFn + adminExpenses
-  const burnRate         = adminExpenses + fixedExpensesFn
+  // Alias retrocompat: `faturamento` continua usado em comparativos legados.
+  // Agora aponta para o snapshot, não mais para summary.faturamentoMes.
+  const faturamento      = receitaBruta
+
+  // Burn Rate ≡ snapshot.fixedExpenses (semântica nova homologada pelo backend)
+  const burnRate = fixedExpensesFn
+
+  // Total Despesas ≡ snapshot.totalExpense (singular). Aceita alias plural
+  // por retrocompat enquanto o backend padroniza. Zero quando snapshot ausente.
+  const totalDespesas = toNum(
+    consolidado?.totalExpense ?? consolidado?.totalExpenses ?? 0
+  )
 
   // Para comparativos absolutos (queda vs mês anterior)
   const grossProfitAnt = toNum(summaryAnterior?.lucroOperacionalMes ?? summaryAnterior?.lucroBrutoMes)
@@ -338,7 +357,8 @@ export function FinanceiroFiltrado({
     lucroLiquidoDia: summary?.lucroLiquidoDia ?? null,
   })
 
-  const fatAnt = toNum(summaryAnterior?.faturamentoMes ?? summaryAnterior?.financeiro?.receita)
+  // Comparativo M vs M-1 também via snapshot do mês anterior, não summaryAnterior.
+  const fatAnt = toNum(consolidadoAnterior?.revenue)
   const crescimento = fatAnt > 0 ? ((faturamento - fatAnt) / fatAnt) * 100 : null
   const crescLabel = crescimento === null
     ? "Sem dados do mês anterior"
@@ -347,40 +367,26 @@ export function FinanceiroFiltrado({
       : `↓ ${Math.abs(crescimento).toFixed(1)}% vs ${MESES[mesAnterior(mesEfetivo, ano).mes]}`
 
   const margemBrutaCalc       = margemBruta || (receitaBruta > 0 ? (lucroBruto / receitaBruta) * 100 : 0)
-  const margemOperacionalCalc = receitaBruta > 0 ? (lucroOperacional / receitaBruta) * 100 : 0
   const margemLiquidaCalc     = receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0
 
   const pctVendas  = META_MES_VENDAS > 0 ? Math.min((totalVendas / META_MES_VENDAS) * 100, 100) : 0
   const faltamVend = Math.max(0, META_MES_VENDAS - totalVendas)
 
-  // ── Donut: categorias com merge visual Produtos FN + MA ──
+  // ── Donut: Despesas por Categoria (visão gerencial) ──
+  // Fonte ÚNICA: categorias reais do snapshot (Expense + ExpenseFixed + MA).
+  // Não usa `revenue - grossProfit` — COGS NÃO é despesa percebida pelo usuário.
+  // Compras de estoque ("Produtos" do MA) também são excluídas — entram via Lucro Bruto.
   const categoriasDonut = useMemo(() => {
     const maCats = consolidado?.breakdown?.meuAssessor?.categories ?? []
+    const isProdutos = (c: string) =>
+      /^produtos?$/i.test(c.trim()) || /produto/i.test(c.trim())
 
-    // Identidade contábil canônica (sem recalcular métricas): COGS_FN = revenue - grossProfit
-    const cogsFn = Math.max(0, faturamento - lucroBruto)
-
-    // "Produtos" do MA — match case-insensitive (suporta variações tipo "Produtos para revenda")
-    const isProdutos = (c: string) => /^produtos?$/i.test(c.trim()) || /produto/i.test(c.trim())
-
-    const maProdutos = maCats
-      .filter((c) => isProdutos(c.categoria))
-      .reduce((s, c) => s + toNum(c.valor), 0)
-
-    const outrosMa = maCats
+    return maCats
       .filter((c) => !isProdutos(c.categoria) && toNum(c.valor) > 0)
       .map((c) => ({ categoria: c.categoria, valor: toNum(c.valor) }))
-
-    const produtosTotal = cogsFn + maProdutos
-
-    const slices: Array<{ categoria: string; valor: number }> = []
-    if (produtosTotal > 0) slices.push({ categoria: "Produtos", valor: produtosTotal })
-    slices.push(...outrosMa)
-
-    return slices
       .sort((a, b) => b.valor - a.valor)
       .map((s, i) => ({ ...s, cor: CATEGORIA_PALETTE[i % CATEGORIA_PALETTE.length] }))
-  }, [consolidado, faturamento, lucroBruto])
+  }, [consolidado])
 
   const totalDonut = categoriasDonut.reduce((s, c) => s + c.valor, 0)
 
@@ -391,12 +397,14 @@ export function FinanceiroFiltrado({
   const scale = calcularScale(isMesAtual, diaAtual, diasPrevMes)
 
   // ── Comparativos com mês anterior (canonical: consolidado anterior) ─────
-  const revenueAnt    = toNum(consolidadoAnterior?.revenue ?? summaryAnterior?.faturamentoMes)
+  // Comparativos M vs M-1 — exclusivamente do snapshot do mês anterior.
+  const revenueAnt    = toNum(consolidadoAnterior?.revenue)
   const realProfitAnt = toNum(consolidadoAnterior?.realCompanyProfit)
   const realMarginAnt = toNum(consolidadoAnterior?.realMargin)
   const adminAnt      = toNum(consolidadoAnterior?.administrativeExpenses)
   const fixedAnt      = toNum(consolidadoAnterior?.fixedExpenses)
-  const burnAnt       = adminAnt + fixedAnt
+  // Burn rate anterior também via snapshot — equivale a fixedExpenses anterior.
+  const burnAnt       = fixedAnt
   const compraTotal      = useMemo(() => despesas.reduce((s, d) => s + toNum(d.totalCusto ?? d.valor ?? d.amount), 0), [despesas])
   const prevMonthLabel = MESES[prevMes0]
 
@@ -494,17 +502,19 @@ export function FinanceiroFiltrado({
 
   const alertas = useMemo((): Alerta[] => {
     const s = (v: unknown) => toNum(v) * scale
+    // Engine de alertas usa SEMPRE o snapshot canônico (consolidado).
+    // Summary é só fallback para campos NÃO contábeis (vendas, ticket).
     const base = calcularAlertasFinanceiros({
-      fat:            toNum(summary?.faturamentoMes   ?? summary?.financeiro?.receita),
-      fatAnt:         s(summaryAnterior?.faturamentoMes ?? summaryAnterior?.financeiro?.receita),
-      lucro:          toNum(summary?.lucroLiquidoMes  ?? summary?.financeiro?.netProfit),
-      lucroAnt:       s(summaryAnterior?.lucroLiquidoMes ?? summaryAnterior?.financeiro?.netProfit),
-      margem:         toNum(summary?.margemLiquida),
+      fat:            receitaBruta,
+      fatAnt:         s(consolidadoAnterior?.revenue),
+      lucro:          lucroLiquido,
+      lucroAnt:       s(consolidadoAnterior?.netProfit),
+      margem:         receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0,
       margemAnt:      toNum(summaryAnterior?.margemLiquida),
-      margemBruta:    toNum(summary?.margemBruta),
+      margemBruta:    margemBrutaCalc,
       margemBrutaAnt: toNum(summaryAnterior?.margemBruta),
-      desp:           toNum(summary?.despesasMes      ?? summary?.financeiro?.despesasVariaveis),
-      despAnt:        s(summaryAnterior?.despesasMes  ?? summaryAnterior?.financeiro?.despesasVariaveis),
+      desp:           totalDespesas,
+      despAnt:        s(consolidadoAnterior?.totalExpense ?? consolidadoAnterior?.totalExpenses),
       vendas:         toNum(summary?.totalVendas),
       vendasAnt:      s(summaryAnterior?.totalVendas),
       ticket:         toNum(summary?.ticketMedio),
@@ -607,6 +617,7 @@ export function FinanceiroFiltrado({
   const selectedDate = dia ? new Date(ano, mesEfetivo, dia) : null
 
   return (
+    <UiTooltipProvider delayDuration={150}>
     <div className="space-y-5">
 
       {/* ── Header ───────────────────────────────────────────────────── */}
@@ -652,19 +663,20 @@ export function FinanceiroFiltrado({
       )}
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 1 — Hierarquia Contábil (canônica)
-          Receita Bruta → Lucro Bruto → Lucro Operacional → Lucro Líquido
+          SECTION 1 — Visão Executiva
+          4 KPIs principais: Faturamento · Lucro Bruto · Total de Gastos · Lucro Líquido.
           ═══════════════════════════════════════════════════════════════ */}
       <section className="space-y-2.5">
-        <h3 className="text-sm font-semibold tracking-tight">Hierarquia Contábil</h3>
+        <h3 className="text-sm font-semibold tracking-tight">Visão Executiva</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi
-            label="Receita Bruta"
+            label="Faturamento do Mês"
             value={brl(receitaBruta)}
             sub={crescLabel}
             icon={DollarSign}
             accent="info"
             loading={(loading && !summary) || (consolidadoLoading && !receitaBruta)}
+            tooltip="Receita total consolidada do período selecionado."
           />
           <Kpi
             label="Lucro Bruto"
@@ -673,14 +685,15 @@ export function FinanceiroFiltrado({
             icon={TrendingUp}
             accent={lucroBruto >= 0 ? "positive" : "negative"}
             loading={(loading && !summary) || (consolidadoLoading && !lucroBruto)}
+            tooltip={"Receita − CMV\n\nNão considera:\n- despesas administrativas\n- despesas operacionais\n- despesas fixas"}
           />
           <Kpi
-            label="Lucro Operacional"
-            value={brl(lucroOperacional)}
-            sub={`Margem ${margemOperacionalCalc.toFixed(1)}%`}
-            icon={TrendingUp}
-            accent={lucroOperacional >= 0 ? "positive" : "negative"}
-            loading={consolidadoLoading && !lucroOperacional}
+            label="Total de Gastos"
+            value={brlNeg(totalDespesas)}
+            icon={ShoppingBag}
+            accent="negative"
+            loading={consolidadoLoading}
+            tooltip={"Soma de:\n- despesas operacionais\n- despesas administrativas\n- despesas fixas\n\nCMV não incluso."}
           />
           <Kpi
             label="Lucro Líquido"
@@ -690,16 +703,17 @@ export function FinanceiroFiltrado({
             accent={lucroLiquido >= 0 ? "positive" : "negative"}
             emphasized
             loading={consolidadoLoading && !lucroLiquido}
+            tooltip={"Resultado final da operação.\n\nFórmula:\nLucro Bruto\n− Despesas Administrativas (MA)\n\nObservação: custos dos produtos (CMV) já estão descontados no Lucro Bruto."}
           />
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 1B — Realizado (diário) e Resultado Real consolidado
+          SECTION 2 — Operação Financeira
           ═══════════════════════════════════════════════════════════════ */}
       <section className="space-y-2.5">
-        <h3 className="text-sm font-semibold tracking-tight">Realizado e Resultado Real</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <h3 className="text-sm font-semibold tracking-tight">Operação Financeira</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Kpi
             label="Faturamento do Dia"
             value={brl(fatDia)}
@@ -707,44 +721,9 @@ export function FinanceiroFiltrado({
             icon={Calendar}
             accent="info"
             loading={loading && !summary}
+            tooltip="Receita consolidada do dia selecionado."
           />
-          <Kpi
-            label="Lucro Líquido Real"
-            value={brl(lucroLiquidoReal)}
-            sub={`Margem real ${margemReal.toFixed(1)}%`}
-            icon={Wallet}
-            accent={lucroLiquidoReal >= 0 ? "positive" : "negative"}
-            emphasized
-            loading={consolidadoLoading}
-          />
-          <Kpi
-            label="Burn Rate"
-            value={brlNeg(burnRate)}
-            sub="admin + fixos"
-            icon={Flame}
-            accent="negative"
-            loading={consolidadoLoading}
-          />
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          SECTION 2 — Operação Financeira (grid assimétrica compacta)
-          ═══════════════════════════════════════════════════════════════ */}
-      <section className="space-y-2.5">
-        <h3 className="text-sm font-semibold tracking-tight">Operação Financeira</h3>
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-          <div className="lg:col-span-3">
-            <Kpi
-              label="Total Despesas"
-              value={brlNeg(totalDespesas)}
-              sub="custos + administrativo"
-              icon={TrendingDown}
-              accent="negative"
-              loading={loading && !summary}
-            />
-          </div>
-          <div className="lg:col-span-3">
+          <div>
             <Kpi
               label="Ticket Médio"
               value={brl(ticketMedio)}
@@ -752,16 +731,31 @@ export function FinanceiroFiltrado({
               icon={ShoppingBag}
               accent={ticketMedio > 0 ? "positive" : "neutral"}
               loading={loading && !summary}
+              tooltip={
+                "Valor médio por venda realizada.\n\nFórmula:\nfaturamento ÷ quantidade de vendas"
+              }
             />
           </div>
 
           {/* Meta — alinhado com a altura dos cards menores */}
-          <Card className="lg:col-span-6 border-blue-200/40 dark:border-blue-900/30">
+          <Card className="sm:col-span-2 lg:col-span-1 border-blue-200/40 dark:border-blue-900/30">
             <CardContent className="p-3.5">
               <div className="flex items-start justify-between mb-1">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Meta · Produtos Vendidos
-                </p>
+                <div className="flex items-center gap-1">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Meta · Produtos Vendidos
+                  </p>
+                  <UiTooltipProvider>
+                    <UiTooltip>
+                      <UiTooltipTrigger asChild>
+                        <Info className="h-3 w-3 text-muted-foreground/50 hover:text-muted-foreground cursor-help shrink-0" />
+                      </UiTooltipTrigger>
+                      <UiTooltipContent className="max-w-[220px] text-xs whitespace-pre-line">
+                        {"Quantidade vendida versus meta configurada."}
+                      </UiTooltipContent>
+                    </UiTooltip>
+                  </UiTooltipProvider>
+                </div>
                 <div className="rounded-md p-1 bg-blue-100/60 dark:bg-blue-900/25">
                   <Target className="h-3 w-3 text-blue-600 dark:text-blue-300" />
                 </div>
@@ -917,13 +911,16 @@ export function FinanceiroFiltrado({
                   </span>
                 )}
               </CardTitle>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Operacionais + administrativas + fixas. CMV não incluso (já no Lucro Bruto).
+              </p>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row items-center gap-5 min-w-0 min-h-[220px]">
                 <div className="relative h-[220px] w-full md:w-[220px] shrink-0 min-w-0">
                   {categoriasDonut.length === 0 ? (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-                      Sem despesas no período.
+                    <div className="flex h-full w-full items-center justify-center px-4 text-center text-xs text-muted-foreground leading-snug">
+                      Nenhuma despesa registrada no período.
                     </div>
                   ) : (
                     <>
@@ -965,7 +962,7 @@ export function FinanceiroFiltrado({
                 <div className="flex-1 w-full flex flex-col gap-1.5 min-w-0">
                   {categoriasDonut.length === 0 ? (
                     <span className="text-xs text-muted-foreground">
-                      Aguardando categorias.
+                      Nenhuma despesa registrada no período.
                     </span>
                   ) : (
                     categoriasDonut.map((item) => {
@@ -1001,5 +998,6 @@ export function FinanceiroFiltrado({
       </section>
 
     </div>
+    </UiTooltipProvider>
   )
 }

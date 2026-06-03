@@ -28,6 +28,8 @@ import { getDashboardSummary } from "@/lib/services/dashboard-summary"
 import { getDashboardAlerts } from "@/lib/services/dashboard-alerts"
 import { GlobalDateFilter } from "@/components/global/global-date-filter"
 import { useFinanceiroConsolidado } from "@/lib/queries/use-financeiro-consolidado"
+import { useAlertasOperacionais } from "@/lib/queries/use-alertas-operacionais"
+import type { DashboardAlert } from "@/lib/services/dashboard-alerts"
 import type { TarefaDB } from "@/types/tarefas"
 import { getDailyCardMeta } from "@/lib/financeiro-utils"
 import { api } from "@/lib/api-client"
@@ -170,6 +172,7 @@ export function DashboardAdmin({
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
   const { status: integrationStatus, refetch: refetchIntegrationStatus } = useIntegrationStatus()
   const { entries: rankingEntries, loading: rankingLoading } = useDashboardRanking({ mes, ano })
+  const { data: alertasOp } = useAlertasOperacionais()
   const diasDisponiveis = useMemo(() => {
     const total = new Date(ano, mes + 1, 0).getDate()
     // Limit to current day if viewing current month/year
@@ -276,8 +279,6 @@ export function DashboardAdmin({
   const lucroLiquidoReal = toNum(consolidado?.realCompanyProfit)
   const margemReal = toNum(consolidado?.realMargin)
   const adminExpenses = toNum(consolidado?.administrativeExpenses)
-  const fixedExpenses = toNum(consolidado?.fixedExpenses)
-  const burnRate = adminExpenses + fixedExpenses
   // grossProfitCanonical computed after faturamento is available (see below)
 
   // ── auto-refresh integration status após cada atualização de dados ──────────
@@ -321,28 +322,152 @@ export function DashboardAdmin({
   const lucroInconsistente = !loadingKpi && !lucroNulo && lucro > 0 && lucro === faturamento
 
   // ── alertas agregados ─────────────────────────────────────────────────────────
-  const alertas = useMemo(
-    () =>
-      getDashboardAlerts({
-        role: "ADMIN",
-        integrationStatus,
-        faturamentoDia,
-        loadingKpi,
-        tarefasPendentes: tarefasPendentesLive,
-        margemBruta: margemBrutaEffective,
-        margemReal,
-        burnRate,
-        lucroLiquidoReal,
-        adminExpenses,
-        faturamentoMes: indicadores.faturamento,
-        isHoje: diaValido === "" && mes === currentMonth && ano === currentYear,
-      }),
-    [
-      integrationStatus, faturamentoDia, loadingKpi, tarefasPendentesLive, margemBrutaEffective,
-      margemReal, burnRate, lucroLiquidoReal, adminExpenses,
-      indicadores.faturamento, diaValido, mes, ano, currentMonth, currentYear,
-    ]
-  )
+  const alertas = useMemo((): DashboardAlert[] => {
+    const now = new Date().toISOString()
+    const all: Array<DashboardAlert & { score: number }> = []
+    const push = (a: DashboardAlert, score: number) => all.push({ ...a, score })
+
+    // ── Integração + Tarefas + Comercial (sem-vendas) ────────────────────────
+    const base = getDashboardAlerts({
+      role: "ADMIN",
+      integrationStatus,
+      faturamentoDia,
+      loadingKpi,
+      tarefasPendentes: tarefasPendentesLive,
+      isHoje: diaValido === "" && mes === currentMonth && ano === currentYear,
+    })
+    base.forEach((a, i) => push(a, 400 - i * 10))
+
+    // ── Financeiro (max 2) — fonte: consolidado ───────────────────────────────
+    if (!loadingKpi && faturamento > 0) {
+      const finAlerts: Array<{ a: DashboardAlert; score: number }> = []
+
+      if (lucroLiquidoReal < 0) {
+        finAlerts.push({ score: 380, a: {
+          id: "lucro-negativo", severity: "critical",
+          title: "Lucro líquido negativo",
+          description: `Prejuízo de ${formatBRL(Math.abs(lucroLiquidoReal))} no período.`,
+          source: "financeiro",
+          tooltip: "Origem: Financeiro\nRegra: lucroLiquidoReal < 0",
+          timestamp: now,
+        }})
+      }
+      if (margemReal > 0 && margemReal < 3) {
+        finAlerts.push({ score: 320, a: {
+          id: "margem-real-baixa", severity: "critical",
+          title: "Margem real abaixo de 3%",
+          description: `Margem atual: ${margemReal.toFixed(1)}%. Revisar despesas administrativas.`,
+          source: "financeiro",
+          tooltip: "Origem: Financeiro\nRegra: margemReal < 3%",
+          timestamp: now,
+        }})
+      }
+      if (margemBrutaEffective < 10) {
+        finAlerts.push({ score: 280, a: {
+          id: "margem-bruta-critica", severity: "warning",
+          title: "Margem bruta crítica",
+          description: `Margem bruta: ${margemBrutaEffective.toFixed(1)}%. Verifique CMV.`,
+          source: "financeiro",
+          tooltip: "Origem: Financeiro\nRegra: margemBruta < 10%",
+          timestamp: now,
+        }})
+      }
+      if (adminExpenses > 0 && lucroLiquidoReal > 0 && adminExpenses > lucroLiquidoReal) {
+        finAlerts.push({ score: 310, a: {
+          id: "admin-consome-lucro", severity: "critical",
+          title: "Despesas admin superam lucro líquido",
+          description: "Custos administrativos excedem o lucro líquido real.",
+          source: "financeiro",
+          tooltip: "Origem: Financeiro\nRegra: adminExpenses > lucroLiquidoReal",
+          timestamp: now,
+        }})
+      }
+
+      finAlerts
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 2)
+        .forEach(({ a, score }) => push(a, score))
+    }
+
+    // ── Operação (max 2) — fonte: useAlertasOperacionais ─────────────────────
+    if (alertasOp) {
+      const opAlerts: Array<{ a: DashboardAlert; score: number }> = []
+      const { estoqueCritico, reposicaoRecomendada, estoqueParado } = alertasOp
+
+      if (estoqueCritico.length > 0) {
+        opAlerts.push({ score: 260, a: {
+          id: "estoque-critico", severity: "critical",
+          title: `${estoqueCritico.length} produto${estoqueCritico.length > 1 ? "s" : ""} com estoque crítico`,
+          description: estoqueCritico.slice(0, 2).map(p => p.produto).join(", ") + (estoqueCritico.length > 2 ? " e outros" : ""),
+          source: "operacao",
+          tooltip: "Origem: Operação\nRegra: Estoque abaixo do mínimo operacional",
+          timestamp: now,
+        }})
+      }
+      if (reposicaoRecomendada.length > 0) {
+        opAlerts.push({ score: 210, a: {
+          id: "reposicao-recomendada", severity: "warning",
+          title: `${reposicaoRecomendada.length} produto${reposicaoRecomendada.length > 1 ? "s" : ""} para reposição`,
+          description: reposicaoRecomendada.slice(0, 2).map(p => p.produto).join(", ") + (reposicaoRecomendada.length > 2 ? " e outros" : ""),
+          source: "operacao",
+          tooltip: "Origem: Operação\nRegra: Estoque abaixo do giro dos últimos 30 dias",
+          timestamp: now,
+        }})
+      }
+      if (estoqueParado.length > 0 && opAlerts.length < 2) {
+        opAlerts.push({ score: 150, a: {
+          id: "estoque-parado", severity: "info",
+          title: `${estoqueParado.length} produto${estoqueParado.length > 1 ? "s" : ""} sem movimentação`,
+          description: `Maior parado: ${estoqueParado[0]?.produto ?? "—"} (${estoqueParado[0]?.diasParado ?? 0} dias).`,
+          source: "operacao",
+          tooltip: "Origem: Operação\nRegra: Produto sem movimentação por período prolongado",
+          timestamp: now,
+        }})
+      }
+
+      opAlerts
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 2)
+        .forEach(({ a, score }) => push(a, score))
+    }
+
+    // ── Ranking (max 2) — fonte: rankingEntries ───────────────────────────────
+    if (!rankingLoading && rankingEntries.length > 0) {
+      const lider = rankingEntries[0]
+      push({
+        id: "ranking-lider", severity: "info",
+        title: `Líder: ${lider.userName}`,
+        description: `Score ${lider.score} · ${lider.tarefasConcluidas} tarefas concluídas no período.`,
+        source: "ranking",
+        tooltip: "Origem: Ranking\nRegra: Colaborador com maior score no período",
+        timestamp: now,
+      }, 120)
+
+      const melhorStreak = [...rankingEntries].sort((a, b) => b.streak - a.streak)[0]
+      if (melhorStreak && melhorStreak.streak >= 3) {
+        push({
+          id: "ranking-streak", severity: "info",
+          title: `Sequência: ${melhorStreak.userName}`,
+          description: `${melhorStreak.streak} dias consecutivos de atividade.`,
+          source: "ranking",
+          tooltip: "Origem: Ranking\nRegra: Maior streak de atividade contínua",
+          timestamp: now,
+        }, 100)
+      }
+    }
+
+    // ── Ordenar: critical → warning → info, depois score, cap 8 ─────────────
+    const ORDER = { critical: 0, warning: 1, info: 2 } as const
+    return all
+      .sort((a, b) => ORDER[a.severity] - ORDER[b.severity] || b.score - a.score)
+      .map(({ score: _s, ...rest }) => rest)
+      .slice(0, 8)
+  }, [
+    integrationStatus, faturamentoDia, loadingKpi, tarefasPendentesLive,
+    diaValido, mes, ano, currentMonth, currentYear,
+    faturamento, lucroLiquidoReal, margemReal, margemBrutaEffective, adminExpenses,
+    alertasOp, rankingEntries, rankingLoading,
+  ])
 
   const dadosGrafico = useMemo(() =>
     (overviewExtra?.grafico ?? []).map((item) => ({
@@ -494,10 +619,10 @@ export function DashboardAdmin({
         )}
       </div>
 
-      {/* ── Linha 2: Alertas do Sistema — full width ───────────────────────── */}
+      {/* ── Linha 2: Central de Alertas ───────────────────────────────────── */}
       <PainelAlertasGlobal alerts={alertas} />
 
-      {/* ── Linha 3: 2 Gráficos lado a lado ───────────────────────────────── */}
+      {/* ── Linha 4: 2 Gráficos lado a lado ───────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Gráfico evolução faturamento/lucro */}
         <div>
@@ -514,7 +639,7 @@ export function DashboardAdmin({
         <OrigemLeadsCard />
       </div>
 
-      {/* ── Linha 4: Ranking + Tarefas lado a lado ────────────────────────── */}
+      {/* ── Linha 5: Ranking + Tarefas lado a lado ────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <VendedoresRanking entries={rankingEntries} loading={rankingLoading} />
         <PainelTarefas tarefas={pendentesVisiveis} onConcluir={concluirTarefa} riscados={riscados} />
