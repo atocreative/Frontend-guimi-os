@@ -8,6 +8,9 @@ import {
   ShoppingCart,
   Target,
   TrendingUp,
+  Percent,
+  BarChart2,
+  Receipt,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { GraficoVazio } from "@/components/dashboard/grafico-vazio"
@@ -29,11 +32,10 @@ import { getDashboardAlerts } from "@/lib/services/dashboard-alerts"
 import { GlobalDateFilter } from "@/components/global/global-date-filter"
 import { useFinanceiroConsolidado } from "@/lib/queries/use-financeiro-consolidado"
 import { useAlertasOperacionais } from "@/lib/queries/use-alertas-operacionais"
+import { useDashboardComercialKPIs } from "@/lib/queries/use-dashboard-comercial-kpis"
 import type { DashboardAlert } from "@/lib/services/dashboard-alerts"
 import type { TarefaDB } from "@/types/tarefas"
 import { getDailyCardMeta } from "@/lib/financeiro-utils"
-import { api } from "@/lib/api-client"
-import { sortTarefasByPriority } from "@/lib/tarefas"
 
 interface DashboardAdminUser {
   id: string
@@ -151,28 +153,14 @@ export function DashboardAdmin({
   const [sourceType, setSourceType] = useState<string | null>(null)
   const [nullFlags, setNullFlags] = useState({ lucro: false, totalVendas: false })
 
-  // Local tarefas state — initialized from server props, refreshed client-side on mount
-  const [tarefasPendentesLive, setTarefasPendentesLive] = useState<TarefaDB[]>(tarefasPendentes)
-  useEffect(() => {
-    api.getTasks().then(({ tasks }) => {
-      const now = new Date()
-      const pending = sortTarefasByPriority(
-        tasks.filter((t) => t.status === "PENDENTE" || t.status === "EM_ANDAMENTO"),
-        now
-      )
-      setTarefasPendentesLive(pending)
-    }).catch(() => {
-      // keep server-rendered data on error
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
-  const { status: integrationStatus, refetch: refetchIntegrationStatus } = useIntegrationStatus()
+  const { status: integrationStatus } = useIntegrationStatus()
   const { entries: rankingEntries, loading: rankingLoading } = useDashboardRanking({ mes, ano })
   const { data: alertasOp } = useAlertasOperacionais()
+  const { data: comercialKPIs } = useDashboardComercialKPIs()
   const diasDisponiveis = useMemo(() => {
     const total = new Date(ano, mes + 1, 0).getDate()
     // Limit to current day if viewing current month/year
@@ -230,6 +218,11 @@ export function DashboardAdmin({
           // @ts-ignore - vendedores may come from backend even if not in type yet
           vendedores: (monthlySummary as any).rankingVendedores ?? (monthlySummary as any).vendedores ?? undefined,
         })
+        // Mês atual: reutiliza faturamentoDia do resumo → elimina fetchHoje no mount
+        if (m === currentMonth && a === currentYear) {
+          setFaturamentoHoje(toNum(monthlySummary.faturamentoDia))
+          setLucroLiquidoHoje(monthlySummary.lucroLiquidoDia ?? null)
+        }
       }
       // se null, mantém dados anteriores — não zera tudo
     } catch (error) {
@@ -239,7 +232,7 @@ export function DashboardAdmin({
     } finally {
       setLoadingKpi(false)
     }
-  }, [])
+  }, [currentMonth, currentYear])
 
   // Always fetches today — independent of the month/year filter
   const fetchHoje = useCallback(async () => {
@@ -259,6 +252,8 @@ export function DashboardAdmin({
       setFaturamentoDiaSelecionado(null)
       return
     }
+    // fetchHoje já cobre hoje — sync via efeito abaixo, sem request duplicado
+    if (d === currentDay && m === currentMonth && a === currentYear) return
     try {
       const s = await getDashboardSummary({ year: a, month: m + 1, day: d })
       setFaturamentoDiaSelecionado(s ? toNum(s.faturamentoDia) : null)
@@ -267,11 +262,21 @@ export function DashboardAdmin({
       setFaturamentoDiaSelecionado(null)
       setLucroLiquidoDiaSelecionado(null)
     }
-  }, [])
+  }, [currentDay, currentMonth, currentYear])
 
   useEffect(() => { fetchMensal(mes, ano) }, [mes, ano, fetchMensal])
-  useEffect(() => { fetchHoje() }, [fetchHoje])
+  // fetchHoje só dispara em meses passados — mês atual recebe faturamentoDia via fetchMensal
+  useEffect(() => {
+    if (mes !== currentMonth || ano !== currentYear) fetchHoje()
+  }, [fetchHoje, mes, ano, currentMonth, currentYear])
   useEffect(() => { fetchDiario(mes, ano, diaValido === "" ? "" : diaValido) }, [mes, ano, diaValido, fetchDiario])
+  // Propaga hoje → diário quando dia selecionado = hoje (evita request duplo)
+  useEffect(() => {
+    if (diaValido !== "" && diaValido === currentDay && mes === currentMonth && ano === currentYear) {
+      setFaturamentoDiaSelecionado(faturamentoHoje)
+      setLucroLiquidoDiaSelecionado(lucroLiquidoHoje)
+    }
+  }, [diaValido, faturamentoHoje, lucroLiquidoHoje, currentDay, mes, currentMonth, ano, currentYear])
 
   // ── Consolidado financeiro (source of truth — mesmos bindings do Financeiro) ──
   const consolidadoQuery = useFinanceiroConsolidado(ano, mes + 1)
@@ -281,11 +286,6 @@ export function DashboardAdmin({
   const adminExpenses = toNum(consolidado?.administrativeExpenses)
   // grossProfitCanonical computed after faturamento is available (see below)
 
-  // ── auto-refresh integration status após cada atualização de dados ──────────
-  useEffect(() => {
-    const timer = setTimeout(() => refetchIntegrationStatus(), 500)
-    return () => clearTimeout(timer)
-  }, [indicadores, refetchIntegrationStatus])
 
   // ── KPIs ────────────────────────────────────────────────────────────────────
   const { faturamento, lucro } = indicadores
@@ -327,14 +327,14 @@ export function DashboardAdmin({
     const all: Array<DashboardAlert & { score: number }> = []
     const push = (a: DashboardAlert, score: number) => all.push({ ...a, score })
 
-    // ── Integração + Tarefas + Comercial (sem-vendas) ────────────────────────
+    // ── Tarefas + Vendas + Comercial (via getDashboardAlerts) ───────────────
     const base = getDashboardAlerts({
       role: "ADMIN",
-      integrationStatus,
       faturamentoDia,
       loadingKpi,
-      tarefasPendentes: tarefasPendentesLive,
+      tarefasPendentes: tarefasPendentes,
       isHoje: diaValido === "" && mes === currentMonth && ano === currentYear,
+      comercialKPIs: comercialKPIs ?? null,
     })
     base.forEach((a, i) => push(a, 400 - i * 10))
 
@@ -463,7 +463,7 @@ export function DashboardAdmin({
       .map(({ score: _s, ...rest }) => rest)
       .slice(0, 8)
   }, [
-    integrationStatus, faturamentoDia, loadingKpi, tarefasPendentesLive,
+    faturamentoDia, loadingKpi, tarefasPendentes, comercialKPIs,
     diaValido, mes, ano, currentMonth, currentYear,
     faturamento, lucroLiquidoReal, margemReal, margemBrutaEffective, adminExpenses,
     alertasOp, rankingEntries, rankingLoading,
@@ -482,8 +482,8 @@ export function DashboardAdmin({
 
   // ── tarefas ─────────────────────────────────────────────────────────────────
   const tarefasPorId = useMemo(
-    () => new Map([...tarefasHoje, ...tarefasPendentesLive].map((t) => [t.id, t])),
-    [tarefasHoje, tarefasPendentesLive]
+    () => new Map([...tarefasHoje, ...tarefasPendentes].map((t) => [t.id, t])),
+    [tarefasHoje, tarefasPendentes]
   )
 
   const concluirTarefa = useCallback(async (id: string) => {
@@ -504,8 +504,8 @@ export function DashboardAdmin({
   }, [notifyTaskCompleted, notifyTaskCompletionError, tarefasPorId])
 
   const pendentesVisiveis = useMemo(
-    () => tarefasPendentesLive.filter((t) => !concluidos.has(t.id)),
-    [tarefasPendentesLive, concluidos]
+    () => tarefasPendentes.filter((t) => !concluidos.has(t.id)),
+    [tarefasPendentes, concluidos]
   )
   const load = (v: string) => loadingKpi ? "…" : v
 
@@ -587,6 +587,7 @@ export function DashboardAdmin({
               icone={DollarSign}
               tendencia={faturamentoDiaNulo ? "neutral" : "up"}
               accent="info"
+              tooltip="Receita bruta do dia selecionado. Fonte: FoneNinja (vendas realizadas)"
             />
             {/* 2. Faturamento do Mês (FN) — azul */}
             <KpiCard
@@ -596,6 +597,7 @@ export function DashboardAdmin({
               icone={Target}
               tendencia="up"
               accent="info"
+              tooltip="Receita bruta acumulada do mês. Fonte: FoneNinja"
             />
             {/* 3. Lucro Líquido Real (FN + MA) — fonte: consolidado */}
             <KpiCard
@@ -606,6 +608,7 @@ export function DashboardAdmin({
               tendencia={lucroLiquidoReal >= 0 ? "up" : "down"}
               accent={lucroLiquidoReal >= 0 ? "positive" : "negative"}
               destaque
+              tooltip="Lucro após despesas fixas e administrativas. Fonte: consolidado contábil (MA)"
             />
             {/* 4. Total Vendas no Mês */}
             <KpiCard
@@ -614,15 +617,63 @@ export function DashboardAdmin({
               descricao={totalVendasNulo ? "Sem dados do backend" : "Vendas consolidadas"}
               icone={ShoppingCart}
               tendencia={totalVendasNulo ? "neutral" : "up"}
+              tooltip="Número de vendas realizadas no mês. Fonte: FoneNinja"
             />
           </>
         )}
       </div>
 
-      {/* ── Linha 2: Central de Alertas ───────────────────────────────────── */}
+      {/* ── Linha 2: KPIs executivos — Ticket · Margem · Meta · Conversão ─── */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {/* Ticket Médio */}
+        <KpiCard
+          titulo="Ticket Médio"
+          valor={loadingKpi ? "…" : formatBRL(indicadores.ticketMedio)}
+          descricao="Valor médio por venda"
+          icone={Receipt}
+          tooltip="Faturamento do mês ÷ número de vendas. Fonte: FoneNinja"
+        />
+        {/* Margem Líquida Real */}
+        <KpiCard
+          titulo="Margem Líquida"
+          valor={consolidadoQuery.isLoading && !consolidado ? "…" : `${margemReal.toFixed(1)}%`}
+          descricao="Lucro real sobre faturamento"
+          icone={Percent}
+          accent={margemReal >= 5 ? "positive" : margemReal > 0 ? "neutral" : "negative"}
+          tooltip="Lucro líquido real ÷ faturamento × 100. Fonte: consolidado contábil (MA)"
+        />
+        {/* Meta Mensal de Vendas */}
+        <KpiCard
+          titulo="Meta Mensal"
+          valor={totalVendasNulo ? "—" : `${totalVendas} / 200`}
+          descricao={totalVendasNulo ? "Sem dados" : `${Math.min(Math.round((totalVendas / 200) * 100), 100)}% atingido`}
+          icone={Target}
+          accent={totalVendas >= 200 ? "positive" : "neutral"}
+          tooltip="Progresso em relação à meta de 200 vendas no mês. Fonte: FoneNinja"
+        />
+        {/* Conversão de Leads */}
+        <KpiCard
+          titulo="Conversão"
+          valor={
+            comercialKPIs?.taxaConversao != null
+              ? `${Number(comercialKPIs.taxaConversao).toFixed(1)}%`
+              : "—"
+          }
+          descricao="Leads ganhos / total de leads"
+          icone={BarChart2}
+          accent={
+            comercialKPIs?.taxaConversao != null && comercialKPIs.taxaConversao >= 10
+              ? "positive"
+              : "neutral"
+          }
+          tooltip="Taxa de conversão de leads no CRM. Fonte: Kommo / FoneNinja"
+        />
+      </div>
+
+      {/* ── Linha 3: Central de Alertas ───────────────────────────────────── */}
       <PainelAlertasGlobal alerts={alertas} />
 
-      {/* ── Linha 4: 2 Gráficos lado a lado ───────────────────────────────── */}
+      {/* ── Linha 4: Gráficos + Origem de Leads ──────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Gráfico evolução faturamento/lucro */}
         <div>

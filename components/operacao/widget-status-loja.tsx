@@ -44,11 +44,11 @@ export function WidgetStatusLoja() {
 
   useEffect(() => {
     fetchStatus()
-    pollRef.current = setInterval(fetchStatus, 30_000)
+    pollRef.current = setInterval(fetchStatus, 120_000)
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
         fetchStatus()
-        pollRef.current = setInterval(fetchStatus, 30_000)
+        pollRef.current = setInterval(fetchStatus, 120_000)
       } else {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
       }

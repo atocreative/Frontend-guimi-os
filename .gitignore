@@ -283,6 +283,9 @@ RTK.md
 
 .playwright-mcp/
 .playwright/
+playwright/
 playwright-report/
+
+screenshots/
 
 # End of https://www.toptal.com/developers/gitignore/api/nextjs,node

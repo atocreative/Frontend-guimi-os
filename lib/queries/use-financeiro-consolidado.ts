@@ -60,7 +60,7 @@ export interface ConsolidadoPayload {
   }
 }
 
-const STALE_LIVE    = 20_000
+const STALE_LIVE    = 45_000       // < poll interval (60s)
 const STALE_MONTHLY = 5 * 60_000
 const GC_LIVE       = 5 * 60_000
 const GC_MONTHLY    = 30 * 60_000
@@ -84,7 +84,7 @@ export function useFinanceiroConsolidado(year: number, month1: number) {
     queryFn: () => fetchConsolidado(year, month1),
     staleTime: live ? STALE_LIVE : STALE_MONTHLY,
     gcTime: live ? GC_LIVE : GC_MONTHLY,
-    refetchInterval: live ? 30_000 : false,
+    refetchInterval: live ? 60_000 : false,
     refetchIntervalInBackground: false,
     placeholderData: (prev) => prev ?? null,
   })

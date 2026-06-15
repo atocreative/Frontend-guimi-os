@@ -99,7 +99,7 @@ export function DashboardGerente({
   const [concluidos, setConcluidos] = useState<Set<string>>(new Set())
   const [riscados, setRiscados] = useState<Set<string>>(new Set())
 
-  const { status: integrationStatus, refetch: refetchIntegrationStatus } = useIntegrationStatus(5 * 60 * 1000)
+  const { status: integrationStatus } = useIntegrationStatus(5 * 60 * 1000)
   const { entries: rankingEntries, loading: rankingLoading } = useDashboardRanking({ mes, ano })
 
   const diasDisponiveis = useMemo(() => {
@@ -137,14 +137,19 @@ export function DashboardGerente({
           // @ts-ignore
           vendedores: (s as any).rankingVendedores ?? (s as any).vendedores ?? undefined,
         })
-        setTimeout(() => refetchIntegrationStatus(), 500)
+        // Mês atual: reutiliza faturamentoDia do resumo → elimina fetchHoje no mount
+        if (m === currentMonth && a === currentYear) {
+          const val = toNum(s.faturamentoDia)
+          setFaturamentoHoje(val > 0 ? val : null)
+          setFaturamentoDiaHojeNulo(val === 0)
+        }
       }
     } catch {
       setErroFetch(true)
     } finally {
       setLoadingKpi(false)
     }
-  }, [refetchIntegrationStatus])
+  }, [currentMonth, currentYear])
 
   const fetchHoje = useCallback(async () => {
     try {
@@ -168,7 +173,10 @@ export function DashboardGerente({
   }, [])
 
   useEffect(() => { fetchMensal(mes, ano) }, [mes, ano, fetchMensal])
-  useEffect(() => { fetchHoje() }, [fetchHoje])
+  // fetchHoje só dispara em meses passados — mês atual recebe faturamentoDia via fetchMensal
+  useEffect(() => {
+    if (mes !== currentMonth || ano !== currentYear) fetchHoje()
+  }, [fetchHoje, mes, ano, currentMonth, currentYear])
   useEffect(() => { fetchDiario(mes, ano, diaValido === "" ? "" : diaValido) }, [mes, ano, diaValido, fetchDiario])
 
   const faturamentoDia = diaValido !== ""
@@ -182,13 +190,12 @@ export function DashboardGerente({
     () =>
       getDashboardAlerts({
         role: "GERENTE",
-        integrationStatus,
         faturamentoDia,
         loadingKpi,
         tarefasPendentes,
         isHoje: diaValido === "" && mes === currentMonth && ano === currentYear,
       }),
-    [integrationStatus, faturamentoDia, loadingKpi, tarefasPendentes, diaValido, mes, ano, currentMonth, currentYear]
+    [faturamentoDia, loadingKpi, tarefasPendentes, diaValido, mes, ano, currentMonth, currentYear]
   )
 
   const dadosGrafico = useMemo(() =>

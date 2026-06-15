@@ -11,6 +11,8 @@ interface KpiCardProps {
   destaque?: boolean
   /** info=azul (receita), positive=verde (lucro), negative=vermelho (despesa) */
   accent?: "info" | "positive" | "negative" | "neutral"
+  /** Tooltip nativo — explica origem e fórmula do KPI */
+  tooltip?: string
 }
 
 export function KpiCard({
@@ -21,6 +23,7 @@ export function KpiCard({
   tendencia,
   destaque,
   accent = "neutral",
+  tooltip,
 }: KpiCardProps) {
   const valueClass = destaque
     ? "text-white dark:text-zinc-950"
@@ -30,10 +33,14 @@ export function KpiCard({
     : ""
 
   return (
-    <Card className={cn(
-      "relative overflow-hidden",
-      destaque && "border-zinc-400 bg-zinc-950 text-white dark:border-zinc-200 dark:bg-white dark:text-zinc-950"
-    )}>
+    <Card
+      title={tooltip}
+      className={cn(
+        "relative overflow-hidden",
+        tooltip && "cursor-help",
+        destaque && "border-zinc-400 bg-zinc-950 text-white dark:border-zinc-200 dark:bg-white dark:text-zinc-950"
+      )}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="space-y-1">

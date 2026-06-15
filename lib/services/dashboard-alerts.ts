@@ -1,5 +1,5 @@
-import type { IntegrationStatusData } from "@/hooks/use-integration-status"
 import type { TarefaDB } from "@/types/tarefas"
+import type { KPIs } from "@/lib/services/comercial-bi"
 
 export type AlertSeverity = "critical" | "warning" | "info"
 export type AlertSource =
@@ -16,7 +16,7 @@ export interface DashboardAlert {
   title: string
   description: string
   source: AlertSource
-  /** Tooltip explaining origin + rule — displayed in the alert card */
+  /** Tooltip explicando origem + regra — exibido no card de alerta */
   tooltip?: string
   timestamp: string
 }
@@ -25,23 +25,30 @@ export type UserRole = "ADMIN" | "GERENTE" | "COLABORADOR"
 
 interface AlertsInput {
   role: UserRole
-  integrationStatus?: IntegrationStatusData | null
   faturamentoDia?: number | null
   loadingKpi?: boolean
   tarefasPendentes?: TarefaDB[]
   isHoje?: boolean
+  /** KPIs do CRM (mesma fonte que /comercial) — max 2 alertas gerados */
+  comercialKPIs?: KPIs | null
 }
 
-/** Alertas de integração e tarefas — fontes leves que não precisam de consolidado.
- *  Alertas financeiros e operacionais são construídos inline no componente
- *  a partir das suas fontes canônicas (consolidado + useAlertasOperacionais). */
+/**
+ * Alertas de negócio para o painel executivo.
+ *
+ * REGRA: Dashboard reutiliza alertas de fontes existentes.
+ * NÃO cria regras novas — apenas agrega dados de hooks já ativos.
+ *
+ * Fontes cobertas aqui: vendas (faturamento zero), tarefas, comercial (CRM).
+ * Fontes com lógica inline em dashboard-admin: financeiro, operação, ranking.
+ */
 export function getDashboardAlerts(input: AlertsInput): DashboardAlert[] {
   const {
-    integrationStatus,
     faturamentoDia,
     loadingKpi,
     tarefasPendentes = [],
     isHoje = false,
+    comercialKPIs,
   } = input
 
   const now = new Date().toISOString()
@@ -49,35 +56,7 @@ export function getDashboardAlerts(input: AlertsInput): DashboardAlert[] {
   const push = (alert: DashboardAlert, score: number) =>
     list.push({ ...alert, score })
 
-  // ── integração ──────────────────────────────────────────────────────────────
-  if (integrationStatus?.status === "erro") {
-    push({
-      id: "integracao-offline",
-      severity: "critical",
-      title: "Integração offline",
-      description: "Fone Ninja não está respondendo — dados podem estar desatualizados.",
-      source: "integracao",
-      tooltip: "Origem: Integração\nRegra: Status da conexão com Fone Ninja",
-      timestamp: now,
-    }, 300)
-  }
-
-  if (integrationStatus?.lastSync) {
-    const diffMin = (Date.now() - new Date(integrationStatus.lastSync).getTime()) / 60_000
-    if (diffMin > 60) {
-      push({
-        id: "sync-atrasado",
-        severity: "warning",
-        title: "Sincronização atrasada",
-        description: `Última sync há ${Math.round(diffMin)} min.`,
-        source: "integracao",
-        tooltip: "Origem: Integração\nRegra: Tempo sem sincronização com Fone Ninja",
-        timestamp: now,
-      }, 180)
-    }
-  }
-
-  // ── vendas ──────────────────────────────────────────────────────────────────
+  // ── vendas (sem faturamento hoje) ───────────────────────────────────────────
   if (isHoje && faturamentoDia === 0 && !loadingKpi) {
     push({
       id: "sem-vendas-hoje",
@@ -85,16 +64,15 @@ export function getDashboardAlerts(input: AlertsInput): DashboardAlert[] {
       title: "Sem vendas hoje",
       description: "Nenhuma venda registrada para hoje.",
       source: "vendas",
-      tooltip: "Origem: Comercial\nRegra: Faturamento do dia igual a zero",
+      tooltip: "Origem: Financeiro\nRegra: Faturamento do dia igual a zero no dia atual",
       timestamp: now,
     }, 250)
   }
 
-  // ── tarefas ─────────────────────────────────────────────────────────────────
-  const atrasadas = tarefasPendentes.filter((t) => {
-    if (!t.dueAt) return false
-    return new Date(t.dueAt) < new Date()
-  })
+  // ── tarefas atrasadas ────────────────────────────────────────────────────────
+  const atrasadas = tarefasPendentes.filter(
+    (t) => t.dueAt && new Date(t.dueAt) < new Date()
+  )
   if (atrasadas.length > 0) {
     push({
       id: "tarefas-atrasadas",
@@ -102,21 +80,110 @@ export function getDashboardAlerts(input: AlertsInput): DashboardAlert[] {
       title: `${atrasadas.length} tarefa${atrasadas.length > 1 ? "s" : ""} em atraso`,
       description: "Tarefas com prazo vencido precisam de atenção.",
       source: "tarefas",
-      tooltip: "Origem: Operação\nRegra: Tarefas com dueAt anterior à data atual",
+      tooltip: "Origem: Agenda\nRegra: Tarefas com data de vencimento anterior à data atual",
       timestamp: now,
     }, 220)
   }
 
-  if (tarefasPendentes.length >= 5) {
-    push({
-      id: "muitas-tarefas-pendentes",
-      severity: "info",
-      title: `${tarefasPendentes.length} tarefas pendentes`,
-      description: "Carga elevada no backlog operacional.",
-      source: "tarefas",
-      tooltip: "Origem: Operação\nRegra: Backlog com 5 ou mais tarefas abertas",
-      timestamp: now,
-    }, 140)
+  // ── comercial (max 2) — mesma fonte que /comercial/bi-dashboard ─────────────
+  if (comercialKPIs) {
+    const comercialList: Array<{ a: DashboardAlert; score: number }> = []
+
+    const esq   = comercialKPIs.esquecidos ?? null
+    const chats = comercialKPIs.chatsSemResposta ?? null
+    const tresp = comercialKPIs.tempoRespostaMedio ?? null
+    const stask = comercialKPIs.leadsSemTarefa ?? null
+    const conv  = comercialKPIs.taxaConversao ?? null
+
+    // Leads esquecidos — priority: critical
+    if (esq != null && esq > 0) {
+      comercialList.push({ score: 350, a: {
+        id: "leads-esquecidos",
+        severity: "critical",
+        title: `${esq} lead${esq > 1 ? "s" : ""} esquecido${esq > 1 ? "s" : ""}`,
+        description: "Leads sem interação recente — ação imediata necessária.",
+        source: "vendas",
+        tooltip: "Origem: Comercial\nRegra: Leads sem nenhuma interação por período prolongado",
+        timestamp: now,
+      }})
+    }
+
+    // Chats sem resposta
+    if (chats != null && chats >= 100) {
+      comercialList.push({ score: 340, a: {
+        id: "chats-critico",
+        severity: "critical",
+        title: `${chats} chats sem resposta`,
+        description: "Volume crítico de chats aguardando equipe.",
+        source: "vendas",
+        tooltip: "Origem: Comercial\nRegra: Mais de 100 chats sem resposta",
+        timestamp: now,
+      }})
+    } else if (chats != null && chats >= 30) {
+      comercialList.push({ score: 280, a: {
+        id: "chats-acumulados",
+        severity: "warning",
+        title: `${chats} chats acumulados`,
+        description: "Chats sem resposta se acumulando na fila.",
+        source: "vendas",
+        tooltip: "Origem: Comercial\nRegra: Mais de 30 chats sem resposta",
+        timestamp: now,
+      }})
+    }
+
+    // Tempo de resposta
+    if (tresp != null && tresp >= 60) {
+      comercialList.push({ score: 290, a: {
+        id: "tresp-critico",
+        severity: "critical",
+        title: "Tempo de resposta crítico",
+        description: `Média de ${Math.round(tresp)}min — meta: < 30min.`,
+        source: "vendas",
+        tooltip: "Origem: Comercial\nRegra: Tempo médio de resposta acima de 60 minutos",
+        timestamp: now,
+      }})
+    } else if (tresp != null && tresp >= 30) {
+      comercialList.push({ score: 230, a: {
+        id: "tresp-alto",
+        severity: "warning",
+        title: "Tempo de resposta alto",
+        description: `Média de ${Math.round(tresp)}min — meta: < 30min.`,
+        source: "vendas",
+        tooltip: "Origem: Comercial\nRegra: Tempo médio de resposta acima de 30 minutos",
+        timestamp: now,
+      }})
+    }
+
+    // Leads sem follow-up
+    if (stask != null && stask >= 10) {
+      comercialList.push({ score: 270, a: {
+        id: "leads-sem-followup",
+        severity: "warning",
+        title: `${stask} leads sem follow-up`,
+        description: "Leads sem próximo contato agendado.",
+        source: "vendas",
+        tooltip: "Origem: Comercial\nRegra: 10 ou mais leads sem tarefa de follow-up",
+        timestamp: now,
+      }})
+    }
+
+    // Conversão baixa
+    if (conv != null && conv < 5) {
+      comercialList.push({ score: 200, a: {
+        id: "conversao-baixa",
+        severity: "warning",
+        title: `Conversão baixa: ${conv.toFixed(1)}%`,
+        description: "Taxa abaixo de 5% — revisar abordagem comercial.",
+        source: "vendas",
+        tooltip: "Origem: Comercial\nRegra: Taxa de conversão de leads abaixo de 5%",
+        timestamp: now,
+      }})
+    }
+
+    comercialList
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 2)
+      .forEach(({ a, score }) => push(a, score))
   }
 
   return list
