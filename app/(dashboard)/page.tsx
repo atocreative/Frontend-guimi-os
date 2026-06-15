@@ -9,7 +9,6 @@ import {
   sortTarefasByPriority,
 } from "@/lib/tarefas"
 import { getMonthRange } from "@/lib/financeiro-utils"
-import { WidgetStatusLoja } from "@/components/operacao/widget-status-loja"
 
 export const dynamic = "force-dynamic"
 
@@ -85,34 +84,28 @@ export default async function DashboardPage() {
   // Admin/SUPER_USER dashboard
   if (!isColaborador && !isGerente) {
     return (
-      <>
-        <WidgetStatusLoja />
-        <DashboardAdmin
-          tarefasHoje={tarefasHoje}
-          tarefasPendentes={tarefasPendentes}
-          currentUser={{ id: session.user.id }}
-          mes={currentMonth}
-          ano={currentYear}
-          availableYears={availableYears}
-        />
-      </>
+      <DashboardAdmin
+        tarefasHoje={tarefasHoje}
+        tarefasPendentes={tarefasPendentes}
+        currentUser={{ id: session.user.id }}
+        mes={currentMonth}
+        ano={currentYear}
+        availableYears={availableYears}
+      />
     )
   }
 
   // Gerente dashboard
   if (isGerente) {
     return (
-      <>
-        <WidgetStatusLoja />
-        <DashboardGerente
-          tarefasHoje={tarefasHoje}
-          tarefasPendentes={tarefasPendentes}
-          currentUser={{ id: session.user.id }}
-          mes={currentMonth}
-          ano={currentYear}
-          availableYears={availableYears}
-        />
-      </>
+      <DashboardGerente
+        tarefasHoje={tarefasHoje}
+        tarefasPendentes={tarefasPendentes}
+        currentUser={{ id: session.user.id }}
+        mes={currentMonth}
+        ano={currentYear}
+        availableYears={availableYears}
+      />
     )
   }
 

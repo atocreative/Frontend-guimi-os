@@ -17,7 +17,7 @@ import {
   AlertTriangle, TrendingUp, Users, Zap,
   RefreshCw, CheckCircle2, Info, ShieldAlert,
   Clock, UserX, BarChart2,
-  XCircle, MessageSquare, MessageCircle, Timer,
+  XCircle, MessageCircle,
   ExternalLink, Percent, Activity,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
@@ -646,8 +646,11 @@ export function BIDashboard() {
             />
           </div>
 
+          {/* Alertas operacionais */}
+          <AlertasPanel alerts={alerts} />
+
           {/* Linha 2 — Operacional */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <KpiTile
               label="Chats sem resposta"
               value={nfn(bi.kpis.chatsSemResposta)}
@@ -659,21 +662,6 @@ export function BIDashboard() {
               icon={MessageCircle}
               size="sm"
             />
-            <KpiTile
-              label="Conversas atuais"
-              value={nfn(bi.kpis.conversasAtuais)}
-              hint="Em andamento"
-              icon={MessageSquare}
-              size="sm"
-            />
-            <KpiTile
-              label="Tempo resposta"
-              value={timeFmt(bi.kpis.tempoRespostaMedio)}
-              hint="Média geral"
-              icon={Timer}
-              size="sm"
-            />
-            <AlertasMiniCard alerts={alerts} />
           </div>
 
           {/* Linha 3 — Gráficos */}
@@ -706,8 +694,6 @@ export function BIDashboard() {
             esquecidos={bi.kpis.esquecidos ?? 0}
           />
 
-          {/* Painel de Alertas (frontend-derived) */}
-          <AlertasPanel alerts={alerts} />
         </>
       )}
 

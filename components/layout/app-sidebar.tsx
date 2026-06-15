@@ -41,7 +41,6 @@ import {
   Wrench,
   LifeBuoy,
   Sun,
-  Code2,
   Moon,
   type LucideIcon,
 } from "lucide-react"
@@ -115,10 +114,6 @@ const navItems: NavGroup[] = [
       { title: "Suporte", href: "/suporte", icon: LifeBuoy, featureId: "SUPORTE" },
     ],
   },
-]
-
-const devNavItems: NavItem[] = [
-  { title: "Dashboard Development", href: "/dashboard-development", icon: Code2, featureId: "SUPER_USER_DASHBOARD" },
 ]
 
 interface AppSidebarProps {
@@ -230,10 +225,7 @@ export function AppSidebar({ userRole, userEmail, isSuperUser }: AppSidebarProps
   )
 
   const finalNav: NavGroupWithStatus[] = isDeveloper
-    ? [
-        ...superUserNav,
-        { label: "Desenvolvedor", items: devNavItems.map((item) => ({ ...item, _status: "active" as const })) },
-      ]
+    ? superUserNav
     : filteredNav.map((group) => ({
         ...group,
         items: mapItemsWithStatus(group.items),

@@ -1,30 +1,18 @@
-import { protectPage } from "@/lib/route-protection"
+import { getSession } from "@/lib/auth-session"
+import { redirect } from "next/navigation"
 import { ProcessosDashboard } from "@/components/processos/processos-dashboard"
 
-interface PageProps {
-  searchParams: Promise<Record<string, string | undefined>>
-}
+export default async function ProcessosPage() {
+  const session = await getSession()
+  if (!session?.user) redirect("/login")
 
-export default async function ProcessosPage({ searchParams }: PageProps) {
-  await protectPage({ featureId: "FINANCEIRO", requiredRole: "ADMIN" })
-
-  const params     = await searchParams
-  const now        = new Date()
-  const currentMes = now.getMonth()
-  const currentAno = now.getFullYear()
-
-  const mParam    = Number(params.m)
-  const yParam    = Number(params.y)
-  const initialMes = mParam >= 0 && mParam <= 11 ? mParam : currentMes
-  const initialAno = yParam >= 2024 && yParam <= currentAno ? yParam : currentAno
-
-  const availableYears = Array.from({ length: currentAno - 2023 }, (_, i) => 2024 + i)
+  const role: string = (session.user as any).role ?? "COLABORADOR"
+  const canUpload = ["ADMIN", "GERENTE", "SUPER_USER"].includes(role)
 
   return (
     <ProcessosDashboard
-      initialMes={initialMes}
-      initialAno={initialAno}
-      availableYears={availableYears}
+      userRole={role}
+      canUpload={canUpload}
     />
   )
 }

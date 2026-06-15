@@ -2,8 +2,6 @@ import { getSession } from "@/lib/auth-session"
 import { ResumoOperacao } from "@/components/operacao/resumo-operacao"
 import { InventarioEstoque } from "@/components/operacao/inventario-estoque"
 import { ProdutosMaisVendidos } from "@/components/operacao/produtos-mais-vendidos"
-import { ApplePerformance } from "@/components/operacao/apple-intelligence"
-import { AppleTrendCard } from "@/components/operacao/apple-trend-card"
 import { AlertasOperacionais } from "@/components/operacao/alertas-operacionais"
 
 // Acessa o backend diretamente — evita o self-call frágil via BFF interno.
@@ -41,7 +39,6 @@ async function fetchInventory(
   try {
     const qs = new URLSearchParams(params).toString()
     const url = `${BACKEND_URL}/api/operacao/inventory?${qs}`
-    console.log(`[operacao:page] → GET ${url}`)
     const t0 = Date.now()
 
     const res = await fetch(url, {
@@ -60,8 +57,6 @@ async function fetchInventory(
     const data = await res.json().catch((e: any) => { console.error("[operacao:page] parse error:", e?.message); return null })
     if (!data) return { ...empty, errorCode: "PARSE_ERROR" }
 
-    const ms = Date.now() - t0
-    console.log(`[operacao:page] ✓ items=${Array.isArray(data.data) ? data.data.length : 0} total=${data.pagination?.total ?? "?"} source=${data._meta?.source ?? "?"} (${ms}ms)`)
     return data
   } catch (e: any) {
     console.error("[operacao:page] unhandled:", e?.message)
@@ -83,23 +78,6 @@ async function fetchTopProducts(token: string | null) {
   } catch (e: any) {
     console.error("[operacao] top-products error:", e?.message)
     return []
-  }
-}
-
-async function fetchAppleInsights(token: string | null) {
-  if (!BACKEND_URL) return null
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/operacao/apple-insights`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
-    })
-    if (!res.ok) return null
-    const json = await res.json()
-    return json.data ?? null
-  } catch (e: any) {
-    console.error("[operacao] apple-insights error:", e?.message)
-    return null
   }
 }
 
@@ -131,11 +109,10 @@ export default async function OperacaoPage({ searchParams }: PageProps) {
     ...(params.order ? { order: params.order } : {}),
   }
 
-  const [summary, inventoryResult, topProducts, appleInsights] = await Promise.all([
+  const [summary, inventoryResult, topProducts] = await Promise.all([
     fetchSummary(token),
     fetchInventory(token, inventoryParams),
     fetchTopProducts(token),
-    fetchAppleInsights(token),
   ])
 
   const lastSyncAt = (summary as any)?.lastSyncAt ?? null
@@ -183,17 +160,25 @@ export default async function OperacaoPage({ searchParams }: PageProps) {
         meta={inventoryResult._meta}
       />
 
+      {Array.isArray(topProducts) && topProducts[0] && (
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+            Produto mais buscado do mês
+          </p>
+          <p className="text-lg font-bold text-foreground">{topProducts[0].productName}</p>
+          <p className="text-sm text-muted-foreground">
+            {topProducts[0].quantidadeVendida} unidades vendidas
+            {showFinancial && topProducts[0].receitaTotal
+              ? ` · ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(topProducts[0].receitaTotal)}`
+              : ""}
+          </p>
+        </div>
+      )}
+
       <ProdutosMaisVendidos
         data={topProducts}
         showFinancial={showFinancial}
       />
-
-      <ApplePerformance
-        data={appleInsights}
-        showFinancial={showFinancial}
-      />
-
-      <AppleTrendCard />
 
       <AlertasOperacionais />
     </div>

@@ -9,52 +9,72 @@ const faqItems = [
   {
     question: "Como faço login no sistema?",
     answer:
-      "Acesse a tela de login, insira seu e-mail e senha cadastrados e clique em Entrar. Se a sua conta tiver autenticação de dois fatores (2FA) ativada, o sistema solicitará o código do aplicativo autenticador antes de liberar o acesso.",
+      "Acesse a tela de login com seu e-mail e senha. Contas com perfil ADMIN exigem autenticação de dois fatores (2FA) via aplicativo autenticador (Google Authenticator, Authy). Após inserir a senha, o sistema solicitará o código de 6 dígitos. O token expira a cada 30 segundos — se o login falhar, aguarde o próximo código.",
   },
   {
-    question: "Como criar projeto ou tarefa?",
+    question: "O que aparece no Dashboard?",
     answer:
-      "Acesse Agenda e Tarefas, clique em Nova Tarefa e preencha os campos obrigatórios. Perfis ADMIN podem escolher o responsável; colaboradores criam tarefas para si mesmos.",
+      "O dashboard exibe KPIs financeiros em tempo real (faturamento do dia, faturamento do mês, lucro líquido real e total de vendas), alertas operacionais priorizados, ranking de colaboradores, tarefas pendentes e gráfico de evolução financeira. Os dados financeiros vêm integrados do FoneNinja e Meu Assessor. Use o filtro de data no topo para visualizar outros períodos.",
   },
   {
-    question: "Como entendo o dashboard?",
+    question: "O que é o Lucro Líquido Real?",
     answer:
-      "O dashboard mostra indicadores operacionais e financeiros, além das tarefas prioritárias do dia. Os cartões principais resumem produtividade, pendências e visão geral da operação.",
+      "O Lucro Líquido Real é calculado pelo backend somando dados do FoneNinja (vendas) com dados do Meu Assessor (despesas administrativas e fixas). Difere do lucro bruto pois desconta todas as despesas operacionais. O frontend apenas exibe o valor calculado pelo servidor — nunca recalcula financeiro.",
   },
   {
-    question: "Como funciona o ranking e pontuação?",
+    question: "Como funciona o filtro de data nos dashboards?",
     answer:
-      "O ranking exibe os colaboradores ordenados pela pontuação acumulada no período selecionado (diário, semanal ou mensal). Cada tarefa concluída gera pontos conforme a prioridade e o prazo — tarefas urgentes entregues no prazo valem mais.",
+      "O filtro de data afeta todos os KPIs e gráficos da tela. Você pode navegar entre meses clicando nas setas de mês, usar o botão 'Hoje' para voltar ao dia atual, ou selecionar um dia específico no calendário para ver o faturamento daquele dia. Por padrão, o dashboard abre no dia de hoje.",
   },
   {
-    question: "Como ganhar pontos na gamificação?",
+    question: "Como criar e gerenciar tarefas?",
     answer:
-      "Você ganha pontos ao concluir tarefas dentro do prazo, manter sequências de produtividade e atingir metas mensais. Tarefas de alta prioridade e entregas antecipadas oferecem bônus de pontuação.",
+      "Acesse Agenda e Tarefas e clique em 'Nova Tarefa'. Defina título, prioridade (baixa, média, alta, urgente), prazo e responsável. ADMIN pode atribuir tarefas a qualquer colaborador; colaboradores criam tarefas apenas para si. Tarefas concluídas geram pontos na gamificação conforme a prioridade e o cumprimento do prazo.",
   },
   {
-    question: "Quanto tempo tarefas concluídas ficam visíveis?",
+    question: "Como funciona o módulo Financeiro?",
     answer:
-      "Tarefas concluídas permanecem visíveis nos filtros de histórico por 30 dias. Após esse período, são arquivadas e acessíveis somente via exportação ou relatórios.",
+      "O módulo Financeiro exibe dados consolidados de FoneNinja + Meu Assessor: faturamento, lucro bruto, total de gastos e lucro líquido. Você pode filtrar por mês ou dia. O gráfico de pizza mostra despesas por categoria. A seção 'Monitoramento' exibe alertas de desvios (margem baixa, despesas elevadas) e as entradas recentes. Apenas ADMIN e GERENTE têm acesso.",
   },
   {
-    question: "Como redefinir minha senha?",
+    question: "Como funciona o módulo Comercial?",
     answer:
-      "Na tela de login, clique em Esqueci minha senha, informe seu e-mail e aguarde as instruções. O link de redefinição é válido por 2 horas. Caso não encontre o e-mail, verifique a pasta de spam.",
+      "O Comercial exibe dados em tempo real do CRM Kommo: leads ativos, leads ganhos, leads perdidos, taxa de conversão e pipeline por etapa. O botão 'Abrir Kommo' leva diretamente ao CRM. Os alertas operacionais (chats sem resposta, leads esquecidos) aparecem automaticamente quando há desvios. Os dados de histórico permitem visualizar evolução por mês ou dia.",
   },
   {
-    question: "Como funcionam os níveis Bronze, Prata e Ouro?",
+    question: "Como funciona o módulo Operação?",
     answer:
-      "Os níveis representam o progresso acumulado de pontuação. Bronze é o nível inicial; ao atingir 500 pontos você avança para Prata; com 2 000 pontos você alcança Ouro. Cada nível desbloqueia badges exclusivos no perfil.",
+      "Operação exibe o estoque sincronizado do FoneNinja: resumo de inventário, tabela de produtos com filtros (busca, status, tipo), produtos mais vendidos e alertas de estoque crítico. O botão 'Sincronizar' atualiza o estoque manualmente. Dados financeiros do estoque (custo, margem) são visíveis apenas para ADMIN e GERENTE.",
   },
   {
-    question: "O sistema salva automaticamente?",
+    question: "Como funciona o Ranking e a Gamificação?",
     answer:
-      "Sim. Formulários de tarefas e checklists salvam rascunhos automaticamente enquanto você preenche. Dados de configuração e preferências são persistidos imediatamente ao confirmar.",
+      "O Ranking ordena colaboradores por pontuação no período selecionado (diário, semanal ou mensal). Pontos são ganhos ao concluir tarefas: urgentes valem mais, conclusões antecipadas dão bônus, atrasos penalizam. O perfil de cada colaborador exibe badges desbloqueados (Bronze, Prata, Ouro) e o histórico de atividade. Streaks (dias consecutivos de atividade) também somam pontos.",
   },
   {
-    question: "Quem pode visualizar relatórios financeiros?",
+    question: "Quem pode acessar o quê no sistema?",
     answer:
-      "Apenas usuários com perfil GESTOR ou ADMIN têm acesso ao módulo financeiro e seus relatórios. Colaboradores enxergam somente as informações pertinentes à sua operação diária.",
+      "COLABORADOR: Agenda/Tarefas e Suporte. GERENTE: adiciona Financeiro, Comercial e Operação. ADMIN: acesso completo incluindo Configurações, Processos e dados financeiros detalhados. SUPER_USER: visão total do sistema com controle de feature flags. As rotas protegidas redirecionam automaticamente se o perfil não tiver permissão.",
+  },
+  {
+    question: "Como gerenciar usuários e configurações?",
+    answer:
+      "Em Configurações (acesso ADMIN), você pode criar novos usuários, alterar senhas, configurar perfis e ativar/desativar o 2FA. A aba Sistema exibe o status das integrações (FoneNinja, Meu Assessor, Kommo). Alterações de senha enviam notificação ao usuário afetado.",
+  },
+  {
+    question: "O que é o módulo Processos?",
+    answer:
+      "Processos centraliza materiais operacionais da empresa: manuais, procedimentos, templates e vídeos de treinamento. ADMIN e GERENTE podem fazer upload de arquivos. Todos os colaboradores podem visualizar e baixar. Acesse pelo botão 'Procedimentos e Materiais' na tela de Processos.",
+  },
+  {
+    question: "Minha sessão expirou, o que fazer?",
+    answer:
+      "O sistema usa tokens JWT com expiração curta por segurança. Quando a sessão expira, você é redirecionado automaticamente para o login. Basta entrar novamente com e-mail, senha e (se ADMIN) o código 2FA. Se o problema persistir, limpe os cookies do navegador e tente novamente.",
+  },
+  {
+    question: "Os dados financeiros são atualizados automaticamente?",
+    answer:
+      "Sim. O dashboard financeiro atualiza a cada 60 segundos para o mês atual. Meses anteriores usam cache de 5 minutos. O módulo Comercial atualiza a cada 30 segundos. Você também pode forçar a atualização clicando no ícone de refresh disponível em cada tela.",
   },
 ] as const
 
@@ -79,10 +99,10 @@ export function FaqSection() {
                 onClick={() => setOpenIndex((current) => (current === index ? null : index))}
               >
                 <span className="text-sm font-medium">{item.question}</span>
-                <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", isOpen && "rotate-180")} />
               </button>
               {isOpen ? (
-                <div className="border-t px-4 py-3 text-sm text-muted-foreground">
+                <div className="border-t px-4 py-3 text-sm text-muted-foreground leading-relaxed">
                   {item.answer}
                 </div>
               ) : null}

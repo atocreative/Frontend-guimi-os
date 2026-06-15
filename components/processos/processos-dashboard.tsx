@@ -1,49 +1,59 @@
 "use client"
 
-import { BookOpen, GraduationCap, FileText, PlayCircle } from "lucide-react"
+import { useState } from "react"
+import { BookOpen, FileText, PlayCircle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ModalMateriais } from "@/components/processos/modal-materiais"
 
 interface Props {
-  initialSummary?: unknown
-  initialMes: number
-  initialAno: number
-  availableYears: number[]
+  userRole: string
+  canUpload: boolean
 }
 
-export function ProcessosDashboard({}: Props) {
+export function ProcessosDashboard({ userRole: _userRole, canUpload }: Props) {
+  const [modalOpen, setModalOpen] = useState(false)
+
   return (
     <div className="space-y-6">
 
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight">Processos</h2>
-        <p className="text-sm text-muted-foreground">
-          Treinamento operacional, procedimentos e materiais de apoio.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Processos</h2>
+          <p className="text-sm text-muted-foreground">
+            Treinamento operacional, procedimentos e materiais de apoio.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-2 shrink-0"
+          onClick={() => setModalOpen(true)}
+        >
+          <FileText className="h-4 w-4" />
+          Procedimentos e Materiais
+        </Button>
       </div>
 
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
           <div className="rounded-full p-3 bg-muted/60">
-            <GraduationCap className="h-8 w-8 text-muted-foreground" />
+            <BookOpen className="h-8 w-8 text-muted-foreground" />
           </div>
           <div>
-            <h3 className="text-base font-semibold">Em breve</h3>
+            <h3 className="text-base font-semibold">Módulo em desenvolvimento</h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-md">
-              Esta área será dedicada a treinamentos, procedimentos operacionais padrão
-              e materiais de capacitação para a equipe.
+              Em breve esta área terá checklists, fluxos operacionais e acompanhamento de processos.
+              Use o botão acima para acessar os materiais e procedimentos já disponíveis.
             </p>
           </div>
-          <Badge variant="outline" className="font-normal mt-2">
-            módulo em desenvolvimento
-          </Badge>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
           {
-            icon: BookOpen,
+            icon: FileText,
             title: "Procedimentos",
             desc: "Documentação dos fluxos operacionais da empresa.",
           },
@@ -53,12 +63,16 @@ export function ProcessosDashboard({}: Props) {
             desc: "Vídeos e tutoriais para onboarding e capacitação.",
           },
           {
-            icon: FileText,
+            icon: BookOpen,
             title: "Materiais",
             desc: "Manuais, templates e recursos de apoio.",
           },
         ].map(({ icon: Icon, title, desc }) => (
-          <Card key={title} className="opacity-70">
+          <Card
+            key={title}
+            className="opacity-70 cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => setModalOpen(true)}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Icon className="h-4 w-4 text-muted-foreground" />
@@ -72,6 +86,11 @@ export function ProcessosDashboard({}: Props) {
         ))}
       </div>
 
+      <ModalMateriais
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        canUpload={canUpload}
+      />
     </div>
   )
 }
