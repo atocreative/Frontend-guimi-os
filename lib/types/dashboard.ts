@@ -46,6 +46,7 @@ export type DashboardSummary = {
   _meta?: {
     source?: string
     sourceType?: "CSV" | "API" | string
+    isStable?: boolean
     filtered?: boolean
     lojaId?: string
   }

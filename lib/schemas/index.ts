@@ -32,6 +32,8 @@ export const mfaVerifySchema = z.object({
   code: z.string().regex(/^\d{6}$/, "Código deve ter 6 dígitos"),
 })
 
+const recurrenceTypeSchema = z.enum(["NONE", "DAILY", "WEEKLY", "MONTHLY"]).optional()
+
 export const taskCreateSchema = z.object({
   title: z.string().trim().min(1, "Título é obrigatório").max(255, "Título muito longo"),
   description: z.string().trim().min(5, "Descrição deve ter no mínimo 5 caracteres").max(1000, "Descrição muito longa"),
@@ -39,6 +41,8 @@ export const taskCreateSchema = z.object({
   dueAt: optionalNullableDateInput,
   horario: optionalNullableTimeInput,
   assigneeId: optionalNullableUuid,
+  recurrenceType: recurrenceTypeSchema,
+  recurrenceInterval: z.number().int().min(1).max(365).optional(),
 })
 
 export const taskUpdateSchema = z.object({
@@ -50,6 +54,8 @@ export const taskUpdateSchema = z.object({
   horario: optionalNullableTimeInput,
   assigneeId: optionalNullableUuid,
   lateReason: z.string().min(50, "Justificativa deve ter no mínimo 50 caracteres").nullable().optional(),
+  recurrenceType: recurrenceTypeSchema,
+  recurrenceInterval: z.number().int().min(1).max(365).optional(),
 })
 
 export const taskFiltersSchema = z.object({

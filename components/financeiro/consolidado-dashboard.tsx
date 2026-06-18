@@ -3,8 +3,7 @@
 import { useState, useCallback, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-  TrendingUp, TrendingDown, Radio, RefreshCw,
-  Database, Activity, Lock, AlertTriangle, Info,
+  TrendingUp, TrendingDown, Activity, AlertTriangle, Info,
 } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -15,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { GlobalDateFilter } from "@/components/global/global-date-filter"
 import { getPeriodoLabel } from "@/lib/financeiro-utils"
-import { useFinanceiroConsolidado } from "@/lib/queries/use-financeiro-consolidado"
+import { useFinancialConsolidated } from "@/lib/queries/use-financial-consolidated"
 
 function brl(v: number | undefined | null) {
   const n = Number(v ?? 0)
@@ -44,9 +43,10 @@ interface KpiCardProps {
   loading?: boolean
   accent?: "green" | "red" | "blue" | "default"
   emphasized?: boolean
+  fonte?: string
 }
 
-function KpiCard({ label, value, sub, tooltip, trend, loading, accent = "default", emphasized }: KpiCardProps) {
+function KpiCard({ label, value, sub, tooltip, trend, loading, accent = "default", emphasized, fonte }: KpiCardProps) {
   const accentClass =
     accent === "green" ? "text-emerald-600 dark:text-emerald-400"
     : accent === "red" ? "text-red-500"
@@ -76,6 +76,9 @@ function KpiCard({ label, value, sub, tooltip, trend, loading, accent = "default
         )}
         {sub && !loading && (
           <p className="mt-1 text-xs text-muted-foreground tabular-nums">{sub}</p>
+        )}
+        {fonte && (
+          <span className="text-[10px] font-mono tracking-wide text-muted-foreground/40 select-none">{fonte}</span>
         )}
       </CardContent>
     </Card>
@@ -133,36 +136,28 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
     syncUrl(date.getMonth(), date.getFullYear())
   }, [syncUrl])
 
-  const { data, isLoading, isFetching, isError, dataUpdatedAt } = useFinanceiroConsolidado(ano, month1)
+  const { data, isLoading, isFetching, isError, dataUpdatedAt } = useFinancialConsolidated(ano, month1)
 
-  const loading    = isLoading && !data
-  const refreshing = isFetching && !loading
-  const lastSync   = dataUpdatedAt ? new Date(dataUpdatedAt) : null
+  const loading = isLoading && !data
 
+  const maCount     = data?.breakdown?.meuAssessor?.count ?? 0
+  const maAvailable = !isLoading && !isError && maCount > 0
+  const dataReady   = !isLoading && !isError && !!data
+
+  // numeric values only for chart; KPI display uses guards below
   const revenue     = data?.revenue ?? 0
   const grossProfit = data?.grossProfit ?? 0
   const netProfit   = data?.netProfit ?? 0
+  const totalGastos = data?.totalExpense ?? data?.totalExpenses ?? 0
+  const lucroLiquido = netProfit
 
-  // Total de Gastos: usa campo canônico da API quando disponível, senão deriva.
-  const totalGastos = data?.totalExpense != null
-    ? data.totalExpense
-    : data?.totalExpenses != null
-      ? data.totalExpenses
-      : Math.max(0, grossProfit - netProfit)
-
-  // Lucro Líquido = Lucro Bruto − Total de Gastos (espelha netProfit do backend).
-  const lucroLiquido = grossProfit - totalGastos
-
-  const grossMargin   = revenue > 0 ? (grossProfit / revenue) * 100 : 0
-  const liquidMargin  = revenue > 0 ? (lucroLiquido / revenue) * 100 : 0
-
-  const fnBreakdown = data?.breakdown?.fn
-  const maBreakdown = data?.breakdown?.meuAssessor
+  const grossMargin  = revenue > 0 ? (grossProfit / revenue) * 100 : 0
+  const liquidMargin = revenue > 0 ? (lucroLiquido / revenue) * 100 : 0
 
   const topCategorias = useMemo(() => {
-    const cats = maBreakdown?.categories ?? []
+    const cats = data?.breakdown?.meuAssessor?.categories ?? []
     return [...cats].sort((a, b) => b.valor - a.valor).slice(0, 5)
-  }, [maBreakdown])
+  }, [data])
 
   const periodoLabel = getPeriodoLabel({
     dia: null, mes: mesEfetivo, ano,
@@ -190,34 +185,6 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
         onDateSelect={handleDateSelect}
       />
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Badge variant="outline" className="gap-1 font-normal">
-          <Database className="h-3 w-3" />
-          FoneNinja + MeuAssessor
-        </Badge>
-        {fnBreakdown?.locked && (
-          <Badge variant="outline" className="gap-1 font-normal text-amber-700 border-amber-300">
-            <Lock className="h-3 w-3" />
-            mês fechado
-          </Badge>
-        )}
-        {isMesAtual && (
-          <Badge variant="outline" className="gap-1 font-normal text-emerald-600 border-emerald-300 dark:border-emerald-700">
-            <Radio className="h-3 w-3 animate-pulse" />
-            ao vivo
-          </Badge>
-        )}
-        {lastSync && (
-          <span className="tabular-nums">
-            Sync: {lastSync.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-          </span>
-        )}
-        {refreshing && (
-          <Badge variant="outline" className="gap-1 font-normal text-muted-foreground/70">
-            <RefreshCw className="h-3 w-3 animate-spin" /> atualizando
-          </Badge>
-        )}
-      </div>
 
       {isError && (
         <Card className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-900/20">
@@ -231,38 +198,42 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           label="Faturamento do Mês"
-          value={brl(revenue)}
+          value={!dataReady ? "Em breve / indisponível" : brl(revenue)}
           tooltip="Valor total vendido no período."
           trend="up"
           loading={loading}
-          accent="blue"
+          accent={!dataReady ? "default" : "blue"}
+          fonte="CONSOLIDADO"
         />
         <KpiCard
           label="Lucro Bruto"
-          value={brl(grossProfit)}
-          sub={`Margem ${pct(grossMargin)}`}
+          value={!dataReady ? "Em breve / indisponível" : brl(grossProfit)}
+          sub={dataReady ? `Margem ${pct(grossMargin)}` : undefined}
           tooltip={"Receita − CMV\n\nNão considera:\n- despesas administrativas\n- despesas operacionais\n- despesas fixas"}
-          trend={grossProfit >= 0 ? "up" : "down"}
+          trend={!dataReady ? "neutral" : grossProfit >= 0 ? "up" : "down"}
           loading={loading}
-          accent={grossProfit >= 0 ? "green" : "red"}
+          accent={!dataReady ? "default" : grossProfit >= 0 ? "green" : "red"}
+          fonte="CONSOLIDADO"
         />
         <KpiCard
           label="Total de Gastos"
-          value={brl(totalGastos)}
+          value={!dataReady ? "Em breve / indisponível" : !maAvailable ? "Em breve / indisponível" : brl(totalGastos)}
           tooltip={"Soma de:\n- despesas operacionais\n- despesas administrativas\n- despesas fixas\n\nCMV não incluso."}
-          trend="down"
+          trend={!dataReady || !maAvailable ? "neutral" : "down"}
           loading={loading}
-          accent="red"
+          accent={!dataReady || !maAvailable ? "default" : "red"}
+          fonte="CONSOLIDADO"
         />
         <KpiCard
           label="Lucro Líquido"
-          value={brl(lucroLiquido)}
-          sub={revenue > 0 ? `Margem ${pct(liquidMargin)}` : undefined}
+          value={!dataReady ? "Em breve / indisponível" : !maAvailable ? "Em breve / indisponível" : brl(lucroLiquido)}
+          sub={dataReady && maAvailable && revenue > 0 ? `Margem ${pct(liquidMargin)}` : undefined}
           tooltip={"Resultado final da operação.\n\nFórmula:\nLucro Bruto\n− Despesas Administrativas (MA)\n\nObservação: custos dos produtos (CMV) já estão descontados no Lucro Bruto."}
-          trend={lucroLiquido >= 0 ? "up" : "down"}
+          trend={!dataReady || !maAvailable ? "neutral" : lucroLiquido >= 0 ? "up" : "down"}
           loading={loading}
-          accent={lucroLiquido >= 0 ? "green" : "red"}
+          accent={!dataReady || !maAvailable ? "default" : lucroLiquido >= 0 ? "green" : "red"}
           emphasized
+          fonte="CONSOLIDADO"
         />
       </div>
 

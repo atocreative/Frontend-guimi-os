@@ -9,72 +9,72 @@ const faqItems = [
   {
     question: "Como faço login no sistema?",
     answer:
-      "Acesse a tela de login com seu e-mail e senha. Contas com perfil ADMIN exigem autenticação de dois fatores (2FA) via aplicativo autenticador (Google Authenticator, Authy). Após inserir a senha, o sistema solicitará o código de 6 dígitos. O token expira a cada 30 segundos — se o login falhar, aguarde o próximo código.",
+      "Acesse a tela de login com seu e-mail e senha cadastrados. O sistema exibe um desafio de segurança matemático (CAPTCHA) que deve ser respondido antes de entrar. Contas ADMIN exigem também autenticação de dois fatores (2FA) via Google Authenticator ou Authy — após a senha, insira o código de 6 dígitos gerado pelo aplicativo. O código expira a cada 30 segundos; se o login falhar, aguarde o próximo ciclo.",
   },
   {
     question: "O que aparece no Dashboard?",
     answer:
-      "O dashboard exibe KPIs financeiros em tempo real (faturamento do dia, faturamento do mês, lucro líquido real e total de vendas), alertas operacionais priorizados, ranking de colaboradores, tarefas pendentes e gráfico de evolução financeira. Os dados financeiros vêm integrados do FoneNinja e Meu Assessor. Use o filtro de data no topo para visualizar outros períodos.",
+      "O conteúdo varia conforme o perfil. ADMIN/SUPER_USER veem KPIs financeiros em tempo real (faturamento do dia e do mês, lucro líquido real, total de vendas, ticket médio, margem líquida, meta mensal e taxa de conversão), alertas operacionais priorizados e o ranking de colaboradores. COLABORADOR vê uma visão individual com suas tarefas pendentes, concluídas no mês e taxa de conclusão. Use o seletor de período no topo para navegar entre datas.",
   },
   {
     question: "O que é o Lucro Líquido Real?",
     answer:
-      "O Lucro Líquido Real é calculado pelo backend somando dados do FoneNinja (vendas) com dados do Meu Assessor (despesas administrativas e fixas). Difere do lucro bruto pois desconta todas as despesas operacionais. O frontend apenas exibe o valor calculado pelo servidor — nunca recalcula financeiro.",
-  },
-  {
-    question: "Como funciona o filtro de data nos dashboards?",
-    answer:
-      "O filtro de data afeta todos os KPIs e gráficos da tela. Você pode navegar entre meses clicando nas setas de mês, usar o botão 'Hoje' para voltar ao dia atual, ou selecionar um dia específico no calendário para ver o faturamento daquele dia. Por padrão, o dashboard abre no dia de hoje.",
+      "O Lucro Líquido Real é calculado pelo servidor combinando dados do FoneNinja (vendas) e do Meu Assessor (despesas operacionais e fixas). Difere do lucro bruto pois desconta todas as despesas. O frontend exibe o valor exatamente como calculado pelo backend — nenhum recálculo é feito no navegador. Visível apenas para ADMIN e GERENTE.",
   },
   {
     question: "Como criar e gerenciar tarefas?",
     answer:
-      "Acesse Agenda e Tarefas e clique em 'Nova Tarefa'. Defina título, prioridade (baixa, média, alta, urgente), prazo e responsável. ADMIN pode atribuir tarefas a qualquer colaborador; colaboradores criam tarefas apenas para si. Tarefas concluídas geram pontos na gamificação conforme a prioridade e o cumprimento do prazo.",
+      "Acesse Agenda e Tarefas e clique em 'Nova Tarefa'. Preencha título (obrigatório), descrição (mínimo 5 caracteres), prioridade (Nenhuma, Baixa, Média ou Alta), prazo, recorrência (Não recorrente, Diária, Semanal ou Mensal) e responsável. ADMIN e GERENTE podem atribuir tarefas a qualquer colaborador. Para concluir uma tarefa, clique no ícone de conclusão — tarefas atrasadas exigem justificativa de no mínimo 50 caracteres. Tarefas recorrentes geram automaticamente a próxima ocorrência ao serem concluídas.",
+  },
+  {
+    question: "Como funciona o filtro de data nos dashboards?",
+    answer:
+      "O filtro de data afeta todos os KPIs e gráficos da tela. Navegue entre meses usando as setas, clique em 'Hoje' para voltar ao dia atual, ou selecione um dia específico no calendário. Por padrão o dashboard abre no dia corrente. O período selecionado é refletido na URL (parâmetros m, y, d) e é preservado ao recarregar a página.",
   },
   {
     question: "Como funciona o módulo Financeiro?",
     answer:
-      "O módulo Financeiro exibe dados consolidados de FoneNinja + Meu Assessor: faturamento, lucro bruto, total de gastos e lucro líquido. Você pode filtrar por mês ou dia. O gráfico de pizza mostra despesas por categoria. A seção 'Monitoramento' exibe alertas de desvios (margem baixa, despesas elevadas) e as entradas recentes. Apenas ADMIN e GERENTE têm acesso.",
+      "O Financeiro exibe dados consolidados de FoneNinja e Meu Assessor: faturamento, despesas por categoria, lucro líquido e histórico mensal. Filtre por mês ou dia. A aba 'Consolidado' oferece análise detalhada com gráficos de evolução. Alertas aparecem automaticamente quando há desvios (margem baixa, CMV elevado). Acesso restrito a ADMIN e GERENTE.",
   },
   {
     question: "Como funciona o módulo Comercial?",
     answer:
-      "O Comercial exibe dados em tempo real do CRM Kommo: leads ativos, leads ganhos, leads perdidos, taxa de conversão e pipeline por etapa. O botão 'Abrir Kommo' leva diretamente ao CRM. Os alertas operacionais (chats sem resposta, leads esquecidos) aparecem automaticamente quando há desvios. Os dados de histórico permitem visualizar evolução por mês ou dia.",
+      "O Comercial exibe dados em tempo real do CRM Kommo: leads ativos e ganhos, taxa de conversão, chats pendentes e histórico por período. O botão 'Abrir Kommo' leva diretamente ao CRM. Alertas de atenção (chats acumulados, leads sem follow-up) aparecem automaticamente na Central de Alertas do Dashboard. Acesso restrito a GERENTE e ADMIN.",
   },
   {
     question: "Como funciona o módulo Operação?",
     answer:
-      "Operação exibe o estoque sincronizado do FoneNinja: resumo de inventário, tabela de produtos com filtros (busca, status, tipo), produtos mais vendidos e alertas de estoque crítico. O botão 'Sincronizar' atualiza o estoque manualmente. Dados financeiros do estoque (custo, margem) são visíveis apenas para ADMIN e GERENTE.",
+      "Operação exibe o estoque sincronizado do FoneNinja: resumo de inventário, tabela de produtos com filtros por nome e status, dispositivos mais vendidos por marca e alertas de estoque crítico. O botão 'Sincronizar' atualiza os dados manualmente. Acessível a todos os perfis, mas dados de custo e margem são visíveis apenas para ADMIN e GERENTE.",
   },
   {
-    question: "Como funciona o Ranking e a Gamificação?",
+    question: "Como funciona o Ranking?",
     answer:
-      "O Ranking ordena colaboradores por pontuação no período selecionado (diário, semanal ou mensal). Pontos são ganhos ao concluir tarefas: urgentes valem mais, conclusões antecipadas dão bônus, atrasos penalizam. O perfil de cada colaborador exibe badges desbloqueados (Bronze, Prata, Ouro) e o histórico de atividade. Streaks (dias consecutivos de atividade) também somam pontos.",
+      "O Ranking exibe a posição dos colaboradores por pontuação no período selecionado (Mês ou Geral). Pontos são obtidos ao concluir tarefas — prioridades mais altas e conclusões dentro do prazo geram mais pontos. O ranking é visível para todos os perfis. A tela Colaboradores complementa com detalhes de desempenho individual.",
   },
   {
     question: "Quem pode acessar o quê no sistema?",
     answer:
-      "COLABORADOR: Agenda/Tarefas e Suporte. GERENTE: adiciona Financeiro, Comercial e Operação. ADMIN: acesso completo incluindo Configurações, Processos e dados financeiros detalhados. SUPER_USER: visão total do sistema com controle de feature flags. As rotas protegidas redirecionam automaticamente se o perfil não tiver permissão.",
+      "COLABORADOR: Dashboard individual, Agenda e Tarefas, Operação, Ranking e Suporte. GERENTE (Pedro Ribas): adiciona Comercial e Financeiro. ADMIN (Gui): acesso completo incluindo Configurações e Processos. SUPER_USER (Developer): visão total com Dashboard Development e controle de feature flags. Rotas protegidas redirecionam automaticamente para o Dashboard quando o perfil não tem permissão.",
   },
   {
-    question: "Como gerenciar usuários e configurações?",
+    question: "Como gerenciar usuários?",
     answer:
-      "Em Configurações (acesso ADMIN), você pode criar novos usuários, alterar senhas, configurar perfis e ativar/desativar o 2FA. A aba Sistema exibe o status das integrações (FoneNinja, Meu Assessor, Kommo). Alterações de senha enviam notificação ao usuário afetado.",
+      "Em Configurações (acesso ADMIN), aba Usuários, você vê todos os colaboradores cadastrados com nome, e-mail, cargo, perfil e data de cadastro. Clique nos três pontos ao lado de um usuário para editar nome, cargo, senha ou desativar a conta. O botão 'Novo Colaborador' cria um novo usuário com perfil COLABORADOR ou GESTOR. A aba Sistema exibe o status das integrações ativas.",
   },
   {
     question: "O que é o módulo Processos?",
     answer:
-      "Processos centraliza materiais operacionais da empresa: manuais, procedimentos, templates e vídeos de treinamento. ADMIN e GERENTE podem fazer upload de arquivos. Todos os colaboradores podem visualizar e baixar. Acesse pelo botão 'Procedimentos e Materiais' na tela de Processos.",
+      "Processos centraliza materiais operacionais da empresa: manuais, procedimentos, templates e materiais de treinamento. Acessível pelo botão 'Procedimentos e Materiais'. Todos os colaboradores podem visualizar o conteúdo disponibilizado pelo ADMIN.",
   },
   {
     question: "Minha sessão expirou, o que fazer?",
     answer:
-      "O sistema usa tokens JWT com expiração curta por segurança. Quando a sessão expira, você é redirecionado automaticamente para o login. Basta entrar novamente com e-mail, senha e (se ADMIN) o código 2FA. Se o problema persistir, limpe os cookies do navegador e tente novamente.",
+      "O sistema usa tokens JWT com expiração automática. Quando a sessão expira, você é redirecionado para o login. Faça login novamente com e-mail, senha, CAPTCHA e, se for ADMIN, o código 2FA. Se o problema persistir após o login, limpe os cookies do navegador (Ctrl+Shift+Delete) e tente novamente.",
   },
   {
-    question: "Os dados financeiros são atualizados automaticamente?",
+    question: "Os dados são atualizados automaticamente?",
     answer:
-      "Sim. O dashboard financeiro atualiza a cada 60 segundos para o mês atual. Meses anteriores usam cache de 5 minutos. O módulo Comercial atualiza a cada 30 segundos. Você também pode forçar a atualização clicando no ícone de refresh disponível em cada tela.",
+      "Sim. O Dashboard financeiro atualiza automaticamente ao navegar entre períodos. O módulo Comercial exibe dados em tempo real do Kommo. O módulo Operação tem botão 'Sincronizar' para atualização manual do estoque. Use o ícone de refresh (⟳) disponível em cada tela para forçar uma atualização imediata.",
   },
 ] as const
 

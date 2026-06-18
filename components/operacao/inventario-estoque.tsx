@@ -125,7 +125,15 @@ function buildSortPreset(sort: string, order: string): string {
 
 const STATUS_FILTERS = [
   { value: "",           label: "Todos" },
-  { value: "disponivel", label: "Disponíveis" },
+  { value: "disponivel", label: "Disponível" },
+  { value: "reservado",  label: "Pendente" },
+  { value: "vendido",    label: "Concluído" },
+]
+
+const TIPO_TABS = [
+  { value: "",          label: "Todos" },
+  { value: "APARELHO",  label: "Aparelhos" },
+  { value: "ACESSORIO", label: "Acessórios" },
 ]
 
 // ─── Error state ──────────────────────────────────────────────────────────────
@@ -273,6 +281,7 @@ export function InventarioEstoque({
     initialParams.order ?? "desc"
   )
   const currentStatus = initialParams.status ?? ""
+  const currentTipo = initialParams.tipo ?? ""
   const visiblePresets = SORT_PRESETS.filter((p) => !p.financial || showFinancial)
 
   function navigate(updates: Record<string, string | undefined>) {
@@ -418,6 +427,24 @@ export function InventarioEstoque({
             </div>
           </div>
 
+          {/* Tipo tabs */}
+          <div className="flex gap-1.5 flex-wrap border-b pb-2">
+            {TIPO_TABS.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => navigate({ tipo: t.value || undefined })}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-medium transition-colors",
+                  currentTipo === t.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
           {/* Status filter pills */}
           <div className="flex gap-1.5 flex-wrap">
             {STATUS_FILTERS.map((f) => (
@@ -447,13 +474,13 @@ export function InventarioEstoque({
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-foreground">Nenhum produto encontrado</p>
-                {search || currentStatus ? (
+                {search || currentStatus || currentTipo ? (
                   <p className="text-sm text-muted-foreground mt-1">
                     Tente ajustar os filtros ou{" "}
                     <button
                       onClick={() => {
                         setSearch("")
-                        navigate({ search: undefined, status: undefined })
+                        navigate({ search: undefined, status: undefined, tipo: undefined })
                       }}
                       className="text-primary underline underline-offset-2"
                     >

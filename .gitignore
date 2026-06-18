@@ -271,7 +271,9 @@ prisma/
 
 # Cache do Claude Agent e ferramentas de IA
 .claude/
-
+.claude/skills/
+skills-lock.json
+skills-lock
 # Caches e builds do Next.js (caso ainda não estejam lá)
 .next/
 .ai/
@@ -285,6 +287,7 @@ RTK.md
 .playwright/
 playwright/
 playwright-report/
+.playwright-cli/
 
 screenshots/
 

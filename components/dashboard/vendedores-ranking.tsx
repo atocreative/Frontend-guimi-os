@@ -120,7 +120,7 @@ export function VendedoresRanking({ entries, loading = false }: Props) {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-semibold">{entry.userName}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {entry.tarefasConcluidas} tarefas · {Math.round(entry.taxaConclusao * 100)}% conclusão
+                        {entry.tarefasConcluidas} tarefas · {Math.round(entry.taxaConclusao)}% conclusão
                       </p>
                     </div>
                     <ScoreBadge value={entry.score} max={maxScore} />

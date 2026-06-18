@@ -13,6 +13,10 @@ interface KpiCardProps {
   accent?: "info" | "positive" | "negative" | "neutral"
   /** Tooltip nativo — explica origem e fórmula do KPI */
   tooltip?: string
+  /** Indicador discreto de origem: LIVE · SNAPSHOT · CONSOL. */
+  fonte?: string
+  /** Substitui o valor por "Em breve" quando feature/endpoint não está pronto */
+  emBreve?: boolean
 }
 
 export function KpiCard({
@@ -24,6 +28,8 @@ export function KpiCard({
   destaque,
   accent = "neutral",
   tooltip,
+  fonte,
+  emBreve,
 }: KpiCardProps) {
   const valueClass = destaque
     ? "text-white dark:text-zinc-950"
@@ -52,9 +58,9 @@ export function KpiCard({
             </p>
             <p className={cn(
               "text-2xl font-bold tracking-tight tabular-nums",
-              valueClass
+              emBreve ? "text-muted-foreground/40 text-base italic" : valueClass
             )}>
-              {valor}
+              {emBreve ? "Em breve" : valor}
             </p>
             {descricao && (
               <p className={cn(
@@ -63,6 +69,11 @@ export function KpiCard({
               )}>
                 {descricao}
               </p>
+            )}
+            {fonte && (
+              <span className="text-[10px] font-mono tracking-wide text-muted-foreground/40 select-none">
+                {fonte}
+              </span>
             )}
           </div>
           <div className={cn(

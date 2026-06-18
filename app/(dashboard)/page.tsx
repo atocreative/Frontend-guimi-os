@@ -65,18 +65,16 @@ export default async function DashboardPage() {
     ? tasks.filter((tarefa) => tarefa.assigneeId === session.user.id)
     : tasks
 
+  const isActiveTask = (s: string) => s === "PENDENTE" || s === "EM_ANDAMENTO" || s === "EXPIRADA"
+
   const tarefasPendentes = sortTarefasByPriority(
-    tarefas.filter(
-      (tarefa) => tarefa.status === "PENDENTE" || tarefa.status === "EM_ANDAMENTO"
-    ),
+    tarefas.filter((tarefa) => isActiveTask(tarefa.status)),
     now
   )
 
   const tarefasHoje = sortTarefasByPriority(
     tarefas.filter(
-      (tarefa) =>
-        (tarefa.status === "PENDENTE" || tarefa.status === "EM_ANDAMENTO") &&
-        isTaskDueToday(tarefa.dueAt, now)
+      (tarefa) => isActiveTask(tarefa.status) && isTaskDueToday(tarefa.dueAt, now)
     ),
     now
   ).slice(0, 5)
@@ -126,9 +124,7 @@ export default async function DashboardPage() {
     return completedAt >= start && completedAt < end
   }).length
 
-  const pendentes = tarefas.filter(
-    (tarefa) => tarefa.status === "PENDENTE" || tarefa.status === "EM_ANDAMENTO"
-  ).length
+  const pendentes = tarefas.filter((tarefa) => isActiveTask(tarefa.status)).length
   const totalBase = concluidasMes + pendentes
   const taxaConclusao = totalBase === 0 ? 0 : Math.round((concluidasMes / totalBase) * 100)
 

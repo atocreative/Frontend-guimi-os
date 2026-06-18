@@ -49,9 +49,14 @@ function getReferenceDate(referenceDate?: Date | string): Date {
   return referenceDate ? new Date(referenceDate) : new Date()
 }
 
+// Returns "YYYY-MM-DD" in BRT (America/Sao_Paulo) — lexicographically comparable.
+function toBRTDateStr(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(date)
+}
+
 export function isTaskDueToday(value: DueAtValue, referenceDate?: Date | string): boolean {
   if (!value) return false
-  return new Date(value).toDateString() === getReferenceDate(referenceDate).toDateString()
+  return toBRTDateStr(new Date(value)) === toBRTDateStr(getReferenceDate(referenceDate))
 }
 
 const COMPLETED_STATUSES = ["CONCLUIDA", "CONCLUIDA_ATRASADA", "CANCELADA"] as const
@@ -62,7 +67,7 @@ export function isCompletedStatus(status: string): boolean {
 
 export function normalizeTaskMetrics(tarefas: { status: string; completedAt?: string | null; dueAt?: string | null }[]) {
   const completed = tarefas.filter((t) => t.status === "CONCLUIDA" || t.status === "CONCLUIDA_ATRASADA")
-  const pending = tarefas.filter((t) => t.status !== "CONCLUIDA" && t.status !== "CONCLUIDA_ATRASADA")
+  const pending = tarefas.filter((t) => t.status !== "CONCLUIDA" && t.status !== "CONCLUIDA_ATRASADA" && t.status !== "CANCELADA")
   const lateCompleted = tarefas.filter((t) => t.status === "CONCLUIDA_ATRASADA")
   return {
     total: tarefas.length,
@@ -78,11 +83,7 @@ export function isTaskAtrasada(
 ): boolean {
   if (!tarefa.dueAt) return false
   if (isCompletedStatus(tarefa.status)) return false
-  const hoje = getReferenceDate(referenceDate)
-  hoje.setHours(0, 0, 0, 0)
-  const prazo = new Date(tarefa.dueAt)
-  prazo.setHours(0, 0, 0, 0)
-  return prazo < hoje
+  return toBRTDateStr(new Date(tarefa.dueAt)) < toBRTDateStr(getReferenceDate(referenceDate))
 }
 
 export function sortTarefasByPriority<T extends { priority: TaskPriority; dueAt: DueAtValue; status: string; horario?: HorarioValue }>(
@@ -90,14 +91,11 @@ export function sortTarefasByPriority<T extends { priority: TaskPriority; dueAt:
   referenceDate?: Date | string
 ): T[] {
   const hoje = getReferenceDate(referenceDate)
-  hoje.setHours(0, 0, 0, 0)
 
   function isAtrasada(t: T): boolean {
     if (!t.dueAt) return false
     if (isCompletedStatus(t.status)) return false
-    const prazo = new Date(t.dueAt)
-    prazo.setHours(0, 0, 0, 0)
-    return prazo < hoje
+    return toBRTDateStr(new Date(t.dueAt)) < toBRTDateStr(hoje)
   }
 
   return [...tarefas].sort((a, b) => {

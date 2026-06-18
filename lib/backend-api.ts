@@ -73,6 +73,13 @@ function normalizeTask(input: unknown): TarefaDB {
     lateReason: typeof task.lateReason === "string" ? task.lateReason : null,
     completedByName: typeof task.completedByName === "string" ? task.completedByName : null,
     pointsAwarded: typeof task.pointsAwarded === "number" ? task.pointsAwarded : null,
+    isRecurring: task.isRecurring === true,
+    recurrenceType:
+      task.recurrenceType === "DAILY" || task.recurrenceType === "WEEKLY" || task.recurrenceType === "MONTHLY"
+        ? task.recurrenceType
+        : "NONE",
+    recurrenceInterval: typeof task.recurrenceInterval === "number" ? task.recurrenceInterval : 1,
+    parentTaskId: typeof task.parentTaskId === "string" ? task.parentTaskId : null,
   }
 }
 

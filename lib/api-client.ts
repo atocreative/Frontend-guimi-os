@@ -84,12 +84,9 @@ async function getAuthToken(): Promise<string | null> {
     if (cachedTokenStr.length > 0) {
       const parts = cachedTokenStr.split('.')
       if (parts.length === 3) {
-        console.log("[getAuthToken] Token em cache válido e em uso")
         return cachedToken
       }
     }
-    // Token em cache inválido, limpar
-    console.warn("[getAuthToken] Token em cache inválido, limpando cache")
     clearAuthTokenCache()
   }
 
@@ -248,22 +245,6 @@ export const api = {
       throw new ApiError(response.status, data, getApiErrorMessage(response.status, data), payloadData?.code)
     }
 
-    // ── TEMP DEBUG — descobrir shape real da resposta do backend ──────────
-    console.log("[api.login] top-level keys:", data && typeof data === "object" ? Object.keys(data) : typeof data)
-    if (data && typeof data === "object" && "data" in data) {
-      const inner = (data as any).data
-      console.log("[api.login] data.keys:", inner && typeof inner === "object" ? Object.keys(inner) : typeof inner)
-      console.log("[api.login] data.accessToken len:", (inner?.accessToken as string | undefined)?.length ?? 0)
-      console.log("[api.login] data.token len:", (inner?.token as string | undefined)?.length ?? 0)
-      console.log("[api.login] data.access_token len:", (inner?.access_token as string | undefined)?.length ?? 0)
-    } else {
-      const d = data as any
-      console.log("[api.login] accessToken len:", (d?.accessToken as string | undefined)?.length ?? 0)
-      console.log("[api.login] token len:", (d?.token as string | undefined)?.length ?? 0)
-      console.log("[api.login] access_token len:", (d?.access_token as string | undefined)?.length ?? 0)
-    }
-    // ─────────────────────────────────────────────────────────────────────
-
     // Backend retorna { data: { accessToken, user, ... } }
     // Extrair .data se existir
     if (data && typeof data === 'object' && 'data' in data) {
@@ -301,6 +282,8 @@ export const api = {
     dueAt?: string | null
     horario?: string | null
     assigneeId?: string | null
+    recurrenceType?: string
+    recurrenceInterval?: number
   }) {
     const data = await apiCall("/api/tasks", {
       method: "POST",
@@ -319,6 +302,8 @@ export const api = {
       dueAt: string | null
       horario: string | null
       assigneeId: string | null
+      recurrenceType: string
+      recurrenceInterval: number
     }>
   ) {
     const data = await apiCall(`/api/tasks/${id}`, {
@@ -481,12 +466,9 @@ export const api = {
   },
 
   async updateCurrentUserPassword(newPassword: string) {
-    const body = JSON.stringify({ newPassword })
-    console.log("[REQUEST BODY]", body)
-
     const data = await apiCall("/api/users/me/password", {
       method: "PATCH",
-      body,
+      body: JSON.stringify({ newPassword }),
     })
 
     return data

@@ -86,6 +86,6 @@ export function useFinanceiroConsolidado(year: number, month1: number) {
     gcTime: live ? GC_LIVE : GC_MONTHLY,
     refetchInterval: live ? 60_000 : false,
     refetchIntervalInBackground: false,
-    placeholderData: (prev) => prev ?? null,
+    refetchOnWindowFocus: false,
   })
 }

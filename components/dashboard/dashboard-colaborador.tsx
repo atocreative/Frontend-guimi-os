@@ -9,7 +9,8 @@ import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
 import { Leaderboard } from "@/components/gamificacao/leaderboard"
 import { UserStats } from "@/components/gamificacao/user-stats"
 import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
-import { api } from "@/lib/api-client"
+import { api, ApiError } from "@/lib/api-client"
+import { toast } from "sonner"
 import type { TarefaDB } from "@/types/tarefas"
 
 interface DashboardColaboradorProps {
@@ -104,7 +105,7 @@ export function DashboardColaborador({
     const tarefa = tarefasPorId.get(id)
 
     try {
-      await api.updateTask(id, { status: "CONCLUIDA" })
+      await api.completeTask(id)
       notifyTaskCompleted({ taskTitle: tarefa?.title })
       setRiscados((prev) => new Set(prev).add(id))
       setTimeout(() => {
@@ -116,7 +117,11 @@ export function DashboardColaborador({
         })
       }, 700)
       return true
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 400) {
+        toast.error("Tarefa atrasada requer justificativa. Acesse a Agenda para concluí-la.")
+        return false
+      }
       notifyTaskCompletionError()
       return false
     }

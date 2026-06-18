@@ -111,14 +111,6 @@ export function MenuConfigProvider({
         const updated = prev.map((item) =>
           item.id === id ? { ...item, ...updates } : item
         )
-        const updatedItem = updated.find(i => i.id === id)
-        if (updatedItem) {
-          console.log("[MenuConfigProvider] Item atualizado:", {
-            id,
-            changes: updates,
-            newState: { enabled: updatedItem.enabled, pending: updatedItem.pending, roles: updatedItem.allowedRoles }
-          })
-        }
         return updated
       })
       // Update timestamp on item change to track state mutations
@@ -130,11 +122,6 @@ export function MenuConfigProvider({
   const saveToStorage = useCallback(() => {
     try {
       saveMenuConfigToStorage(items)
-      console.log("[MenuConfigProvider] Alterações salvas no localStorage:", {
-        count: items.length,
-        timestamp: new Date().toISOString(),
-        items: items.map(i => ({ id: i.id, name: i.name, enabled: i.enabled, pending: i.pending }))
-      })
       setLastUpdated(new Date())
     } catch (error) {
       console.error("[MenuConfigProvider] Erro ao salvar no localStorage:", error)

@@ -98,6 +98,22 @@ export async function GET(req: NextRequest) {
         })
         faturamentoDia = match ? Number(match.revenue) : 0
         lucroLiquidoDia = faturamentoDia !== null ? Math.round(faturamentoDia * netMarginRatio) : null
+      } else {
+        // Monthly fetch (no day param): auto-derive today's revenue from the daily breakdown
+        // Only applies to the current month — past months have no "today"
+        const todayUTC = now.getUTCDate()
+        const thisMonthUTC = now.getUTCMonth() + 1
+        const thisYearUTC = now.getUTCFullYear()
+        if (month1 === thisMonthUTC && year === thisYearUTC) {
+          const todayEntry = diario.days.find((d: { date: string; revenue: number }) => {
+            const p = new Date(d.date)
+            return p.getUTCDate() === todayUTC
+          })
+          if (todayEntry) {
+            faturamentoDia = Number(todayEntry.revenue)
+            lucroLiquidoDia = Math.round(faturamentoDia * netMarginRatio)
+          }
+        }
       }
     }
   }
@@ -119,7 +135,11 @@ export async function GET(req: NextRequest) {
     grafico,
     updatedAt:  resumo.updatedAt ?? null,
     sourceType: resumo.sourceType ?? null,
-    _meta: { source: resumo._source ?? "postgresql", sourceType: resumo.sourceType ?? null },
+    _meta: {
+      source: resumo._source ?? "postgresql",
+      sourceType: resumo.sourceType ?? null,
+      isStable: resumo.sourceType === "live" || resumo.sourceType === "snapshot" || resumo.sourceType == null,
+    },
   }
 
 
