@@ -283,7 +283,7 @@ export function DashboardGerente({
       {/* Ranking + Tarefas lado a lado */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <VendedoresRanking entries={rankingEntries} loading={rankingLoading} />
-        <PainelTarefas tarefas={pendentesVisiveis} onConcluir={concluirTarefa} riscados={riscados} />
+        <PainelTarefas tarefas={pendentesVisiveis} onConcluir={concluirTarefa} riscados={riscados} compact totalPendentes={tarefasPendentes.length} />
       </div>
     </div>
   )

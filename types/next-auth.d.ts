@@ -8,6 +8,7 @@ declare module "next-auth" {
     isSuperUser?: boolean
     jobTitle?: string | null
     accessToken?: string
+    mustChangePassword?: boolean
   }
 
   interface Session {
@@ -16,6 +17,7 @@ declare module "next-auth" {
       role: string
       isSuperUser?: boolean
       jobTitle?: string | null
+      mustChangePassword?: boolean
     } & DefaultSession["user"]
     accessToken?: string
   }
@@ -28,5 +30,6 @@ declare module "next-auth/jwt" {
     isSuperUser?: boolean
     jobTitle?: string | null
     accessToken?: string
+    mustChangePassword?: boolean
   }
 }

@@ -156,8 +156,8 @@ export function DashboardColaborador({
           tarefas={pendentesVisiveis}
           onConcluir={concluirTarefa}
           riscados={riscados}
-          title="Suas tarefas pendentes"
-          emptyMessage="Nenhuma tarefa pendente."
+          compact
+          totalPendentes={tarefasPendentes.length}
         />
       </div>
 
