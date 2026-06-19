@@ -22,6 +22,10 @@ export default async function DashboardLayout({
     redirect("/login")
   }
 
+  if ((session.user as any).mustChangePassword) {
+    redirect("/alterar-senha")
+  }
+
   const { name, email, role, isSuperUser } = session.user as {
     name: string
     email: string

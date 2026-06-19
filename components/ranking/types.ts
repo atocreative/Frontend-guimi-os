@@ -9,6 +9,7 @@ export interface PerformanceEntry {
   tarefasNoPrazo: number
   tarefasAtrasadas: number
   tarefasPendentes: number
+  activeAssignedTasksTotal?: number
   taxaConclusao: number
   checklistsConcluidos: number
   streak: number

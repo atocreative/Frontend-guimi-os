@@ -18,7 +18,12 @@ export const authConfig = {
     signIn: "/login",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // Allow client-side update() to clear mustChangePassword after password change
+      if (trigger === "update" && (session as any)?.mustChangePassword === false) {
+        token.mustChangePassword = false
+      }
+
       if (user) {
 
         token.id = user.id
@@ -31,6 +36,7 @@ export const authConfig = {
         token.jobTitle = user.jobTitle ?? null
         token.accessToken = String((user as any).accessToken || "")
         token.raw_token = String((user as any).accessToken || "")
+        token.mustChangePassword = Boolean((user as any).mustChangePassword)
 
 
         if (user.name) {
@@ -57,6 +63,7 @@ export const authConfig = {
         session.user.role = token.role as string
         session.user.isSuperUser = Boolean((token as any).isSuperUser)
         session.user.jobTitle = (token.jobTitle as string | null | undefined) ?? null
+        session.user.mustChangePassword = Boolean((token as any).mustChangePassword)
         session.accessToken = String((token as any).accessToken || "")
 
 

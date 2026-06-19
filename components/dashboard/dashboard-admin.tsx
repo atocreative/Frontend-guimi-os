@@ -151,6 +151,11 @@ export function DashboardAdmin({
   const lucro        = toNum(md?.lucroBrutoMes ?? md?.lucroOperacionalMes)
   const margemBruta  = toNum(md?.margemBruta)
 
+  // Null-aware display values — never convert null to 0 for rendering
+  const lucroBrutoMesDisplay = md != null
+    ? (md.lucroBrutoMes ?? md.lucroOperacionalMes ?? null)
+    : null
+
   const lucroNulo       = !md || isNull(md.lucroOperacionalMes)
   const updatedAt       = md?.updatedAt ?? null
 
@@ -184,9 +189,16 @@ export function DashboardAdmin({
   const consolidadoQuery = useFinancialConsolidated(ano, mes + 1)
   const consolidado = consolidadoQuery.data  // kept for alerts that use breakdown
 
-  const lucroLiquidoReal    = toNum(md?.lucroLiquidoReal ?? consolidado?.realCompanyProfit)
-  const lucroLiquidoFN      = toNum(md?.lucroLiquidoMes  ?? consolidado?.netProfit)
+  const lucroLiquidoRealRaw = md?.lucroLiquidoReal ?? consolidado?.realCompanyProfit ?? null
+  const lucroLiquidoReal    = toNum(lucroLiquidoRealRaw)
+  const lucroLiquidoFNRaw   = md?.lucroLiquidoMes  ?? consolidado?.netProfit         ?? null
+  const lucroLiquidoFN      = toNum(lucroLiquidoFNRaw)
   const margemReal          = faturamento > 0 ? (lucroLiquidoReal / faturamento) * 100 : 0
+
+  // Null-safe display: prefer real > FN > "—" — prevents "R$ 0,00" when queries fail
+  const lucroLiquidoRealDisplay =
+    lucroLiquidoRealRaw != null ? formatBRL(lucroLiquidoReal) :
+    lucroLiquidoFNRaw   != null ? formatBRL(lucroLiquidoFN)   : "—"
   const adminExpenses       = toNum(consolidado?.administrativeExpenses)
   const maCount             = consolidado?.breakdown?.meuAssessor?.count ?? 0
   const maAvailable         = !consolidadoQuery.isLoading && !consolidadoQuery.isError && maCount > 0
@@ -319,7 +331,7 @@ export function DashboardAdmin({
             {/* 2. Lucro Bruto do Mês */}
             <KpiCard
               titulo="Lucro Bruto do Mês"
-              valor={formatBRL(lucro)}
+              valor={lucroBrutoMesDisplay != null ? formatBRL(Number(lucroBrutoMesDisplay)) : "—"}
               descricao={`${MESES[mes]} ${ano}`}
               icone={Target}
               tendencia="up"
@@ -329,7 +341,7 @@ export function DashboardAdmin({
             {/* 3. Lucro Líquido Real */}
             <KpiCard
               titulo="Lucro Líquido Real"
-              valor={loadingKpi ? "…" : formatBRL(lucroLiquidoReal > 0 ? lucroLiquidoReal : lucroLiquidoFN)}
+              valor={loadingKpi ? "…" : lucroLiquidoRealDisplay}
               descricao={faturamento > 0 ? `Margem ${margemReal.toFixed(1)}%` : `${MESES[mes]} ${ano}`}
               icone={TrendingUp}
               tendencia={lucroLiquidoReal >= 0 ? "up" : "down"}
@@ -397,7 +409,7 @@ export function DashboardAdmin({
       {/* ── Linha 6: Ranking + Tarefas lado a lado ────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <VendedoresRanking entries={rankingEntries} loading={rankingLoading} />
-        <PainelTarefas tarefas={pendentesVisiveis} onConcluir={concluirTarefa} riscados={riscados} />
+        <PainelTarefas tarefas={pendentesVisiveis} onConcluir={concluirTarefa} riscados={riscados} compact totalPendentes={tarefasPendentes.length} />
       </div>
 
     </div>

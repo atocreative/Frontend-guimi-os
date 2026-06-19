@@ -125,9 +125,9 @@ export function PerformanceCard({ entry }: { entry: PerformanceEntry }) {
             valueColor={entry.taxaConclusao >= 80 ? "text-emerald-500" : entry.taxaConclusao >= 50 ? "text-amber-500" : "text-rose-500"}
           />
           <StatBox
-            label="Pendentes"
-            value={entry.tarefasPendentes}
-            sub={entry.tarefasAtrasadas > 0 ? `${entry.tarefasAtrasadas} atrasada(s)` : "Em dia"}
+            label="Total de tarefas"
+            value={entry.activeAssignedTasksTotal ?? entry.tarefasPendentes}
+            sub={entry.tarefasAtrasadas > 0 ? `${entry.tarefasAtrasadas} atrasada(s)` : `${entry.tarefasPendentes} pendente(s)`}
             valueColor={entry.tarefasAtrasadas > 0 ? "text-rose-400" : "text-muted-foreground"}
           />
         </div>

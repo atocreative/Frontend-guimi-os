@@ -2,12 +2,17 @@
 
 import { useState } from "react"
 import { AlertTriangle, CheckCircle2, Circle, Clock } from "lucide-react"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { isTaskDueToday, sortTarefasByPriority } from "@/lib/tarefas"
 import { PRIORITY_COLORS } from "@/lib/colors-config"
 import type { TarefaDB, TaskPriority } from "@/types/tarefas"
+
+function getDashboardPriorityTasks(tarefas: TarefaDB[], limit = 5): TarefaDB[] {
+  return sortTarefasByPriority(tarefas).slice(0, limit)
+}
 
 function formatarPrazo(dueAt: string | null): string {
   if (!dueAt) return ""
@@ -29,6 +34,8 @@ interface PainelTarefasProps {
   emptyMessage?: string
   onConcluir?: (id: string) => Promise<boolean>
   riscados?: Set<string>
+  compact?: boolean
+  totalPendentes?: number
 }
 
 interface TarefaRowProps {
@@ -123,18 +130,12 @@ export function PainelTarefas({
   emptyMessage = "Nenhuma tarefa pendente.",
   onConcluir,
   riscados = new Set(),
+  compact = false,
+  totalPendentes,
 }: PainelTarefasProps) {
   const [concluindo, setConcluindo] = useState<string | null>(null)
 
   const now = new Date()
-
-  const atrasadas = sortTarefasByPriority(tarefas.filter((t) => t.status === "EXPIRADA"))
-  const hoje = sortTarefasByPriority(
-    tarefas.filter((t) => t.status !== "EXPIRADA" && isTaskDueToday(t.dueAt, now))
-  )
-  const futuras = sortTarefasByPriority(
-    tarefas.filter((t) => t.status !== "EXPIRADA" && !isTaskDueToday(t.dueAt, now))
-  )
 
   async function handleConcluir(id: string) {
     if (!onConcluir) return
@@ -145,6 +146,76 @@ export function PainelTarefas({
       setConcluindo(null)
     }
   }
+
+  // ── COMPACT MODE (dashboard) ────────────────────────────────────────────────
+  if (compact) {
+    const priorityList = getDashboardPriorityTasks(tarefas, 5)
+    const total = totalPendentes ?? tarefas.length
+    const atrasadasCount = tarefas.filter((t) => t.status === "EXPIRADA").length
+
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <CardTitle className="text-sm font-semibold">Tarefas prioritárias</CardTitle>
+            <div className="flex items-center gap-1.5">
+              {atrasadasCount > 0 && (
+                <Badge variant="destructive" className="text-[10px] gap-0.5">
+                  <AlertTriangle className="h-2.5 w-2.5" />
+                  {atrasadasCount} atrasada{atrasadasCount !== 1 ? "s" : ""}
+                </Badge>
+              )}
+              {total > 0 && (
+                <Badge variant="secondary" className="text-[10px]">
+                  {total} pendente{total !== 1 ? "s" : ""}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0 pb-2">
+          {priorityList.length === 0 ? (
+            <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+              Nenhuma tarefa prioritária agora.
+            </p>
+          ) : (
+            <div className="space-y-1 px-4 pt-1 pb-1">
+              {priorityList.map((tarefa) => {
+                const atrasada = tarefa.status === "EXPIRADA"
+                return (
+                  <TarefaRow
+                    key={tarefa.id}
+                    tarefa={tarefa}
+                    riscado={riscados.has(tarefa.id)}
+                    atrasada={atrasada}
+                    concluindo={concluindo}
+                    onConcluir={handleConcluir}
+                  />
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+        <CardFooter className="px-4 py-2 border-t">
+          <Link
+            href="/agenda"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
+          >
+            Ver todas →
+          </Link>
+        </CardFooter>
+      </Card>
+    )
+  }
+
+  // ── FULL MODE (agenda e tarefas) ────────────────────────────────────────────
+  const atrasadas = sortTarefasByPriority(tarefas.filter((t) => t.status === "EXPIRADA"))
+  const hoje = sortTarefasByPriority(
+    tarefas.filter((t) => t.status !== "EXPIRADA" && isTaskDueToday(t.dueAt, now))
+  )
+  const futuras = sortTarefasByPriority(
+    tarefas.filter((t) => t.status !== "EXPIRADA" && !isTaskDueToday(t.dueAt, now))
+  )
 
   return (
     <Card>

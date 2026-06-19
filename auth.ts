@@ -10,6 +10,7 @@ const sessionUserSchema = z.object({
   role: z.string().min(1),
   isSuperUser: z.boolean().optional(),
   jobTitle: z.string().nullable().optional(),
+  mustChangePassword: z.boolean().optional(),
 })
 
 const tokenSessionSchema = z.object({
@@ -62,6 +63,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           isSuperUser: Boolean(user.data.isSuperUser),
           jobTitle: user.data.jobTitle ?? null,
           accessToken: String(parsed.data.token),
+          mustChangePassword: Boolean(user.data.mustChangePassword),
         }
 
         return returnedUser

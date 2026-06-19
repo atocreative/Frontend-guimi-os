@@ -1,11 +1,18 @@
 "use client"
 
 import { useState } from "react"
+import { useSession } from "next-auth/react"
 import { ChevronDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
-const faqItems = [
+type FaqItem = {
+  question: string
+  answer: string
+  roles?: string[] // undefined = visible to all
+}
+
+const faqItems: FaqItem[] = [
   {
     question: "Como faço login no sistema?",
     answer:
@@ -20,6 +27,7 @@ const faqItems = [
     question: "O que é o Lucro Líquido Real?",
     answer:
       "O Lucro Líquido Real é calculado pelo servidor combinando dados do FoneNinja (vendas) e do Meu Assessor (despesas operacionais e fixas). Difere do lucro bruto pois desconta todas as despesas. O frontend exibe o valor exatamente como calculado pelo backend — nenhum recálculo é feito no navegador. Visível apenas para ADMIN e GERENTE.",
+    roles: ["ADMIN", "SUPER_USER", "GERENTE"],
   },
   {
     question: "Como criar e gerenciar tarefas?",
@@ -35,11 +43,13 @@ const faqItems = [
     question: "Como funciona o módulo Financeiro?",
     answer:
       "O Financeiro exibe dados consolidados de FoneNinja e Meu Assessor: faturamento, despesas por categoria, lucro líquido e histórico mensal. Filtre por mês ou dia. A aba 'Consolidado' oferece análise detalhada com gráficos de evolução. Alertas aparecem automaticamente quando há desvios (margem baixa, CMV elevado). Acesso restrito a ADMIN e GERENTE.",
+    roles: ["ADMIN", "SUPER_USER", "GERENTE"],
   },
   {
     question: "Como funciona o módulo Comercial?",
     answer:
       "O Comercial exibe dados em tempo real do CRM Kommo: leads ativos e ganhos, taxa de conversão, chats pendentes e histórico por período. O botão 'Abrir Kommo' leva diretamente ao CRM. Alertas de atenção (chats acumulados, leads sem follow-up) aparecem automaticamente na Central de Alertas do Dashboard. Acesso restrito a GERENTE e ADMIN.",
+    roles: ["ADMIN", "SUPER_USER", "GERENTE"],
   },
   {
     question: "Como funciona o módulo Operação?",
@@ -60,6 +70,7 @@ const faqItems = [
     question: "Como gerenciar usuários?",
     answer:
       "Em Configurações (acesso ADMIN), aba Usuários, você vê todos os colaboradores cadastrados com nome, e-mail, cargo, perfil e data de cadastro. Clique nos três pontos ao lado de um usuário para editar nome, cargo, senha ou desativar a conta. O botão 'Novo Colaborador' cria um novo usuário com perfil COLABORADOR ou GESTOR. A aba Sistema exibe o status das integrações ativas.",
+    roles: ["ADMIN", "SUPER_USER"],
   },
   {
     question: "O que é o módulo Processos?",
@@ -76,10 +87,16 @@ const faqItems = [
     answer:
       "Sim. O Dashboard financeiro atualiza automaticamente ao navegar entre períodos. O módulo Comercial exibe dados em tempo real do Kommo. O módulo Operação tem botão 'Sincronizar' para atualização manual do estoque. Use o ícone de refresh (⟳) disponível em cada tela para forçar uma atualização imediata.",
   },
-] as const
+]
 
 export function FaqSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(0)
+  const { data: session } = useSession()
+  const userRole = (session?.user as { role?: string } | undefined)?.role ?? "COLABORADOR"
+
+  const visibleItems = faqItems.filter(
+    (item) => !item.roles || item.roles.includes(userRole)
+  )
 
   return (
     <Card>
@@ -87,7 +104,7 @@ export function FaqSection() {
         <CardTitle>Perguntas frequentes</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        {faqItems.map((item, index) => {
+        {visibleItems.map((item, index) => {
           const isOpen = openIndex === index
 
           return (

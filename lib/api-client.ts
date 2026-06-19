@@ -465,10 +465,10 @@ export const api = {
     })
   },
 
-  async updateCurrentUserPassword(newPassword: string) {
+  async updateCurrentUserPassword(newPassword: string, currentPassword?: string) {
     const data = await apiCall("/api/users/me/password", {
       method: "PATCH",
-      body: JSON.stringify({ newPassword }),
+      body: JSON.stringify(currentPassword ? { currentPassword, newPassword } : { newPassword }),
     })
 
     return data

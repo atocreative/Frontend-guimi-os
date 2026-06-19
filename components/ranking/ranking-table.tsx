@@ -40,7 +40,7 @@ export function RankingTable({ entries }: { entries: PerformanceEntry[] }) {
             <TableHead className="text-xs">Colaborador</TableHead>
             <TableHead className="text-right text-xs">Score</TableHead>
             <TableHead className="text-right text-xs">Tarefas</TableHead>
-            <TableHead className="text-right text-xs hidden sm:table-cell">Pendentes</TableHead>
+            <TableHead className="text-right text-xs hidden sm:table-cell">Total</TableHead>
             <TableHead className="text-right text-xs hidden md:table-cell">Conclusão</TableHead>
             <TableHead className="text-right text-xs hidden md:table-cell">Streak</TableHead>
             <TableHead className="w-28 text-xs hidden lg:table-cell">Performance</TableHead>
@@ -100,7 +100,7 @@ export function RankingTable({ entries }: { entries: PerformanceEntry[] }) {
                 </TableCell>
 
                 <TableCell className="text-right text-sm tabular-nums text-muted-foreground hidden sm:table-cell">
-                  {entry.tarefasPendentes}
+                  {entry.activeAssignedTasksTotal ?? entry.tarefasPendentes}
                 </TableCell>
 
                 <TableCell className="text-right hidden md:table-cell">
