@@ -1,5 +1,6 @@
-export type TaskStatus = "PENDENTE" | "EM_ANDAMENTO" | "CONCLUIDA" | "CONCLUIDA_ATRASADA" | "CANCELADA"
+export type TaskStatus = "PENDENTE" | "EM_ANDAMENTO" | "CONCLUIDA" | "CONCLUIDA_ATRASADA" | "CANCELADA" | "EXPIRADA"
 export type TaskPriority = "ALTA" | "MEDIA" | "BAIXA" | null
+export type RecurrenceType = "NONE" | "DAILY" | "WEEKLY" | "MONTHLY"
 
 export interface UsuarioSimples {
   id: string
@@ -26,6 +27,11 @@ export interface TarefaDB {
   lateReason?: string | null
   completedByName?: string | null
   pointsAwarded?: number | null
+  isRecurring?: boolean
+  recurrenceType?: RecurrenceType
+  recurrenceInterval?: number
+  nextRunAt?: string | null
+  parentTaskId?: string | null
 }
 
 export interface ChecklistItemDB {

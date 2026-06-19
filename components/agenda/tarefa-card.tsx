@@ -11,6 +11,7 @@ import {
   ExternalLink,
   User,
   Trophy,
+  RefreshCw,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -191,6 +192,12 @@ export const TarefaCard = memo(function TarefaCard({
                 <Calendar className="h-3 w-3" />
                 {prazoFormatado}
               </div>
+            )}
+            {tarefa.isRecurring && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <RefreshCw className="h-3 w-3" />
+                {tarefa.recurrenceType === "DAILY" ? "Diária" : tarefa.recurrenceType === "WEEKLY" ? "Semanal" : "Mensal"}
+              </span>
             )}
             {atrasada && !concluida && (
               <span className="flex items-center gap-1 text-xs font-medium text-red-500">
@@ -430,6 +437,26 @@ export const TarefaCard = memo(function TarefaCard({
                 )}
               </div>
             </div>
+
+            {/* Recorrência */}
+            {tarefa.isRecurring && tarefa.recurrenceType && tarefa.recurrenceType !== "NONE" && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Recorrência
+                  </p>
+                  <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+                    <RefreshCw className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <p className="text-sm">
+                      {tarefa.recurrenceType === "DAILY" && `Diária${tarefa.recurrenceInterval && tarefa.recurrenceInterval > 1 ? ` (a cada ${tarefa.recurrenceInterval} dias)` : ""}`}
+                      {tarefa.recurrenceType === "WEEKLY" && `Semanal${tarefa.recurrenceInterval && tarefa.recurrenceInterval > 1 ? ` (a cada ${tarefa.recurrenceInterval} semanas)` : ""}`}
+                      {tarefa.recurrenceType === "MONTHLY" && `Mensal${tarefa.recurrenceInterval && tarefa.recurrenceInterval > 1 ? ` (a cada ${tarefa.recurrenceInterval} meses)` : ""}`}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Gamificação */}
             {tarefa.pointsAwarded != null && tarefa.pointsAwarded > 0 && (

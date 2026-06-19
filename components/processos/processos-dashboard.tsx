@@ -1,49 +1,73 @@
 "use client"
 
-import { BookOpen, GraduationCap, FileText, PlayCircle } from "lucide-react"
+import { useState } from "react"
+import { BookOpen, FileText, PlayCircle, Lock } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ModalMateriais } from "@/components/processos/modal-materiais"
 
 interface Props {
-  initialSummary?: unknown
-  initialMes: number
-  initialAno: number
-  availableYears: number[]
+  userRole: string
+  canUpload: boolean
+  isBlocked?: boolean
 }
 
-export function ProcessosDashboard({}: Props) {
+export function ProcessosDashboard({ userRole: _userRole, canUpload, isBlocked }: Props) {
+  const [modalOpen, setModalOpen] = useState(false)
+
+  if (isBlocked) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Processos</h2>
+          <p className="text-sm text-muted-foreground">
+            Treinamento operacional, procedimentos e materiais de apoio.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <div className="rounded-full bg-muted p-5">
+              <Lock className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-lg font-semibold">Em Breve</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-xs">
+                Em breve — funcionalidade restrita.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" disabled className="mt-2">
+              Acesso Restrito
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
 
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight">Processos</h2>
-        <p className="text-sm text-muted-foreground">
-          Treinamento operacional, procedimentos e materiais de apoio.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Processos</h2>
+          <p className="text-sm text-muted-foreground">
+            Treinamento operacional, procedimentos e materiais de apoio.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          className="gap-2 shrink-0"
+          onClick={() => setModalOpen(true)}
+        >
+          <FileText className="h-4 w-4" />
+          {canUpload ? "Gerenciar Materiais" : "Ver Materiais"}
+        </Button>
       </div>
-
-      <Card className="border-dashed">
-        <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-          <div className="rounded-full p-3 bg-muted/60">
-            <GraduationCap className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold">Em breve</h3>
-            <p className="text-sm text-muted-foreground mt-1 max-w-md">
-              Esta área será dedicada a treinamentos, procedimentos operacionais padrão
-              e materiais de capacitação para a equipe.
-            </p>
-          </div>
-          <Badge variant="outline" className="font-normal mt-2">
-            módulo em desenvolvimento
-          </Badge>
-        </CardContent>
-      </Card>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
           {
-            icon: BookOpen,
+            icon: FileText,
             title: "Procedimentos",
             desc: "Documentação dos fluxos operacionais da empresa.",
           },
@@ -53,12 +77,16 @@ export function ProcessosDashboard({}: Props) {
             desc: "Vídeos e tutoriais para onboarding e capacitação.",
           },
           {
-            icon: FileText,
+            icon: BookOpen,
             title: "Materiais",
             desc: "Manuais, templates e recursos de apoio.",
           },
         ].map(({ icon: Icon, title, desc }) => (
-          <Card key={title} className="opacity-70">
+          <Card
+            key={title}
+            className="cursor-pointer hover:bg-muted/40 transition-colors"
+            onClick={() => setModalOpen(true)}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Icon className="h-4 w-4 text-muted-foreground" />
@@ -72,6 +100,11 @@ export function ProcessosDashboard({}: Props) {
         ))}
       </div>
 
+      <ModalMateriais
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        canUpload={canUpload}
+      />
     </div>
   )
 }

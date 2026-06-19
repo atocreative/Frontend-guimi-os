@@ -3,8 +3,7 @@
 import { useState, useCallback, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-  TrendingUp, TrendingDown, Radio, RefreshCw,
-  Database, Activity, Lock, AlertTriangle,
+  TrendingUp, TrendingDown, Activity, AlertTriangle, Info,
 } from "lucide-react"
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -15,7 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { GlobalDateFilter } from "@/components/global/global-date-filter"
 import { getPeriodoLabel } from "@/lib/financeiro-utils"
-import { useFinanceiroConsolidado } from "@/lib/queries/use-financeiro-consolidado"
+import { useFinancialConsolidated } from "@/lib/queries/use-financial-consolidated"
 
 function brl(v: number | undefined | null) {
   const n = Number(v ?? 0)
@@ -39,13 +38,15 @@ interface KpiCardProps {
   label: string
   value: string
   sub?: string
+  tooltip?: string
   trend?: "up" | "down" | "neutral"
   loading?: boolean
   accent?: "green" | "red" | "blue" | "default"
   emphasized?: boolean
+  fonte?: string
 }
 
-function KpiCard({ label, value, sub, trend, loading, accent = "default", emphasized }: KpiCardProps) {
+function KpiCard({ label, value, sub, tooltip, trend, loading, accent = "default", emphasized, fonte }: KpiCardProps) {
   const accentClass =
     accent === "green" ? "text-emerald-600 dark:text-emerald-400"
     : accent === "red" ? "text-red-500"
@@ -53,10 +54,17 @@ function KpiCard({ label, value, sub, trend, loading, accent = "default", emphas
     : ""
 
   return (
-    <Card className={emphasized ? "border-emerald-300 dark:border-emerald-700 shadow-sm" : ""}>
+    <Card className={emphasized ? "border-emerald-400 dark:border-emerald-600 shadow-md ring-1 ring-emerald-200 dark:ring-emerald-800" : ""}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+            {tooltip && (
+              <span title={tooltip} className="cursor-help text-muted-foreground/50 hover:text-muted-foreground">
+                <Info className="h-3 w-3" />
+              </span>
+            )}
+          </div>
           {trend === "up" && <TrendingUp className="h-4 w-4 text-emerald-500" />}
           {trend === "down" && <TrendingDown className="h-4 w-4 text-red-400" />}
           {trend === "neutral" && <Activity className="h-4 w-4 text-muted-foreground" />}
@@ -68,6 +76,9 @@ function KpiCard({ label, value, sub, trend, loading, accent = "default", emphas
         )}
         {sub && !loading && (
           <p className="mt-1 text-xs text-muted-foreground tabular-nums">{sub}</p>
+        )}
+        {fonte && (
+          <span className="text-[10px] font-mono tracking-wide text-muted-foreground/40 select-none">{fonte}</span>
         )}
       </CardContent>
     </Card>
@@ -125,34 +136,28 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
     syncUrl(date.getMonth(), date.getFullYear())
   }, [syncUrl])
 
-  const { data, isLoading, isFetching, isError, dataUpdatedAt } = useFinanceiroConsolidado(ano, month1)
+  const { data, isLoading, isFetching, isError, dataUpdatedAt } = useFinancialConsolidated(ano, month1)
 
-  const loading    = isLoading && !data
-  const refreshing = isFetching && !loading
-  const lastSync   = dataUpdatedAt ? new Date(dataUpdatedAt) : null
+  const loading = isLoading && !data
 
-  // Canonical bindings — backend é source of truth, frontend só renderiza.
-  const revenue                = data?.revenue ?? 0
-  const grossProfit            = data?.grossProfit ?? 0
-  const operationalProfit      = data?.operationalProfit ?? 0
-  const netProfit              = data?.netProfit ?? 0
-  const administrativeExpenses = data?.administrativeExpenses ?? 0
-  const fixedExpenses          = data?.fixedExpenses ?? 0
-  const taxes                  = data?.taxes ?? 0
-  const realCompanyProfit      = data?.realCompanyProfit ?? 0
-  const realMargin             = data?.realMargin ?? 0
+  const maCount     = data?.breakdown?.meuAssessor?.count ?? 0
+  const maAvailable = !isLoading && !isError && maCount > 0
+  const dataReady   = !isLoading && !isError && !!data
 
-  const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0
-  const opMargin    = revenue > 0 ? (operationalProfit / revenue) * 100 : 0
+  // numeric values only for chart; KPI display uses guards below
+  const revenue     = data?.revenue ?? 0
+  const grossProfit = data?.grossProfit ?? 0
+  const netProfit   = data?.netProfit ?? 0
+  const totalGastos = data?.totalExpense ?? data?.totalExpenses ?? 0
+  const lucroLiquido = netProfit
 
-  const fnBreakdown = data?.breakdown?.fn
-  const maBreakdown = data?.breakdown?.meuAssessor
+  const grossMargin  = revenue > 0 ? (grossProfit / revenue) * 100 : 0
+  const liquidMargin = revenue > 0 ? (lucroLiquido / revenue) * 100 : 0
 
-  // Top categorias administrativas — só exibe, não recalcula.
   const topCategorias = useMemo(() => {
-    const cats = maBreakdown?.categories ?? []
+    const cats = data?.breakdown?.meuAssessor?.categories ?? []
     return [...cats].sort((a, b) => b.valor - a.valor).slice(0, 5)
-  }, [maBreakdown])
+  }, [data])
 
   const periodoLabel = getPeriodoLabel({
     dia: null, mes: mesEfetivo, ano,
@@ -180,34 +185,6 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
         onDateSelect={handleDateSelect}
       />
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <Badge variant="outline" className="gap-1 font-normal">
-          <Database className="h-3 w-3" />
-          FoneNinja + MeuAssessor
-        </Badge>
-        {fnBreakdown?.locked && (
-          <Badge variant="outline" className="gap-1 font-normal text-amber-700 border-amber-300">
-            <Lock className="h-3 w-3" />
-            mês fechado
-          </Badge>
-        )}
-        {isMesAtual && (
-          <Badge variant="outline" className="gap-1 font-normal text-emerald-600 border-emerald-300 dark:border-emerald-700">
-            <Radio className="h-3 w-3 animate-pulse" />
-            ao vivo
-          </Badge>
-        )}
-        {lastSync && (
-          <span className="tabular-nums">
-            Sync: {lastSync.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-          </span>
-        )}
-        {refreshing && (
-          <Badge variant="outline" className="gap-1 font-normal text-muted-foreground/70">
-            <RefreshCw className="h-3 w-3 animate-spin" /> atualizando
-          </Badge>
-        )}
-      </div>
 
       {isError && (
         <Card className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-900/20">
@@ -217,159 +194,63 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
         </Card>
       )}
 
-      {/* --- BLOCO 1: Operação (FoneNinja snapshot) --- */}
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Operação · FoneNinja
-        </p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <KpiCard
-            label="Receita Bruta"
-            value={brl(revenue)}
-            trend="up"
-            loading={loading}
-            accent="blue"
-          />
-          <KpiCard
-            label="Lucro Bruto"
-            value={brl(grossProfit)}
-            sub={`Margem ${pct(grossMargin)}`}
-            trend={grossProfit >= 0 ? "up" : "down"}
-            loading={loading}
-            accent={grossProfit >= 0 ? "green" : "red"}
-          />
-          <KpiCard
-            label="Lucro Operacional"
-            value={brl(operationalProfit)}
-            sub={`Margem ${pct(opMargin)}`}
-            trend={operationalProfit >= 0 ? "up" : "down"}
-            loading={loading}
-            accent={operationalProfit >= 0 ? "green" : "red"}
-          />
-        </div>
+      {/* 4 KPIs principais */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          label="Faturamento do Mês"
+          value={!dataReady ? "Em breve / indisponível" : brl(revenue)}
+          tooltip="Valor total vendido no período."
+          trend="up"
+          loading={loading}
+          accent={!dataReady ? "default" : "blue"}
+          fonte="CONSOLIDADO"
+        />
+        <KpiCard
+          label="Lucro Bruto"
+          value={!dataReady ? "Em breve / indisponível" : brl(grossProfit)}
+          sub={dataReady ? `Margem ${pct(grossMargin)}` : undefined}
+          tooltip={"Receita − CMV\n\nNão considera:\n- despesas administrativas\n- despesas operacionais\n- despesas fixas"}
+          trend={!dataReady ? "neutral" : grossProfit >= 0 ? "up" : "down"}
+          loading={loading}
+          accent={!dataReady ? "default" : grossProfit >= 0 ? "green" : "red"}
+          fonte="CONSOLIDADO"
+        />
+        <KpiCard
+          label="Total de Gastos"
+          value={!dataReady ? "Em breve / indisponível" : !maAvailable ? "Em breve / indisponível" : brl(totalGastos)}
+          tooltip={"Soma de:\n- despesas operacionais\n- despesas administrativas\n- despesas fixas\n\nCMV não incluso."}
+          trend={!dataReady || !maAvailable ? "neutral" : "down"}
+          loading={loading}
+          accent={!dataReady || !maAvailable ? "default" : "red"}
+          fonte="CONSOLIDADO"
+        />
+        <KpiCard
+          label="Lucro Líquido"
+          value={!dataReady ? "Em breve / indisponível" : !maAvailable ? "Em breve / indisponível" : brl(lucroLiquido)}
+          sub={dataReady && maAvailable && revenue > 0 ? `Margem ${pct(liquidMargin)}` : undefined}
+          tooltip={"Resultado final da operação.\n\nFórmula:\nLucro Bruto\n− Despesas Administrativas (MA)\n\nObservação: custos dos produtos (CMV) já estão descontados no Lucro Bruto."}
+          trend={!dataReady || !maAvailable ? "neutral" : lucroLiquido >= 0 ? "up" : "down"}
+          loading={loading}
+          accent={!dataReady || !maAvailable ? "default" : lucroLiquido >= 0 ? "green" : "red"}
+          emphasized
+          fonte="CONSOLIDADO"
+        />
       </div>
 
-      {/* --- BLOCO 2: Administrativo (MeuAssessor) --- */}
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Administrativo · MeuAssessor
-        </p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <KpiCard
-            label="Despesas Administrativas"
-            value={brl(administrativeExpenses)}
-            sub={maBreakdown?.count != null ? `${maBreakdown.count} transações` : undefined}
-            trend="down"
-            loading={loading}
-            accent="red"
-          />
-          <KpiCard
-            label="Impostos"
-            value={brl(taxes)}
-            sub={administrativeExpenses > 0 ? `${((taxes / administrativeExpenses) * 100).toFixed(0)}% do admin` : undefined}
-            trend="down"
-            loading={loading}
-            accent="red"
-          />
-          <KpiCard
-            label="Custos Fixos (FN)"
-            value={brl(fixedExpenses)}
-            trend="down"
-            loading={loading}
-            accent="red"
-          />
-        </div>
-
-        {topCategorias.length > 0 && (
-          <Card className="mt-3">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Top categorias administrativas
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-muted/30 text-left">
-                      <th className="px-4 py-2 font-semibold">Categoria</th>
-                      <th className="px-4 py-2 font-semibold text-right">Transações</th>
-                      <th className="px-4 py-2 font-semibold text-right">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topCategorias.map((c, i) => (
-                      <tr key={`${c.categoria}-${i}`} className="border-t hover:bg-muted/20">
-                        <td className="px-4 py-2.5 font-medium">
-                          {c.categoria}
-                          {c.isTax && (
-                            <Badge variant="outline" className="ml-2 text-[10px] font-normal text-amber-700 border-amber-300">
-                              imposto
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{c.count}</td>
-                        <td className="px-4 py-2.5 text-right font-bold tabular-nums text-red-500">
-                          {brl(c.valor)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* --- BLOCO 3: Resultado Final --- */}
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          Resultado Real da Empresa
-        </p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <KpiCard
-            label="Lucro Líquido Real"
-            value={brl(realCompanyProfit)}
-            sub={`Resultado ERP: ${brl(netProfit)}`}
-            trend={realCompanyProfit >= 0 ? "up" : "down"}
-            loading={loading}
-            accent={realCompanyProfit >= 0 ? "green" : "red"}
-            emphasized
-          />
-          <KpiCard
-            label="Margem Real"
-            value={pct(realMargin)}
-            sub="sobre receita bruta"
-            trend={realMargin >= 0 ? "up" : "down"}
-            loading={loading}
-            accent={realMargin >= 12 ? "green" : realMargin >= 0 ? "default" : "red"}
-          />
-          <KpiCard
-            label="Burn Rate"
-            value={brl(administrativeExpenses + fixedExpenses)}
-            sub="admin + fixos / mês"
-            trend="neutral"
-            loading={loading}
-          />
-        </div>
-      </div>
-
-      {/* --- BLOCO 4: Breakdown comparativo FN vs MA --- */}
-      {fnBreakdown && maBreakdown && !loading && (
+      {/* Composição do resultado */}
+      {!loading && revenue > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Composição do resultado</CardTitle>
           </CardHeader>
-          <CardContent className="h-[220px]">
+          <CardContent className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={[
-                  { name: "Receita",            valor: fnBreakdown.revenue,                kind: "in"  },
-                  { name: "Lucro Bruto",        valor: fnBreakdown.grossProfit,            kind: "in"  },
-                  { name: "Resultado ERP",      valor: fnBreakdown.netProfit,              kind: "in"  },
-                  { name: "Despesas Admin",     valor: maBreakdown.administrativeExpenses, kind: "out" },
-                  { name: "Lucro Real",         valor: realCompanyProfit,                  kind: realCompanyProfit >= 0 ? "in" : "out" },
+                  { name: "Faturamento",    valor: revenue },
+                  { name: "Lucro Bruto",    valor: grossProfit },
+                  { name: "Total Gastos",   valor: -totalGastos },
+                  { name: "Lucro Líquido",  valor: lucroLiquido },
                 ]}
                 margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
               >
@@ -386,14 +267,8 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
                   cursor={{ fill: "transparent" }}
                 />
                 <Bar dataKey="valor" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-                  {[
-                    fnBreakdown.revenue,
-                    fnBreakdown.grossProfit,
-                    fnBreakdown.netProfit,
-                    maBreakdown.administrativeExpenses,
-                    realCompanyProfit,
-                  ].map((v, i) => (
-                    <Cell key={i} fill={i === 3 ? "#ef4444" : v >= 0 ? "#22c55e" : "#ef4444"} />
+                  {[revenue, grossProfit, -totalGastos, lucroLiquido].map((v, i) => (
+                    <Cell key={i} fill={i === 2 ? "#ef4444" : v >= 0 ? "#22c55e" : "#ef4444"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -402,8 +277,50 @@ export function ConsolidadoDashboard({ initialMes, initialAno }: Props) {
         </Card>
       )}
 
+      {/* Top categorias de gastos */}
+      {topCategorias.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Maiores gastos do período
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-muted/30 text-left">
+                    <th className="px-4 py-2 font-semibold">Categoria</th>
+                    <th className="px-4 py-2 font-semibold text-right">Transações</th>
+                    <th className="px-4 py-2 font-semibold text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topCategorias.map((c, i) => (
+                    <tr key={`${c.categoria}-${i}`} className="border-t hover:bg-muted/20">
+                      <td className="px-4 py-2.5 font-medium">
+                        {c.categoria}
+                        {c.isTax && (
+                          <Badge variant="outline" className="ml-2 text-[10px] font-normal text-amber-700 border-amber-300">
+                            imposto
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{c.count}</td>
+                      <td className="px-4 py-2.5 text-right font-bold tabular-nums text-red-500">
+                        {brl(c.valor)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Empty/sanity --- */}
-      {!loading && data && revenue === 0 && administrativeExpenses === 0 && (
+      {!loading && data && revenue === 0 && totalGastos === 0 && (
         <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-900/20">
           <CardContent className="px-4 py-3 text-sm text-amber-800 dark:text-amber-400 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />

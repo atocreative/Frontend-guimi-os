@@ -4,7 +4,9 @@ import { useState, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
-import { ChevronLeft, ChevronRight, ShoppingBag } from "lucide-react"
+import { ChevronLeft, ChevronRight, ShoppingBag, Search, X } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // ─── Tipo oficial do dataset reconciliado ────────────────────────────────────
 
@@ -35,6 +37,9 @@ export interface VendaRecente {
   profit?: number
   margem?: number
   margin?: number
+  // status da venda
+  status?: string | null
+  statusLabel?: string | null
   // campo de data — backend reconciliado usa dataVenda
   dataVenda?: string
   data?: string
@@ -49,6 +54,19 @@ export type SaleRow = VendaRecente
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 10
+
+const STATUS_NORM: Record<string, { label: string; cls: string }> = {
+  concluida:  { label: "Concluída", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20" },
+  completed:  { label: "Concluída", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20" },
+  pendente:   { label: "Pendente",  cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20" },
+  pending:    { label: "Pendente",  cls: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20" },
+}
+
+function resolveStatus(v: VendaRecente): { label: string; cls: string } | null {
+  const raw = (v.statusLabel ?? v.status ?? "").toLowerCase().trim()
+  if (!raw) return null
+  return STATUS_NORM[raw] ?? { label: v.statusLabel ?? v.status ?? raw, cls: "bg-muted/50 text-muted-foreground border-border" }
+}
 
 const PAGAMENTO_COR: Record<string, string> = {
   PIX:      "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-400",
@@ -135,12 +153,47 @@ function resolveData(v: VendaRecente): string {
 export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
   // ── HOOKS — sempre no topo, antes de qualquer return ─────────────────
   const [page, setPage] = useState(1)
-  const totalPages = Math.max(1, Math.ceil((entradas?.length ?? 0) / PAGE_SIZE))
+  const [filtroCliente, setFiltroCliente] = useState("")
+  const [filtroStatus, setFiltroStatus]   = useState("todos")
+  const [filtroVendedor, setFiltroVendedor] = useState("todos")
+
+  // Vendedores únicos para o select
+  const vendedores = useMemo(() => {
+    const set = new Set<string>()
+    for (const v of entradas ?? []) {
+      const nome = resolveVendedor(v)
+      if (nome && nome !== "—") set.add(nome)
+    }
+    return Array.from(set).sort()
+  }, [entradas])
+
+  // Aplicar filtros client-side
+  const filtrados = useMemo(() => {
+    return (entradas ?? []).filter((v) => {
+      if (filtroCliente) {
+        const nome = resolveName(v.cliente ?? v.customer).toLowerCase()
+        if (!nome.includes(filtroCliente.toLowerCase())) return false
+      }
+      if (filtroStatus !== "todos") {
+        const st = resolveStatus(v)
+        if (!st || st.label.toLowerCase() !== filtroStatus.toLowerCase()) return false
+      }
+      if (filtroVendedor !== "todos") {
+        if (resolveVendedor(v) !== filtroVendedor) return false
+      }
+      return true
+    })
+  }, [entradas, filtroCliente, filtroStatus, filtroVendedor])
+
+  const totalPages = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
   const pageItems = useMemo(
-    () => (entradas ?? []).slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [entradas, currentPage],
+    () => filtrados.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filtrados, currentPage],
   )
+
+  const hasFilters = filtroCliente || filtroStatus !== "todos" || filtroVendedor !== "todos"
+  const clearFilters = () => { setFiltroCliente(""); setFiltroStatus("todos"); setFiltroVendedor("todos"); setPage(1) }
 
   const isEmpty = !entradas || entradas.length === 0
 
@@ -171,46 +224,94 @@ export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
             Últimas Vendas
           </CardTitle>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {entradas.length} registro{entradas.length !== 1 ? "s" : ""}
-          </span>
+          <div className="flex items-center gap-2">
+            {hasFilters && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-3 w-3" />
+                Limpar
+              </button>
+            )}
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {filtrados.length}/{entradas.length}
+            </span>
+          </div>
+        </div>
+        {/* Filtros */}
+        <div className="flex flex-wrap gap-2 mt-2">
+          <div className="relative flex-1 min-w-[140px]">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+            <Input
+              value={filtroCliente}
+              onChange={(e) => { setFiltroCliente(e.target.value); setPage(1) }}
+              placeholder="Buscar cliente"
+              className="pl-7 h-7 text-xs"
+            />
+          </div>
+          <Select value={filtroStatus} onValueChange={(v) => { setFiltroStatus(v); setPage(1) }}>
+            <SelectTrigger className="h-7 text-xs w-[120px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="Concluída">Concluída</SelectItem>
+              <SelectItem value="Pendente">Pendente</SelectItem>
+            </SelectContent>
+          </Select>
+          {vendedores.length > 0 && (
+            <Select value={filtroVendedor} onValueChange={(v) => { setFiltroVendedor(v); setPage(1) }}>
+              <SelectTrigger className="h-7 text-xs w-[140px]">
+                <SelectValue placeholder="Vendedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                {vendedores.map((v) => (
+                  <SelectItem key={v} value={v}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </CardHeader>
 
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <Table className="min-w-[900px]">
+          <Table className="min-w-[980px]">
             <TableHeader>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableHead className="text-xs font-semibold">Data</TableHead>
                 <TableHead className="text-xs font-semibold">Cliente</TableHead>
                 <TableHead className="text-xs font-semibold">Vendedor</TableHead>
-                <TableHead className="text-xs font-semibold text-center">Qtd</TableHead>
+                <TableHead className="text-xs font-semibold text-center">Status</TableHead>
                 <TableHead className="text-xs font-semibold text-right">Valor Total</TableHead>
-                <TableHead className="text-xs font-semibold">Recebimento</TableHead>
-                <TableHead className="text-xs font-semibold text-right">Custo</TableHead>
                 <TableHead className="text-xs font-semibold text-right">Lucro</TableHead>
                 <TableHead className="text-xs font-semibold text-center">Margem</TableHead>
-                <TableHead className="text-xs font-semibold">Data</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {pageItems.map((v, i) => {
-                const lucro      = resolveLucro(v)
-                const margem     = resolveMargem(v)
-                const recebimento = resolveRecebimento(v)
-                // recebimentoLiquido is a monetary value; formaPagamento is a string label
-                const isMonetary  = typeof (v.recebimentoLiquido ?? v.recebimentoTotal) === "number"
-                const pagCor      = PAGAMENTO_COR[recebimento] ?? "bg-muted/50 text-muted-foreground border-border"
+                const lucro   = resolveLucro(v)
+                const margem  = resolveMargem(v)
+                const status  = resolveStatus(v)
 
                 return (
                   <TableRow
                     key={String(v.id ?? i)}
                     className="hover:bg-muted/10 transition-colors"
                   >
-                    {/* Cliente */}
+                    {/* Data */}
                     <TableCell className="py-1.5">
-                      <span className="text-xs font-medium leading-snug">
+                      <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                        {resolveData(v)}
+                      </span>
+                    </TableCell>
+
+                    {/* Cliente */}
+                    <TableCell className="py-1.5 max-w-[160px]">
+                      <span className="text-xs font-medium leading-snug truncate block">
                         {resolveName(v.cliente ?? v.customer)}
                       </span>
                     </TableCell>
@@ -222,39 +323,21 @@ export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
                       </span>
                     </TableCell>
 
-                    {/* Qtd */}
+                    {/* Status */}
                     <TableCell className="py-1.5 text-center">
-                      <span className="text-xs tabular-nums font-medium">
-                        {resolveQtd(v)}
-                      </span>
-                    </TableCell>
-
-                    {/* Valor Total — destaque */}
-                    <TableCell className="py-1.5 text-right">
-                      <span className="text-xs font-bold tabular-nums">
-                        {brl(resolveValorTotal(v))}
-                      </span>
-                    </TableCell>
-
-                    {/* Recebimento */}
-                    <TableCell className="py-1.5">
-                      {recebimento === "N/A" ? (
-                        <span className="text-xs text-muted-foreground/50">N/A</span>
-                      ) : isMonetary ? (
-                        <span className="text-xs tabular-nums font-medium">
-                          {brl(Number(v.recebimentoLiquido ?? v.recebimentoTotal ?? 0))}
-                        </span>
-                      ) : (
-                        <Badge variant="outline" className={`text-xs px-1.5 py-0 font-medium ${pagCor}`}>
-                          {recebimento}
+                      {status ? (
+                        <Badge variant="outline" className={`text-xs px-1.5 py-0 font-medium ${status.cls}`}>
+                          {status.label}
                         </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/40">—</span>
                       )}
                     </TableCell>
 
-                    {/* Custo */}
+                    {/* Valor Total */}
                     <TableCell className="py-1.5 text-right">
-                      <span className="text-xs tabular-nums text-muted-foreground">
-                        {brl(resolveCusto(v))}
+                      <span className="text-xs font-bold tabular-nums">
+                        {brl(resolveValorTotal(v))}
                       </span>
                     </TableCell>
 
@@ -262,11 +345,9 @@ export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
                     <TableCell className="py-1.5 text-right">
                       <span
                         className={`text-xs font-semibold tabular-nums ${
-                          lucro > 0
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : lucro < 0
-                            ? "text-red-500"
-                            : "text-muted-foreground"
+                          lucro > 0 ? "text-emerald-600 dark:text-emerald-400"
+                          : lucro < 0 ? "text-red-500"
+                          : "text-muted-foreground"
                         }`}
                       >
                         {brl(lucro)}
@@ -278,24 +359,14 @@ export function TabelaEntradas({ entradas }: { entradas: VendaRecente[] }) {
                       <Badge
                         variant="secondary"
                         className={`text-xs px-1.5 py-0 tabular-nums ${
-                          margem >= 20
-                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                            : margem >= 10
-                            ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
-                            : margem > 0
-                            ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                            : "bg-muted text-muted-foreground"
+                          margem >= 20 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          : margem >= 10 ? "bg-blue-500/10 text-blue-700 dark:text-blue-400"
+                          : margem > 0 ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                          : "bg-muted text-muted-foreground"
                         }`}
                       >
                         {pct(margem)}
                       </Badge>
-                    </TableCell>
-
-                    {/* Data */}
-                    <TableCell className="py-1.5">
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {resolveData(v)}
-                      </span>
                     </TableCell>
                   </TableRow>
                 )

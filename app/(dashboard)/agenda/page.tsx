@@ -13,7 +13,6 @@ import { ResumoTime } from "@/components/agenda/resumo-time"
 import { FiltroUsuario } from "@/components/agenda/filtro-usuario"
 import { ColunaPessoa } from "@/components/agenda/coluna-pessoa"
 import { TarefaCard } from "@/components/agenda/tarefa-card"
-import { StatusLoja } from "@/components/operacao/status-loja"
 import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
 import { isTaskAtrasada, normalizeTaskMetrics, sortTarefasByPriority } from "@/lib/tarefas"
 import { api } from "@/lib/api-client"
@@ -284,8 +283,6 @@ export default function AgendaPage() {
           />
         </div>
       )}
-
-      <StatusLoja />
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

@@ -271,11 +271,13 @@ prisma/
 
 # Cache do Claude Agent e ferramentas de IA
 .claude/
-
+.claude/skills/
+skills-lock.json
+skills-lock
 # Caches e builds do Next.js (caso ainda não estejam lá)
 .next/
-
-
+.ai/
+RTK.md
 # Optional stylelint cache
 
 # SvelteKit build / generate output
@@ -283,6 +285,10 @@ prisma/
 
 .playwright-mcp/
 .playwright/
+playwright/
 playwright-report/
+.playwright-cli/
 
+screenshots/
+skills-lock.json
 # End of https://www.toptal.com/developers/gitignore/api/nextjs,node

@@ -53,9 +53,9 @@ export function getDailyCardMeta(params: {
   mesAtual: number  // 0-indexed
   anoAtual: number
   diaAtual: number
-  lucroLiquidoDia?: number | null
+  lucroLiquidoDia?: number | null  // kept for API compatibility, not displayed
 }): { descricao: string; isToday: boolean } {
-  const { dia, mes, ano, mesAtual, anoAtual, diaAtual, lucroLiquidoDia } = params
+  const { dia, mes, ano, mesAtual, anoAtual, diaAtual } = params
 
   const isToday = !dia && mes === mesAtual && ano === anoAtual
 
@@ -72,12 +72,7 @@ export function getDailyCardMeta(params: {
         return `${d}/${m}/${ano}`
       })()
 
-  const lucroStr =
-    lucroLiquidoDia != null && lucroLiquidoDia > 0
-      ? ` · Lucro Líquido ${formatBRL(lucroLiquidoDia)}`
-      : ""
-
-  return { descricao: `${periodoStr}${lucroStr}`, isToday }
+  return { descricao: periodoStr, isToday }
 }
 
 export interface SalesFilters {

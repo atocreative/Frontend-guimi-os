@@ -44,11 +44,11 @@ export function WidgetStatusLoja() {
 
   useEffect(() => {
     fetchStatus()
-    pollRef.current = setInterval(fetchStatus, 30_000)
+    pollRef.current = setInterval(fetchStatus, 120_000)
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
         fetchStatus()
-        pollRef.current = setInterval(fetchStatus, 30_000)
+        pollRef.current = setInterval(fetchStatus, 120_000)
       } else {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
       }
@@ -72,7 +72,7 @@ export function WidgetStatusLoja() {
 
   return (
     <Link
-      href="/operacao"
+      href="/agenda"
       className="group flex items-start gap-3 rounded-xl border bg-card px-4 py-3.5 transition-colors hover:bg-muted/50 no-underline"
     >
       {/* Status indicator */}

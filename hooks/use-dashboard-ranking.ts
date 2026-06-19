@@ -9,7 +9,7 @@ interface UseDashboardRankingOptions {
   pollMs?: number
 }
 
-export function useDashboardRanking({ mes, ano, pollMs = 60_000 }: UseDashboardRankingOptions) {
+export function useDashboardRanking({ mes, ano, pollMs = 300_000 }: UseDashboardRankingOptions) {
   const [entries, setEntries] = useState<PerformanceEntry[]>([])
   const [loading, setLoading] = useState(true)
   const abortRef = useRef<AbortController | null>(null)

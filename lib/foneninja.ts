@@ -245,6 +245,60 @@ export async function getResumoFinanceiroHoje(): Promise<ResumoFinanceiroHoje> {
   }
 }
 
+
+export async function getSoldProductsMonthly(year?: number, month0?: number): Promise<number> {
+  const now = new Date()
+  const y = year ?? now.getFullYear()
+  const m = month0 ?? now.getMonth()
+  const inicio = formatApiDate(new Date(y, m, 1))
+  const fim = formatApiDate(new Date(y, m + 1, 0))
+  try {
+    const resp = await foneninja<Record<string, unknown>>(
+      '/dashboard/sold-products',
+      `startDate=${inicio}&endDate=${fim}T23:59:59`
+    )
+    console.log('[SOLD_PRODUCTS] payload recebido:', JSON.stringify(resp))
+
+    // Prioridade: campos que representam PRODUTOS (itens), não registros de venda
+    // Ex: FN retorna total=94 (registros) mas totalProdutos=155 (itens vendidos)
+    const total =
+      resp?.totalProdutos ??   // itens vendidos (mais específico)
+      resp?.soldProducts ??
+      resp?.totalVendidos ??
+      resp?.quantidadeTotal ??
+      resp?.quantity ??
+      resp?.total ??           // pode ser registros — último recurso
+      resp?.count ??
+      0
+
+    // Se resp for array, somar campo quantidade de cada item
+    if (Array.isArray(resp)) {
+      const sum = (resp as Array<Record<string, unknown>>).reduce((acc, item) => {
+        const q = Number(item?.quantidade ?? item?.quantity ?? item?.qtd ?? 1)
+        return acc + (Number.isFinite(q) ? q : 1)
+      }, 0)
+      console.log('[SOLD_PRODUCTS] valor final calculado (array sum):', sum)
+      return sum
+    }
+
+    // Se resp.data for array, somar quantidade
+    if (Array.isArray(resp?.data)) {
+      const sum = (resp.data as Array<Record<string, unknown>>).reduce((acc, item) => {
+        const q = Number(item?.quantidade ?? item?.quantity ?? item?.qtd ?? 1)
+        return acc + (Number.isFinite(q) ? q : 1)
+      }, 0)
+      console.log('[SOLD_PRODUCTS] valor final calculado (data array sum):', sum)
+      return sum
+    }
+
+    console.log('[SOLD_PRODUCTS] valor final calculado:', Number(total))
+    return Number(total)
+  } catch (e) {
+    console.error('[SOLD_PRODUCTS] erro ao buscar:', e)
+    return 0
+  }
+}
+
 export interface VendedorMetrica {
   nomeVendedor: string
   totalVendas: number

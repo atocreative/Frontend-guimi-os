@@ -114,10 +114,8 @@ export function EditarUsuarioModal({
         active: form.active,
         password: form.password,
       }, currentUserRole)
-      console.log("[EditarUsuarioModal] updatePayload:", updatePayload)
-
       const usuarioAtualizado = await api.updateUser(usuario.id, updatePayload)
-      
+
       // ✅ FIX: Detect role change and warn about session
       const roleChanged = usuario.role !== usuarioAtualizado.role
       

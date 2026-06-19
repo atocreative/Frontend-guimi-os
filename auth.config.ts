@@ -19,12 +19,6 @@ export const authConfig = {
   },
   callbacks: {
     async jwt({ token, user }) {
-      // ── TEMP DEBUG ──────────────────────────────────────────────────────
-      console.log("[jwt cb] user exists:", !!user)
-      console.log("[jwt cb] token keys:", Object.keys(token))
-      console.log("[jwt cb] token.accessToken exists:", !!(token as any).accessToken)
-      console.log("[jwt cb] token.accessToken length:", ((token as any).accessToken as string | undefined)?.length ?? 0)
-      // ────────────────────────────────────────────────────────────────────
       if (user) {
 
         token.id = user.id
@@ -57,9 +51,6 @@ export const authConfig = {
       return token
     },
     async session({ session, token }) {
-      // ── TEMP DEBUG ──────────────────────────────────────────────────────
-      console.log("[session cb] token.accessToken:", ((token as any).accessToken as string | undefined)?.slice(0, 20) ?? "null")
-      // ────────────────────────────────────────────────────────────────────
       if (token) {
 
         session.user.id = token.id as string

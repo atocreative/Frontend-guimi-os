@@ -40,6 +40,14 @@ interface ModalNovaTarefaProps {
 }
 
 type PrioridadeSelectValue = "ALTA" | "MEDIA" | "BAIXA" | "NENHUMA"
+type RecorrenciaValue = "NONE" | "DAILY" | "WEEKLY" | "MONTHLY"
+
+const RECORRENCIA_LABELS: Record<RecorrenciaValue, string> = {
+  NONE: "Não recorrente",
+  DAILY: "Diária",
+  WEEKLY: "Semanal",
+  MONTHLY: "Mensal",
+}
 
 // Parse ISO string to a local Date (respecting Brazil timezone)
 function isoParaDate(iso: string): Date {
@@ -54,12 +62,12 @@ function isoParaDate(iso: string): Date {
   return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]))
 }
 
-// Convert local Date to ISO (midnight local = correct UTC offset for Brazil)
+// Convert local Date to ISO at 07:00 BRT (standard task start time)
 function dateParaIso(d: Date): string {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, "0")
   const day = String(d.getDate()).padStart(2, "0")
-  return new Date(`${y}-${m}-${day}T00:00:00`).toISOString()
+  return new Date(`${y}-${m}-${day}T07:00:00`).toISOString()
 }
 
 function formatDateBR(d: Date): string {
@@ -94,6 +102,7 @@ export function ModalNovaTarefa({
   const [prazo, setPrazo] = useState<Date | null>(null)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [responsavelId, setResponsavelId] = useState(currentUserId)
+  const [recorrencia, setRecorrencia] = useState<RecorrenciaValue>("NONE")
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState("")
 
@@ -107,6 +116,7 @@ export function ModalNovaTarefa({
       setPrioridade(prioridadeToSelectValue(tarefaParaEditar.priority))
       setPrazo(tarefaParaEditar.dueAt ? isoParaDate(tarefaParaEditar.dueAt) : null)
       setResponsavelId(tarefaParaEditar.assigneeId ?? usuarios[0]?.id ?? "")
+      setRecorrencia((tarefaParaEditar.recurrenceType as RecorrenciaValue) ?? "NONE")
       setErro("")
       return
     }
@@ -116,6 +126,7 @@ export function ModalNovaTarefa({
       setDescricao("")
       setPrioridade("NENHUMA")
       setPrazo(null)
+      setRecorrencia("NONE")
       setResponsavelId(podeEscolherResponsavel ? (usuarios[0]?.id ?? "") : "")
       setErro("")
     }
@@ -136,6 +147,7 @@ export function ModalNovaTarefa({
             priority: selectValueToPriority(prioridade),
             dueAt: dueAtIso,
             assigneeId: shouldIncludeAssignee ? responsavelId : undefined,
+            recurrenceType: recorrencia !== "NONE" ? recorrencia : "NONE",
           }
         : {
             title: titulo.trim(),
@@ -143,6 +155,7 @@ export function ModalNovaTarefa({
             priority: selectValueToPriority(prioridade) ?? undefined,
             dueAt: dueAtIso,
             assigneeId: shouldIncludeAssignee ? responsavelId : undefined,
+            recurrenceType: recorrencia !== "NONE" ? recorrencia : undefined,
           }
 
       const parsed = (modoEdicao ? taskUpdateSchema : taskCreateSchema).safeParse(payload)
@@ -153,7 +166,7 @@ export function ModalNovaTarefa({
 
       if (modoEdicao && tarefaParaEditar) {
         try {
-          const updatedTarefa = await api.updateTask(tarefaParaEditar.id, parsed.data as any)
+          const updatedTarefa = await api.updateTask(tarefaParaEditar.id, parsed.data)
           onAtualizada?.(updatedTarefa)
           toast.success("Tarefa atualizada com sucesso")
           onClose()
@@ -171,15 +184,16 @@ export function ModalNovaTarefa({
       }
 
       const createPayload = {
-        title: parsed.data.title,
+        title: parsed.data.title as string,
         description: parsed.data.description ?? undefined,
         priority: parsed.data.priority ?? undefined,
         dueAt: parsed.data.dueAt ?? undefined,
         assigneeId: podeEscolherResponsavel && responsavelId ? responsavelId : null,
+        recurrenceType: recorrencia !== "NONE" ? recorrencia : undefined,
       }
 
       try {
-        const novaTarefa = await api.createTask(createPayload as any)
+        const novaTarefa = await api.createTask(createPayload)
         onCriada(novaTarefa)
         toast.success("Tarefa criada com sucesso")
         onClose()
@@ -302,6 +316,22 @@ export function ModalNovaTarefa({
                 </PopoverContent>
               </Popover>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Recorrência</Label>
+            <Select value={recorrencia} onValueChange={(v) => setRecorrencia(v as RecorrenciaValue)}>
+              <SelectTrigger className="w-full h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(RECORRENCIA_LABELS) as RecorrenciaValue[]).map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {RECORRENCIA_LABELS[key]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {podeEscolherResponsavel && (
