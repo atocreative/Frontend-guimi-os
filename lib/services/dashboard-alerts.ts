@@ -1,7 +1,7 @@
 import type { TarefaDB } from "@/types/tarefas"
 import type { KPIs } from "@/lib/services/comercial-bi"
 
-export type AlertSeverity = "critical" | "warning" | "info"
+export type AlertSeverity = "critical" | "warning" | "medium" | "info"
 export type AlertSource =
   | "integracao"
   | "financeiro"
@@ -182,7 +182,7 @@ export function getDashboardAlerts(input: AlertsInput): DashboardAlert[] {
 
     comercialList
       .sort((a, b) => b.score - a.score)
-      .slice(0, 2)
+      .slice(0, 3)
       .forEach(({ a, score }) => push(a, score))
   }
 

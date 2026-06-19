@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getSession } from "@/lib/auth-session"
 import { getSessionAccessToken } from "@/lib/backend-api"
 
@@ -16,13 +16,23 @@ export interface MostSoldItem {
   margemMedia: number | null
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession()
   const token = getSessionAccessToken(session)
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
 
+  const { searchParams } = req.nextUrl
+  const tipo = searchParams.get("tipo") ?? ""
+  const sort = searchParams.get("sort") ?? "quantidadeVendida"
+  const order = searchParams.get("order") ?? "desc"
+
   try {
-    const res = await fetch(`${BACKEND_URL}/api/operacao/top-products?limit=10`, {
+    const qs = new URLSearchParams({ limit: "10" })
+    if (tipo) qs.set("tipo", tipo)
+    if (sort) qs.set("sort", sort)
+    if (order) qs.set("order", order)
+
+    const res = await fetch(`${BACKEND_URL}/api/operacao/top-products?${qs}`, {
       headers, cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     }).catch(() => null)

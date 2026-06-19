@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const now = new Date()
 
-  let month1: number // 1-indexed for backend
+  let month1: number
   let year: number
 
   const startDate = searchParams.get("startDate")
@@ -21,7 +21,6 @@ export async function GET(req: NextRequest) {
     month1 = isNaN(d.getTime()) ? now.getMonth() + 1 : d.getMonth() + 1
     year   = isNaN(d.getTime()) ? now.getFullYear()  : d.getFullYear()
   } else {
-    // Called with year=YYYY&month=M where month is 1-indexed (Jan=1 … Dec=12)
     const yearParam  = searchParams.get("year")
     const monthParam = searchParams.get("month")
     year   = yearParam  ? parseInt(yearParam,  10) : now.getFullYear()
@@ -32,6 +31,7 @@ export async function GET(req: NextRequest) {
   const day = dayParam ? parseInt(dayParam, 10) : null
 
   const params = new URLSearchParams({ month: String(month1), year: String(year) })
+  if (day) params.set("day", String(day))
 
   const reqHeaders: Record<string, string> = {}
   try {
@@ -42,106 +42,159 @@ export async function GET(req: NextRequest) {
     // proceed without auth
   }
 
-  // Fetch DB summary + daily breakdown in parallel (PostgreSQL source of truth)
-  const [resumoRes, diarioRes] = await Promise.all([
-    fetch(`${BACKEND_URL}/api/financeiro/db/summary?${params}`, {
+  // Prev month — for server-side comparison computation when backend doesn't send comparisons
+  const prevMonth1 = month1 === 1 ? 12 : month1 - 1
+  const prevYear_  = month1 === 1 ? year - 1 : year
+  const prevParams = new URLSearchParams({ month: String(prevMonth1), year: String(prevYear_) })
+
+  // PRIMARY: backend's own /api/dashboard/summary has canonical FN-sourced KPIs
+  // SECONDARY: /api/financeiro/diario provides daily breakdown for the chart
+  // TERTIARY: prev month summary for MTD-correct comparison computation
+  const [bdRes, diarioRes, prevBdRes] = await Promise.all([
+    fetch(`${BACKEND_URL}/api/dashboard/summary?${params}`, {
       headers: reqHeaders,
       cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(12_000),
     }).catch(() => null),
     fetch(`${BACKEND_URL}/api/financeiro/diario?${params}`, {
       headers: reqHeaders,
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     }).catch(() => null),
+    fetch(`${BACKEND_URL}/api/dashboard/summary?${prevParams}`, {
+      headers: reqHeaders,
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    }).catch(() => null),
   ])
 
-  if (!resumoRes || !resumoRes.ok) {
+  if (!bdRes || !bdRes.ok) {
+    console.error(`[SUMMARY] backend /api/dashboard/summary returned ${bdRes?.status ?? "no response"}`)
     return NextResponse.json(
-      { error: "DASHBOARD_SUMMARY_FAILED", message: `Backend returned ${resumoRes?.status ?? "no response"}` },
+      { error: "DASHBOARD_SUMMARY_FAILED", message: `Backend returned ${bdRes?.status ?? "no response"}` },
       { status: 502 }
     )
   }
 
-  const resumo = await resumoRes.json().catch(() => null)
-  if (!resumo) {
+  const bd = await bdRes.json().catch(() => null)
+  if (!bd) {
     return NextResponse.json({ error: "DASHBOARD_SUMMARY_FAILED", message: "Failed to parse response" }, { status: 502 })
   }
 
-  // Map backend fields to DashboardSummary shape (needed before grafico to compute margin)
-  const totalRevenue  = resumo.faturamentoMes ?? resumo.totalRevenue  ?? 0
-  const grossProfit   = resumo.grossProfit    ?? 0
-  const netProfit     = resumo.lucroLiquido   ?? resumo.netProfit     ?? 0
+  // ── canonical KPIs (source: FN live or snapshot via backend) ──────────────
+  const faturamentoMes  = Number(bd.faturamentoMes  ?? 0)
+  const lucroBrutoMes   = Number(bd.lucroBrutoMes   ?? bd.lucro ?? 0)
+  const lucroLiquidoReal = Number(bd.lucroLiquidoReal ?? 0)
+  const totalGastos      = Number(bd.comprasMes ?? 0)
 
-  // Net margin ratio used to estimate daily profit from daily revenue
-  const netMarginRatio = totalRevenue > 0 ? netProfit / totalRevenue : 0
+  // ── margin ratios for chart saldo line ────────────────────────────────────
+  const brutoRatio = faturamentoMes > 0 ? lucroBrutoMes / faturamentoMes : 0
 
-  // Build grafico from daily breakdown; also extract specific day revenue
+  // ── build grafico from daily breakdown ────────────────────────────────────
   let grafico: Array<{ data: string; entradas: number; saidas: number; saldo: number }> = []
-  let faturamentoDia: number | null = null
-  let lucroLiquidoDia: number | null = null
   if (diarioRes?.ok) {
     const diario = await diarioRes.json().catch(() => null)
     if (Array.isArray(diario?.days)) {
       grafico = diario.days.map((d: { date: string; revenue: number }) => ({
-        data: d.date,
-        entradas: d.revenue,
-        saidas: 0,
-        // Estimated daily profit = daily revenue × monthly net margin ratio
-        saldo: Math.round(d.revenue * netMarginRatio),
+        data:     d.date,
+        entradas: Number(d.revenue ?? 0),
+        saidas:   0,
+        saldo:    Math.round(Number(d.revenue ?? 0) * brutoRatio),
       }))
-      if (day !== null) {
-        // Match by day-of-month in the date string (YYYY-MM-DD)
-        const match = diario.days.find((d: { date: string; revenue: number }) => {
-          const parsed = new Date(d.date)
-          return parsed.getUTCDate() === day
-        })
-        faturamentoDia = match ? Number(match.revenue) : 0
-        lucroLiquidoDia = faturamentoDia !== null ? Math.round(faturamentoDia * netMarginRatio) : null
-      } else {
-        // Monthly fetch (no day param): auto-derive today's revenue from the daily breakdown
-        // Only applies to the current month — past months have no "today"
-        const todayUTC = now.getUTCDate()
-        const thisMonthUTC = now.getUTCMonth() + 1
-        const thisYearUTC = now.getUTCFullYear()
-        if (month1 === thisMonthUTC && year === thisYearUTC) {
-          const todayEntry = diario.days.find((d: { date: string; revenue: number }) => {
-            const p = new Date(d.date)
-            return p.getUTCDate() === todayUTC
-          })
-          if (todayEntry) {
-            faturamentoDia = Number(todayEntry.revenue)
-            lucroLiquidoDia = Math.round(faturamentoDia * netMarginRatio)
-          }
+    }
+  }
+
+  // Products: resilient pass-through (guard against different field names from backend)
+  const produtosVendidosMes        = bd.produtosVendidosMes        ?? bd.produtosVendidos         ?? null
+  const produtosVendidosMeta       = bd.produtosVendidosMeta       ?? null
+  const produtosVendidosPercentual = bd.produtosVendidosPercentual ?? null
+  const produtosVendidosBreakdown  = bd.produtosVendidosBreakdown  ?? null
+  const produtosVendidosDia        = bd.produtosVendidosDia        ?? null
+  const produtosVendidosDiaBreakdown = bd.produtosVendidosDiaBreakdown ?? null
+  const backendInsights            = Array.isArray(bd.insights) ? bd.insights : (bd.smartInsights ?? null)
+
+  console.log(`[SUMMARY] canonical — faturamentoMes:${faturamentoMes} lucroBrutoMes:${lucroBrutoMes} lucroLiquidoDia:${bd.lucroLiquidoDia} produtosVendidosMes:${bd.produtosVendidosMes}`)
+  console.log(`[BFF_SUMMARY_FIELDS] products=${produtosVendidosMes != null} insightsCount=${Array.isArray(backendInsights) ? backendInsights.length : 0} stale=${bd.stale}`)
+
+  // Compute comparisons server-side — wrapped in try/catch to prevent route crash
+  let comparisons: Record<string, unknown> | null = null
+  try {
+    if (bd.comparisons) {
+      comparisons = bd.comparisons
+    } else if (prevBdRes?.ok) {
+      const prevBd = await prevBdRes.json().catch(() => null)
+      if (prevBd) {
+        const MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]
+        const isMTD = month1 === now.getMonth() + 1 && year === now.getFullYear()
+        const daysInPrevMonth = new Date(prevYear_, prevMonth1, 0).getDate()
+        const scale = isMTD && daysInPrevMonth > 0 ? now.getDate() / daysInPrevMonth : 1
+        const prevMonthName = MESES_PT[prevMonth1 - 1] ?? ""
+        const periodLabel = isMTD ? `vs mesmo período de ${prevMonthName}` : `vs ${prevMonthName}`
+
+        const mkComp = (curr: number, prev: number) => {
+          if (!prev || !curr) return null
+          const delta = ((curr - prev) / prev) * 100
+          return { delta: Math.round(delta * 10) / 10, direction: (delta >= 0 ? "up" : "down") as "up" | "down", label: periodLabel }
+        }
+
+        comparisons = {
+          faturamentoMes:      mkComp(faturamentoMes,  Number(prevBd.faturamentoMes  ?? 0) * scale),
+          totalGastos:         mkComp(totalGastos,      Number(prevBd.comprasMes      ?? 0) * scale),
+          lucroBrutoMes:       mkComp(lucroBrutoMes,    Number(prevBd.lucroBrutoMes   ?? prevBd.lucro ?? 0) * scale),
+          lucroLiquidoReal:    mkComp(lucroLiquidoReal, Number(prevBd.lucroLiquidoReal ?? 0) * scale),
+          produtosVendidosMes: mkComp(Number(produtosVendidosMes ?? 0), Number(prevBd.produtosVendidosMes ?? prevBd.produtosVendidos ?? 0) * scale),
         }
       }
     }
+  } catch (err) {
+    console.error("[BFF_COMPARISONS_ERROR]", err)
+    comparisons = null
   }
-  const fixedExpenses = resumo.fixedExpenses ?? 0
-  const cogs          = totalRevenue - grossProfit
-  const totalExpenses = resumo.despesasMes ?? resumo.totalExpense ?? (cogs + fixedExpenses)
 
   const result = {
-    faturamentoMes:      totalRevenue,
-    despesasMes:         totalExpenses,
-    lucroOperacionalMes: grossProfit,
-    lucroLiquidoMes:     netProfit,
-    margemBruta:         resumo.margemBruta ?? (totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0),
-    margemLiquida:       resumo.margem      ?? (totalRevenue > 0 ? (netProfit   / totalRevenue) * 100 : 0),
-    totalVendas:         resumo.totalVendas ?? resumo.revenueCount ?? 0,
-    ticketMedio:         resumo.ticketMedio ?? 0,
-    faturamentoDia,
-    lucroLiquidoDia,
+    // ── Canonical fields (pass-through from backend) ──
+    produtosVendidosMes,
+    produtosVendidosBreakdown,
+    produtosVendidosMeta,
+    produtosVendidosPercentual,
+    produtosVendidosDia,
+    produtosVendidosDiaBreakdown,
+    faturamentoMes,
+    faturamentoDia:             bd.faturamentoDia   ?? null,
+    lucroBrutoMes,
+    lucroBrutoDia:              bd.lucroBrutoDia    ?? null,
+    lucroLiquidoDia:            bd.lucroLiquidoDia  ?? null,
+    lucroLiquidoReal,
+    totalGastos,
+
+    // ── Backward-compat aliases (consumed by existing hook consumers) ──
+    lucroOperacionalMes: lucroBrutoMes,
+    lucroLiquidoMes:     Number(bd.lucroLiquido ?? 0),
+    despesasMes:         totalGastos,
+    margemBruta:         faturamentoMes > 0 ? (lucroBrutoMes   / faturamentoMes) * 100 : 0,
+    margemLiquida:       faturamentoMes > 0 ? (lucroLiquidoReal / faturamentoMes) * 100 : 0,
+    totalVendas:         bd.totalVendasMes  ?? 0,
+    ticketMedio:         bd.ticketMedio     ?? 0,
+
+    // ── Chart ──
     grafico,
-    updatedAt:  resumo.updatedAt ?? null,
-    sourceType: resumo.sourceType ?? null,
+
+    // ── Comparisons & Insights ──
+    comparisons,
+    insights:    backendInsights,
+    stale:       bd.stale       ?? false,
+    staleReason: bd.staleReason ?? null,
+    syncedAt:    bd.syncedAt    ?? null,
+
+    // ── Meta ──
+    updatedAt:  bd.updatedAt  ?? null,
+    sourceType: bd._source    ?? null,
+    sources:    bd.sources    ?? null,
     _meta: {
-      source: resumo._source ?? "postgresql",
-      sourceType: resumo.sourceType ?? null,
-      isStable: resumo.sourceType === "live" || resumo.sourceType === "snapshot" || resumo.sourceType == null,
+      source:     bd._source ?? "backend/dashboard/summary",
+      isStable:   true,
     },
   }
-
 
   return NextResponse.json(result)
 }

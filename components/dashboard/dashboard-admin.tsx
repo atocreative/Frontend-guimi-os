@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import {
   DollarSign,
+  Package,
   RefreshCw,
-  ShoppingCart,
   Target,
   TrendingUp,
 } from "lucide-react"
@@ -17,7 +17,6 @@ import { KpiSkeleton } from "@/components/dashboard/kpi-skeleton"
 import { VendedoresRanking } from "@/components/dashboard/vendedores-ranking"
 import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
 import { PainelAlertasGlobal } from "@/components/dashboard/painel-alertas-global"
-import { InsightsPeriodo } from "@/components/dashboard/insights-periodo"
 import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
 import { useDashboardRanking } from "@/hooks/use-dashboard-ranking"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -143,10 +142,6 @@ export function DashboardAdmin({
   // todayQuery: sempre mês corrente — garante "Lucro de Hoje" ao navegar para meses anteriores
   // Quando mes/ano === hoje, React Query deduplicata via mesma query key, sem request duplo
   const todayQuery   = useFinancialMonthly(currentYear, currentMonth + 1)
-  // prevMonthQuery: mês anterior para comparativo de insights
-  const prevMes1     = mes === 0 ? 11 : mes - 1
-  const prevAno1     = mes === 0 ? ano - 1 : ano
-  const prevMonthQuery = useFinancialMonthly(prevAno1, prevMes1 + 1)
   // dailyQuery: dia selecionado — desabilitado quando nenhum dia está ativo
   const dailyQuery   = useFinancialDaily(ano, mes + 1, diaValido !== "" ? (diaValido as number) : null)
 
@@ -155,13 +150,11 @@ export function DashboardAdmin({
   const loadingKpi = monthlyQuery.isLoading && !md
   const erroFetch  = monthlyQuery.isError
 
-  const faturamento  = toNum(md?.faturamentoMes ?? md?.financeiro?.receita)
-  const lucro        = toNum(md?.lucroOperacionalMes ?? md?.financeiro?.grossProfit)
-  const totalVendas  = toNum(md?.totalVendas)
+  const faturamento  = toNum(md?.faturamentoMes)
+  const lucro        = toNum(md?.lucroBrutoMes ?? md?.lucroOperacionalMes)
   const margemBruta  = toNum(md?.margemBruta)
 
   const lucroNulo       = !md || isNull(md.lucroOperacionalMes)
-  const totalVendasNulo = !md || isNull(md.totalVendas)
   const updatedAt       = md?.updatedAt ?? null
 
   // ── KPIs diários ────────────────────────────────────────────────────────────
@@ -190,20 +183,18 @@ export function DashboardAdmin({
     lucroLiquidoDia,
   })
 
-  // ── Consolidado financeiro (source of truth — mesmos bindings do Financeiro) ──
+  // ── Canonical KPIs — all from md (useFinancialMonthly → /api/dashboard/summary) ──
   const consolidadoQuery = useFinancialConsolidated(ano, mes + 1)
-  const consolidado = consolidadoQuery.data
-  const lucroLiquidoReal    = toNum(consolidado?.realCompanyProfit)
-  const lucroLiquidoFN      = toNum(consolidado?.netProfit)
-  const margemReal          = toNum(consolidado?.realMargin)
+  const consolidado = consolidadoQuery.data  // kept for alerts that use breakdown
+
+  const lucroLiquidoReal    = toNum(md?.lucroLiquidoReal ?? consolidado?.realCompanyProfit)
+  const lucroLiquidoFN      = toNum(md?.lucroLiquidoMes  ?? consolidado?.netProfit)
+  const margemReal          = faturamento > 0 ? (lucroLiquidoReal / faturamento) * 100 : 0
   const adminExpenses       = toNum(consolidado?.administrativeExpenses)
   const maCount             = consolidado?.breakdown?.meuAssessor?.count ?? 0
   const maAvailable         = !consolidadoQuery.isLoading && !consolidadoQuery.isError && maCount > 0
 
-  const grossProfitCanonical = toNum(consolidado?.grossProfit)
-  const margemBrutaEffective = consolidado && faturamento > 0 && grossProfitCanonical > 0
-    ? (grossProfitCanonical / faturamento) * 100
-    : margemBruta
+  const margemBrutaEffective = faturamento > 0 ? (lucro / faturamento) * 100 : margemBruta
 
   const lucroInconsistente = !loadingKpi && !lucroNulo && lucro > 0 && lucro === faturamento
 
@@ -269,7 +260,7 @@ export function DashboardAdmin({
 
       finAlerts
         .sort((a, b) => b.score - a.score)
-        .slice(0, 2)
+        .slice(0, 3)
         .forEach(({ a, score }) => push(a, score))
     }
 
@@ -297,7 +288,7 @@ export function DashboardAdmin({
           timestamp: now,
         }})
       }
-      if (estoqueParado.length > 0 && opAlerts.length < 2) {
+      if (estoqueParado.length > 0) {
         opAlerts.push({ score: 150, a: {
           id: "estoque-parado", severity: "info",
           title: `${estoqueParado.length} produto${estoqueParado.length > 1 ? "s" : ""} sem movimentação`,
@@ -310,7 +301,7 @@ export function DashboardAdmin({
 
       opAlerts
         .sort((a, b) => b.score - a.score)
-        .slice(0, 2)
+        .slice(0, 3)
         .forEach(({ a, score }) => push(a, score))
     }
 
@@ -319,11 +310,25 @@ export function DashboardAdmin({
       push({
         id: "ranking-lider", severity: "info",
         title: `Líder: ${lider.userName}`,
-        description: `Score ${lider.score} · ${lider.tarefasConcluidas} tarefas concluídas no período.`,
+        description: `Score ${lider.score} · ${lider.tarefasConcluidas} tarefas concluídas.`,
         source: "ranking",
         tooltip: "Origem: Ranking\nRegra: Colaborador com maior score no período",
         timestamp: now,
       }, 120)
+
+      if (rankingEntries.length > 1) {
+        const pior = rankingEntries[rankingEntries.length - 1]
+        if (pior.tarefasConcluidas === 0) {
+          push({
+            id: "ranking-sem-atividade", severity: "warning",
+            title: `${pior.userName} sem atividade`,
+            description: "Nenhuma tarefa concluída no período.",
+            source: "ranking",
+            tooltip: "Origem: Ranking\nRegra: Colaborador sem tarefas concluídas no período",
+            timestamp: now,
+          }, 110)
+        }
+      }
 
       const melhorStreak = [...rankingEntries].sort((a, b) => b.streak - a.streak)[0]
       if (melhorStreak && melhorStreak.streak >= 3) {
@@ -338,11 +343,20 @@ export function DashboardAdmin({
       }
     }
 
-    const ORDER = { critical: 0, warning: 1, info: 2 } as const
+    const SEV_ORDER = { critical: 0, warning: 1, medium: 2, info: 3 } as const
+    const SRC_ORDER: Record<string, number> = {
+      financeiro: 0, operacao: 1, tarefas: 2, ranking: 3, vendas: 4, integracao: 5,
+    }
     return all
-      .sort((a, b) => ORDER[a.severity] - ORDER[b.severity] || b.score - a.score)
+      .sort((a, b) => {
+        const sev = (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9)
+        if (sev !== 0) return sev
+        const src = (SRC_ORDER[a.source] ?? 9) - (SRC_ORDER[b.source] ?? 9)
+        if (src !== 0) return src
+        return b.score - a.score
+      })
       .map(({ score: _s, ...rest }) => rest)
-      .slice(0, 8)
+      .slice(0, 10)
   }, [
     faturamentoDia, loadingKpi, tarefasPendentes, comercialKPIs,
     diaValido, mes, ano, currentMonth, currentYear,
@@ -359,19 +373,6 @@ export function DashboardAdmin({
     })),
     [md]
   )
-
-  const tendencia = useMemo((): "up" | "down" | "neutral" => {
-    if (dadosGrafico.length < 4) return "neutral"
-    const mid = Math.floor(dadosGrafico.length / 2)
-    const avgFirst  = dadosGrafico.slice(0, mid).reduce((s, d) => s + d.faturamento, 0) / mid
-    const avgSecond = dadosGrafico.slice(mid).reduce((s, d) => s + d.faturamento, 0) / (dadosGrafico.length - mid)
-    const diff = avgFirst > 0 ? ((avgSecond - avgFirst) / avgFirst) * 100 : 0
-    if (diff > 5) return "up"
-    if (diff < -5) return "down"
-    return "neutral"
-  }, [dadosGrafico])
-
-  const prevLucroBruto = toNum(prevMonthQuery.data?.lucroOperacionalMes ?? prevMonthQuery.data?.financeiro?.grossProfit)
 
   // ── tarefas ─────────────────────────────────────────────────────────────────
   const tarefasPorId = useMemo(
@@ -479,6 +480,7 @@ export function DashboardAdmin({
               icone={DollarSign}
               tendencia={toNum(lucroLiquidoDia) >= 0 ? "up" : "down"}
               accent={toNum(lucroLiquidoDia) >= 0 ? "positive" : "negative"}
+              tooltip={"O que é: Lucro gerado no dia — receitas do dia menos despesas proporcionais.\n\nOrigem: FinancialSnapshot diário via Fone Ninja.\n\nAtualização: Sincronização automática diária."}
             />
             {/* 2. Lucro Bruto do Mês */}
             <KpiCard
@@ -488,45 +490,56 @@ export function DashboardAdmin({
               icone={Target}
               tendencia="up"
               accent="info"
+              tooltip={"O que é: Receita total menos o custo das mercadorias vendidas (CMV). Não considera despesas operacionais.\n\nOrigem: FinancialSnapshot mensal via Fone Ninja.\n\nAtualização: Sincronização automática diária."}
             />
             {/* 3. Lucro Líquido Real */}
             <KpiCard
               titulo="Lucro Líquido Real"
-              valor={consolidadoQuery.isLoading && !consolidado ? "…" : formatBRL(maAvailable ? lucroLiquidoReal : lucroLiquidoFN)}
-              descricao={maAvailable ? `Margem real ${margemReal.toFixed(1)}%` : faturamento > 0 ? `Margem ${((lucroLiquidoFN / faturamento) * 100).toFixed(1)}%` : `${MESES[mes]} ${ano}`}
+              valor={loadingKpi ? "…" : formatBRL(lucroLiquidoReal > 0 ? lucroLiquidoReal : lucroLiquidoFN)}
+              descricao={faturamento > 0 ? `Margem ${margemReal.toFixed(1)}%` : `${MESES[mes]} ${ano}`}
               icone={TrendingUp}
               tendencia={lucroLiquidoReal >= 0 ? "up" : "down"}
               accent={lucroLiquidoReal >= 0 ? "positive" : "negative"}
               destaque
+              tooltip={"O que é: Resultado final após dedução de todas as despesas. É o dinheiro que sobra de fato.\n\nOrigem: Fone Ninja + MeuAssessor via backend.\n\nAtualização: Sincronização automática diária."}
             />
-            {/* 4. Total Vendas no Mês */}
-            <KpiCard
-              titulo="Total Vendas no Mês"
-              valor={totalVendas > 0 ? String(totalVendas) : "—"}
-              descricao="Vendas consolidadas"
-              icone={ShoppingCart}
-              tendencia={totalVendas > 0 ? "up" : "neutral"}
-            />
+            {/* 4. Produtos Vendidos no Mês */}
+            {(() => {
+              const total = md?.produtosVendidosMes ?? null
+              const bd = md?.produtosVendidosBreakdown
+              const sub = bd
+                ? (() => {
+                    if (bd.concluidos != null || bd.pendentes != null) {
+                      return [
+                        bd.concluidos != null ? `Concluídos: ${bd.concluidos}` : null,
+                        bd.pendentes  != null ? `Pendentes: ${bd.pendentes}`   : null,
+                        bd.outros != null && bd.outros > 0 ? `Outros: ${bd.outros}` : null,
+                      ].filter(Boolean).join(" • ") || null
+                    }
+                    return [
+                      bd.acessorios ? `Acessórios: ${bd.acessorios}` : null,
+                      bd.aparelhos  ? `Aparelhos: ${bd.aparelhos}`   : null,
+                      bd.outros     ? `Outros: ${bd.outros}`         : null,
+                    ].filter(Boolean).join(" • ") || null
+                  })()
+                : null
+              return (
+                <KpiCard
+                  titulo="Produtos Vendidos no Mês"
+                  valor={loadingKpi ? "…" : total != null ? String(total) : "—"}
+                  descricao={sub ?? `${MESES[mes]} ${ano}`}
+                  icone={Package}
+                  accent="info"
+                  tooltip={"O que é: Quantidade total de produtos vendidos no mês. Fonte: Fone Ninja (soma de unidades, não registros).\n\nOrigem: backend /api/dashboard/summary.\n\nAtualização: Sincronização automática."}
+                />
+              )
+            })()}
           </>
         )}
       </div>
 
 
-      {/* ── Linha 3: Insights do Período ─────────────────────────────────── */}
-      <InsightsPeriodo
-        mes={mes}
-        ano={ano}
-        lucroBrutoMes={lucro}
-        lucroLiquidoReal={maAvailable ? lucroLiquidoReal : null}
-        margemReal={margemReal}
-        prevLucroBruto={prevLucroBruto > 0 ? prevLucroBruto : null}
-        loading={loadingKpi}
-        tendencia={tendencia}
-        alertasCriticos={alertas.filter(a => a.severity === "critical").length}
-        alertasAvisos={alertas.filter(a => a.severity === "warning").length}
-      />
-
-      {/* ── Linha 4: Central de Alertas ───────────────────────────────────── */}
+      {/* ── Linha 3: Central Executiva ───────────────────────────────────── */}
       <PainelAlertasGlobal alerts={alertas} />
 
       {/* ── Linha 5: Gráficos + Origem de Leads ──────────────────────────── */}

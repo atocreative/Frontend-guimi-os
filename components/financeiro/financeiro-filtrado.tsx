@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
-  TrendingUp, Wallet, ShoppingBag,
+  TrendingUp, Wallet, ShoppingBag, Package,
   AlertTriangle, CheckCircle2, ArrowUpRight,
   AlertCircle, Calendar, DollarSign, Flame, Sparkles, Info,
 } from "lucide-react"
@@ -28,8 +28,8 @@ import type { DashboardSummary } from "@/lib/types/dashboard"
 import type { DespesaItem } from "@/components/financeiro/tabela-despesas"
 import type { VendaRecente } from "@/components/financeiro/tabela-entradas"
 import { calcularAlertasFinanceiros, calcularScale } from "@/lib/services/financial-alerts"
-import { InsightsPeriodo } from "@/components/financeiro/insights-periodo"
 import type { AlertaFinanceiro } from "@/lib/services/financial-alerts"
+import type { DashboardInsight } from "@/lib/types/dashboard"
 import { getPeriodoLabel, getDailyCardMeta } from "@/lib/financeiro-utils"
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -199,6 +199,17 @@ function pctDelta(atual: number, anterior: number): number | null {
   return ((atual - anterior) / anterior) * 100
 }
 
+function formatComp(
+  comp: { delta: number; direction: "up" | "down"; label?: string | null } | null | undefined,
+  prevMonthName: string,
+  isMTD?: boolean
+): string | undefined {
+  if (!comp || typeof comp.delta !== "number") return undefined
+  const arrow = comp.direction === "up" ? "↑" : "↓"
+  const label = comp.label ?? (isMTD ? `vs mesmo período de ${prevMonthName}` : `vs ${prevMonthName}`)
+  return `${arrow} ${Math.abs(comp.delta).toFixed(1)}% ${label}`
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 
@@ -322,44 +333,59 @@ export function FinanceiroFiltrado({
 
   const today = new Date()
 
-  // KPIs não-contábeis — fonte: monthlyQuery (mensal) ou dailyQuery (quando dia selecionado)
-  // Dia nunca deriva de mês — cada fonte tem endpoint próprio.
-  const lucroLiquidoDia = dia !== null ? toNum(dailyQuery.data?.lucroLiquidoDia) : toNum(md?.lucroLiquidoDia)
-  const totalVendas = toNum(md?.totalVendas)
-  const ticketMedio = toNum(md?.ticketMedio)
-  const margemBruta = toNum(md?.margemBruta)
+  // ── KPIs canônicos — fonte: md (useFinancialMonthly → /api/dashboard/summary) ──
+  // Frontend APENAS RENDERIZA. Sem cálculo local para KPIs financeiros.
+  const lucroLiquidoDia  = dia !== null ? toNum(dailyQuery.data?.lucroLiquidoDia) : toNum(md?.lucroLiquidoDia)
+  const totalVendas      = toNum(md?.totalVendas)
+  const ticketMedio      = toNum(md?.ticketMedio)
 
-  // ─────────────────────────────────────────────────────────────────────────
-  //  FONTE ÚNICA DE VERDADE: FinancialSnapshot via /api/financeiro/consolidado
-  //  Frontend APENAS RENDERIZA. Sem fallback para `summary`, sem cálculo local.
-  //  Se o snapshot não estiver disponível, o card carrega em estado de loading.
-  // ─────────────────────────────────────────────────────────────────────────
+  // Canonical fields (pass-through from backend)
+  const faturamento      = toNum(md?.faturamentoMes)
+  const receitaBruta     = faturamento  // alias for comparatives
+  const lucroBruto       = toNum(md?.lucroBrutoMes ?? md?.lucroOperacionalMes)
+  const lucroLiquidoReal = toNum(md?.lucroLiquidoReal)
+  const totalDespesas    = toNum(md?.totalGastos ?? md?.despesasMes ?? md?.comprasMes)
+  const burnRate         = toNum(consolidado?.fixedExpenses)  // kept from consolidado (not in canonical yet)
+
+  // Margin ratios derived from canonical values (display transforms only, not new calculations)
+  const margemBruta      = faturamento > 0 ? (lucroBruto / faturamento) * 100 : 0
+  const margemReal       = faturamento > 0 ? (lucroLiquidoReal / faturamento) * 100 : 0
+
+  // Consolidado kept for: donut chart categories, insights comparatives, maAvailable check
   const maCount        = consolidado?.breakdown?.meuAssessor?.count ?? 0
   const maAvailable    = !consolidadoLoading && !consolidadoQuery.isError && maCount > 0
   const fnSourceType   = consolidado?.breakdown?.fn?.sourceType
   const sourceIsError  = !consolidadoLoading && (fnSourceType === "error" || fnSourceType === "unknown")
   const fnIsStable     = fnSourceType === "live" || fnSourceType === "snapshot"
 
-  const receitaBruta     = toNum(consolidado?.revenue)             // snapshot.totalRevenue
-  const lucroBruto       = toNum(consolidado?.grossProfit)         // snapshot.grossProfit
-  const lucroLiquido     = toNum(consolidado?.netProfit)           // snapshot.netProfit
-  const fixedExpensesFn  = toNum(consolidado?.fixedExpenses)       // snapshot.fixedExpenses
-  const adminExpenses    = toNum(consolidado?.administrativeExpenses) // MA breakdown (não snapshot)
-  const lucroLiquidoReal = toNum(consolidado?.realCompanyProfit)
-  const margemReal       = toNum(consolidado?.realMargin)
+  const lucroLiquido     = toNum(consolidado?.netProfit)
+  const fixedExpensesFn  = toNum(consolidado?.fixedExpenses)
+  const adminExpenses    = toNum(consolidado?.administrativeExpenses)
   const netProfitFn      = lucroLiquido
-  // Alias retrocompat: `faturamento` continua usado em comparativos legados.
-  // Agora aponta para o snapshot, não mais para summary.faturamentoMes.
-  const faturamento      = receitaBruta
 
-  // Burn Rate ≡ snapshot.fixedExpenses (semântica nova homologada pelo backend)
-  const burnRate = fixedExpensesFn
+  // Produtos vendidos (canonical)
+  const produtosVendidos   = md?.produtosVendidosMes ?? null
+  const produtosBreakdown  = md?.produtosVendidosBreakdown ?? null
+  const produtosSubtitle = produtosBreakdown
+    ? (() => {
+        // Prefer new status-based breakdown (concluidos/pendentes)
+        if (produtosBreakdown.concluidos != null || produtosBreakdown.pendentes != null) {
+          return [
+            produtosBreakdown.concluidos != null ? `Concluídos: ${produtosBreakdown.concluidos}` : null,
+            produtosBreakdown.pendentes  != null ? `Pendentes: ${produtosBreakdown.pendentes}`   : null,
+            produtosBreakdown.outros     != null && produtosBreakdown.outros > 0 ? `Outros: ${produtosBreakdown.outros}` : null,
+          ].filter(Boolean).join(" • ") || null
+        }
+        // Legacy: only show non-zero type breakdown (zero acessorios/aparelhos são sem sentido)
+        return [
+          produtosBreakdown.acessorios ? `Acessórios: ${produtosBreakdown.acessorios}` : null,
+          produtosBreakdown.aparelhos  ? `Aparelhos: ${produtosBreakdown.aparelhos}`   : null,
+          produtosBreakdown.outros     ? `Outros: ${produtosBreakdown.outros}`          : null,
+        ].filter(Boolean).join(" • ") || null
+      })()
+    : null
 
-  // Total Despesas ≡ snapshot.totalExpense (singular). Aceita alias plural
-  // por retrocompat enquanto o backend padroniza. Zero quando snapshot ausente.
-  const totalDespesas = toNum(
-    consolidado?.totalExpense ?? consolidado?.totalExpenses ?? 0
-  )
+  const margemBrutaCalc = margemBruta
 
   // Para comparativos absolutos (queda vs mês anterior) — fonte: prevMonthQuery
   const grossProfitAnt = toNum(mdPrev?.lucroOperacionalMes ?? mdPrev?.lucroBrutoMes)
@@ -371,17 +397,24 @@ export function FinanceiroFiltrado({
     lucroLiquidoDia: (dia !== null ? dailyQuery.data?.lucroLiquidoDia : md?.lucroLiquidoDia) ?? null,
   })
 
-  // Comparativo M vs M-1 também via snapshot do mês anterior, não summaryAnterior.
-  const fatAnt = toNum(consolidadoAnterior?.revenue)
-  const crescimento = fatAnt > 0 ? ((faturamento - fatAnt) / fatAnt) * 100 : null
-  const crescLabel = crescimento === null
-    ? "Sem dados do mês anterior"
-    : crescimento >= 0
-      ? `↑ ${crescimento.toFixed(1)}% vs ${MESES[mesAnterior(mesEfetivo, ano).mes]}`
-      : `↓ ${Math.abs(crescimento).toFixed(1)}% vs ${MESES[mesAnterior(mesEfetivo, ano).mes]}`
+  // Meta e progresso de produtos
+  const metaProdutos = toNum(md?.produtosVendidosMeta) > 0 ? toNum(md?.produtosVendidosMeta) : 300
+  const pctProdutos  = md?.produtosVendidosPercentual != null
+    ? Math.round(toNum(md?.produtosVendidosPercentual))
+    : produtosVendidos != null && metaProdutos > 0
+      ? Math.round((produtosVendidos / metaProdutos) * 100)
+      : null
 
-  const margemBrutaCalc       = margemBruta
-  const margemLiquidaCalc     = receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0
+  // Produtos Vendidos Dia (canonical — pass-through do backend)
+  const produtosVendidosDia   = md?.produtosVendidosDia ?? null
+  const produtosBreakdownDia  = md?.produtosVendidosDiaBreakdown ?? null
+  const produtosSubtitleDia   = produtosBreakdownDia
+    ? [
+        produtosBreakdownDia.concluidos != null ? `Concluídos: ${produtosBreakdownDia.concluidos}` : null,
+        produtosBreakdownDia.pendentes  != null ? `Pendentes: ${produtosBreakdownDia.pendentes}`   : null,
+      ].filter(Boolean).join(" • ") || null
+    : null
+
 
 
   // ── Donut: Despesas por Categoria (visão gerencial) ──
@@ -404,6 +437,15 @@ export function FinanceiroFiltrado({
 
   const isMesAtual = mesEfetivo === today.getMonth() && ano === today.getFullYear()
   const diaAtual = isMesAtual ? today.getDate() : null
+  // Cards diários: mês histórico sem dia selecionado → não exibir R$0,00 (null ≠ zero real)
+  const dailyRequiresDate = dia === null && !isMesAtual
+
+  // Comparisons — do backend via route.ts (inclui label correto MTD vs mês fechado).
+  const compSubFaturamento = formatComp(md?.comparisons?.faturamentoMes,      MESES[prevMes0], isMesAtual)
+  const compSubGastos      = formatComp(md?.comparisons?.totalGastos,          MESES[prevMes0], isMesAtual)
+  const compSubProdutos    = formatComp(md?.comparisons?.produtosVendidosMes,  MESES[prevMes0], isMesAtual)
+  const compSubLucroBruto  = formatComp(md?.comparisons?.lucroBrutoMes,        MESES[prevMes0], isMesAtual)
+  const compSubLucroReal   = formatComp(md?.comparisons?.lucroLiquidoReal,     MESES[prevMes0], isMesAtual)
   const { mes: prevMesN, ano: prevAnoN } = mesAnterior(mesEfetivo, ano)
   const diasPrevMes = diasNoMes(prevMesN, prevAnoN)
   const scale = calcularScale(isMesAtual, diaAtual, diasPrevMes)
@@ -637,7 +679,24 @@ export function FinanceiroFiltrado({
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">Financeiro</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold tracking-tight">Financeiro</h2>
+            {md?.stale && (
+              <UiTooltip>
+                <UiTooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/50 bg-amber-50/80 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-400 cursor-default select-none">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    {md.syncedAt
+                      ? `Cache · ${Math.max(1, Math.round((Date.now() - new Date(md.syncedAt).getTime()) / 60000))} min atrás`
+                      : "Dados em cache"}
+                  </span>
+                </UiTooltipTrigger>
+                <UiTooltipContent side="right" className="max-w-[240px] text-xs leading-snug">
+                  A Fone Ninja demorou para responder. Exibindo último dado válido.
+                </UiTooltipContent>
+              </UiTooltip>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
             {periodoLabel}
             {(monthlyQuery.isFetching && !loadingKpi) && (
@@ -664,50 +723,37 @@ export function FinanceiroFiltrado({
 
       {/* ═══════════════════════════════════════════════════════════════
           SECTION 1 — Visão Executiva
-          4 KPIs principais: Faturamento · Lucro Bruto · Total de Gastos · Lucro Líquido.
+          3 KPIs: Faturamento do Mês · Faturamento do Dia · Total de Gastos
           ═══════════════════════════════════════════════════════════════ */}
       <section className="space-y-2.5">
         <h3 className="text-sm font-semibold tracking-tight">Visão Executiva</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Kpi
             label="Faturamento do Mês"
-            value={brl(receitaBruta)}
-            sub={crescLabel}
+            value={brl(faturamento)}
+            sub={compSubFaturamento}
             icon={DollarSign}
             accent="info"
-            loading={loadingKpi || (consolidadoLoading && !receitaBruta)}
-            tooltip="Receita total consolidada do período selecionado."
-
+            loading={loadingKpi}
+            tooltip={"O que é: Receita bruta total do período — soma de todas as vendas.\n\nOrigem: Fone Ninja via backend.\n\nAtualização: Sincronização automática diária."}
           />
           <Kpi
-            label="Lucro Bruto"
-            value={brl(lucroBruto)}
-            sub={`Margem ${margemBrutaCalc.toFixed(1)}%`}
-            icon={TrendingUp}
-            accent={lucroBruto >= 0 ? "positive" : "negative"}
-            loading={loadingKpi || (consolidadoLoading && !lucroBruto)}
-            tooltip={"Receita − CMV\n\nNão considera:\n- despesas administrativas\n- despesas operacionais\n- despesas fixas"}
-
+            label="Faturamento do Dia"
+            value={dailyRequiresDate ? "—" : brl(dia !== null ? toNum(dailyQuery.data?.faturamentoDia) : toNum(md?.faturamentoDia))}
+            sub={dailyRequiresDate ? "Selecione um dia para ver" : dailyCardMeta.descricao}
+            icon={Calendar}
+            accent={dailyRequiresDate ? "neutral" : "info"}
+            loading={loadingKpi || (dia !== null && dailyQuery.isLoading)}
+            tooltip={"O que é: Receita bruta do dia selecionado. Sem seleção de dia, exibe o dia atual.\n\nOrigem: Fone Ninja via backend.\n\nAtualização: Sincronização automática diária."}
           />
           <Kpi
             label="Total de Gastos"
             value={brlNeg(totalDespesas)}
+            sub={compSubGastos}
             icon={ShoppingBag}
             accent="negative"
-            loading={consolidadoLoading}
-            tooltip={"Soma de:\n- despesas operacionais\n- despesas administrativas\n- despesas fixas\n\nCMV não incluso."}
-
-          />
-          <Kpi
-            label="Lucro Líquido"
-            value={brl(lucroLiquido)}
-            sub={`Margem ${margemLiquidaCalc.toFixed(1)}%`}
-            icon={Wallet}
-            accent={lucroLiquido >= 0 ? "positive" : "negative"}
-            emphasized
-            loading={consolidadoLoading && !lucroLiquido}
-            tooltip={"Resultado final da operação.\n\nFórmula:\nLucro Bruto\n− Despesas Administrativas (MA)\n\nObservação: custos dos produtos (CMV) já estão descontados no Lucro Bruto."}
-
+            loading={loadingKpi}
+            tooltip={"O que é: Custo total do período (CMV + despesas operacionais).\n\nOrigem: backend /api/dashboard/summary.\n\nAtualização: Sincronização automática diária."}
           />
         </div>
       </section>
@@ -720,95 +766,197 @@ export function FinanceiroFiltrado({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Kpi
             label="Lucro Líquido do Dia"
-            value={brl(lucroLiquidoDia)}
-            sub={dailyCardMeta.descricao}
+            value={dailyRequiresDate ? "—" : brl(lucroLiquidoDia)}
+            sub={dailyRequiresDate ? "Selecione um dia para ver" : dailyCardMeta.descricao}
             icon={Calendar}
-            accent={lucroLiquidoDia >= 0 ? "positive" : "negative"}
+            accent={dailyRequiresDate ? "neutral" : lucroLiquidoDia >= 0 ? "positive" : "negative"}
             loading={loadingKpi || (dia !== null && dailyQuery.isLoading)}
-            tooltip="Lucro líquido consolidado do dia selecionado."
-
+            tooltip={"O que é: Lucro líquido consolidado do dia — receita do dia menos despesas proporcionais.\n\nOrigem: FinancialSnapshot diário via Fone Ninja.\n\nAtualização: Sincronização automática diária."}
           />
           <Kpi
             label="Lucro Bruto do Mês"
             value={brl(lucroBruto)}
-            sub={`Margem ${margemBrutaCalc.toFixed(1)}%`}
+            sub={compSubLucroBruto ?? (faturamento > 0 ? `Margem ${margemBrutaCalc.toFixed(1)}%` : undefined)}
             icon={TrendingUp}
             accent={lucroBruto >= 0 ? "positive" : "negative"}
-            loading={consolidadoLoading}
-            tooltip={"Receita − CMV. Não considera despesas operacionais ou administrativas."}
-
+            loading={loadingKpi}
+            tooltip={"O que é: Receita total menos o custo das mercadorias vendidas (CMV). Não considera despesas operacionais.\n\nOrigem: Fone Ninja via backend.\n\nAtualização: Sincronização automática diária."}
           />
           <Kpi
             label="Lucro Líquido Real"
-            value={maAvailable ? brl(lucroLiquidoReal) : brl(lucroLiquido)}
-            sub={`Margem ${maAvailable ? margemReal.toFixed(1) : margemLiquidaCalc.toFixed(1)}%`}
+            value={brl(lucroLiquidoReal > 0 ? lucroLiquidoReal : lucroLiquido)}
+            sub={compSubLucroReal ?? (faturamento > 0 ? `Margem ${margemReal.toFixed(1)}%` : undefined)}
             icon={Wallet}
             accent={lucroLiquidoReal >= 0 ? "positive" : "negative"}
             emphasized
-            loading={consolidadoLoading}
-            tooltip={"Resultado final após dedução de todas as despesas, incluindo administrativas."}
-
+            loading={loadingKpi}
+            tooltip={"O que é: Resultado final após dedução de todas as despesas. É o dinheiro que sobra de fato.\n\nOrigem: Fone Ninja + MeuAssessor via backend.\n\nAtualização: Sincronização automática diária."}
           />
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          INSIGHTS DO PERÍODO
+          SECTION 3 — Produtos Vendidos
+          3 cards: Meta de Produtos · Produtos Vendidos Mês · Produtos Vendidos Dia
           ═══════════════════════════════════════════════════════════════ */}
-      <InsightsPeriodo
-        mes={mesEfetivo}
-        ano={ano}
-        lucroBrutoMes={lucroBruto}
-        lucroLiquidoReal={maAvailable ? lucroLiquidoReal : null}
-        margemReal={margemReal}
-        prevLucroBruto={toNum(consolidadoAnterior?.grossProfit) > 0 ? toNum(consolidadoAnterior?.grossProfit) : null}
-        loading={consolidadoLoading}
-        tendencia={
-          lucroBruto > 0 && toNum(consolidadoAnterior?.grossProfit) > 0
-            ? lucroBruto >= toNum(consolidadoAnterior?.grossProfit) ? "up" : "down"
-            : "neutral"
-        }
-        alertasCriticos={alertas.filter(a => a.tipo === "danger").length}
-        alertasAvisos={alertas.filter(a => a.tipo === "warning" || a.tipo === "orange").length}
-      />
-
-      {insights.length > 0 && (
-        <Card className="border-blue-200/40 dark:border-blue-900/30 bg-gradient-to-br from-blue-50/30 to-transparent dark:from-blue-950/15">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-blue-500" />
-              Insights do período
-              <span className="ml-auto text-[11px] font-normal text-muted-foreground">
-                {MESES[mesEfetivo]} vs {prevMonthLabel}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {insights.map((ins, i) => {
-              const Icon = ins.tipo === "success" ? TrendingUp
-                : ins.tipo === "warning" ? AlertTriangle
-                : ArrowUpRight
-              const style = ALERTA_STYLE[ins.tipo]
-              return (
-                <div
-                  key={i}
-                  className={`flex items-start gap-2.5 rounded-md px-3 py-2 ${style.bg} ${style.text} ${style.border}`}
-                >
-                  <div className={`rounded-md p-1 shrink-0 ${style.iconBg}`}>
-                    <Icon className="h-3 w-3" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold leading-tight">{ins.titulo}</p>
-                    {ins.descricao && (
-                      <p className="text-[11px] leading-snug opacity-80 mt-0.5">{ins.descricao}</p>
-                    )}
-                  </div>
+      <section className="space-y-2.5">
+        <h3 className="text-sm font-semibold tracking-tight">Produtos Vendidos</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Card 1 — Meta de Produtos (progress bar) */}
+          <Card>
+            <CardContent className="p-3.5">
+              <div className="flex items-start justify-between mb-1.5 gap-2">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Meta de Produtos
+                </p>
+                <div className="rounded-md p-1.5 shrink-0 bg-muted/50">
+                  <Package className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
-              )
-            })}
-          </CardContent>
-        </Card>
-      )}
+              </div>
+              {loadingKpi ? (
+                <Skeleton className="h-8 w-32 rounded" />
+              ) : (
+                <p className="text-2xl font-bold tracking-tight tabular-nums text-blue-600 dark:text-blue-400">
+                  {produtosVendidos != null ? String(produtosVendidos) : "—"}
+                </p>
+              )}
+              {!loadingKpi && produtosVendidos != null && (
+                <>
+                  <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Meta: {metaProdutos}</span>
+                    <span className="tabular-nums">{produtosVendidos} / {metaProdutos} · {pctProdutos ?? 0}%</span>
+                  </div>
+                  <div className="mt-1 w-full rounded-full bg-muted/50 h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${(pctProdutos ?? 0) >= 100 ? "bg-emerald-500" : "bg-blue-500"}`}
+                      style={{ width: `${Math.min(100, pctProdutos ?? 0)}%` }}
+                    />
+                  </div>
+                  {compSubProdutos && (
+                    <p className="mt-1 text-xs text-muted-foreground">{compSubProdutos}</p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 2 — Produtos Vendidos Mês (status breakdown) */}
+          <Kpi
+            label="Produtos Vendidos Mês"
+            value={loadingKpi ? "…" : produtosVendidos != null ? String(produtosVendidos) : "—"}
+            sub={produtosSubtitle ?? (compSubProdutos ?? undefined)}
+            icon={Package}
+            accent="info"
+            loading={loadingKpi}
+            tooltip={"O que é: Total de produtos vendidos no mês. Breakdown por status: Concluídos e Pendentes.\n\nOrigem: Fone Ninja via backend.\n\nAtualização: Sincronização automática."}
+          />
+
+          {/* Card 3 — Produtos Vendidos Dia */}
+          <Kpi
+            label="Produtos Vendidos Dia"
+            value={dailyRequiresDate ? "—" : loadingKpi ? "…" : produtosVendidosDia != null ? String(produtosVendidosDia) : "—"}
+            sub={dailyRequiresDate ? "Selecione um dia para ver" : (produtosSubtitleDia ?? undefined)}
+            icon={Package}
+            accent={dailyRequiresDate ? "neutral" : "info"}
+            loading={loadingKpi || (dia !== null && dailyQuery.isLoading)}
+            tooltip={"O que é: Produtos vendidos no dia selecionado.\n\nOrigem: Fone Ninja via backend.\n\nAtualização: Sincronização automática."}
+          />
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          INSIGHTS INTELIGENTES
+          Prioriza data.insights do backend; cai nos computados se ausentes.
+          ═══════════════════════════════════════════════════════════════ */}
+      {(() => {
+        const backendInsights = (Array.isArray(md?.insights) ? (md.insights as DashboardInsight[]) : [])
+        const showBackend     = backendInsights.length > 0
+        const showComputed    = !showBackend && insights.length > 0
+        // Se insights narrativos indisponíveis, exibir alertas financeiros (mesma fonte do Dashboard)
+        const showAlerts      = !showBackend && !showComputed && alertas.length > 0
+        return (
+          <Card className="border-blue-200/40 dark:border-blue-900/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-blue-500" />
+                Insights Inteligentes
+                <span className="ml-auto text-[11px] font-normal text-muted-foreground">
+                  {MESES[mesEfetivo]} {ano}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              {showBackend ? (
+                backendInsights.map((ins, i) => {
+                  const style = ALERTA_STYLE[ins.type as keyof typeof ALERTA_STYLE] ?? ALERTA_STYLE.info
+                  const Icon = ins.type === "success" ? TrendingUp
+                    : ins.type === "danger" ? AlertCircle
+                    : ins.type === "warning" ? AlertTriangle
+                    : ArrowUpRight
+                  return (
+                    <div key={i} className={`flex items-start gap-2.5 rounded-md px-3 py-2 ${style.bg} ${style.text} ${style.border}`}>
+                      <div className={`rounded-md p-1 shrink-0 ${style.iconBg}`}>
+                        <Icon className="h-3 w-3" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold leading-tight">{ins.title}</p>
+                        <p className="text-[11px] leading-snug opacity-80 mt-0.5">{ins.message}</p>
+                        {ins.recommendation && (
+                          <p className="text-[11px] leading-snug text-muted-foreground mt-0.5 italic">{ins.recommendation}</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              ) : showComputed ? (
+                insights.map((ins, i) => {
+                  const Icon = ins.tipo === "success" ? TrendingUp
+                    : ins.tipo === "danger" ? AlertCircle
+                    : ins.tipo === "warning" ? AlertTriangle
+                    : ArrowUpRight
+                  const style = ALERTA_STYLE[ins.tipo]
+                  return (
+                    <div key={i} className={`flex items-start gap-2.5 rounded-md px-3 py-2 ${style.bg} ${style.text} ${style.border}`}>
+                      <div className={`rounded-md p-1 shrink-0 ${style.iconBg}`}>
+                        <Icon className="h-3 w-3" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold leading-tight">{ins.titulo}</p>
+                        {ins.descricao && <p className="text-[11px] leading-snug opacity-80 mt-0.5">{ins.descricao}</p>}
+                      </div>
+                    </div>
+                  )
+                })
+              ) : showAlerts ? (
+                alertas.slice(0, 5).map((a, i) => {
+                  const Icon = a.tipo === "success" ? TrendingUp
+                    : a.tipo === "danger" ? AlertCircle
+                    : a.tipo === "warning" ? AlertTriangle
+                    : a.tipo === "orange" ? Flame
+                    : ArrowUpRight
+                  const style = ALERTA_STYLE[a.tipo]
+                  return (
+                    <div key={i} className={`flex items-start gap-2.5 rounded-md px-3 py-2 ${style.bg} ${style.text} ${style.border}`}>
+                      <div className={`rounded-md p-1 shrink-0 ${style.iconBg}`}>
+                        <Icon className="h-3 w-3" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold leading-tight">{a.titulo}</p>
+                        {a.descricao && <p className="text-[11px] leading-snug opacity-80 mt-0.5">{a.descricao}</p>}
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                  Sem dados suficientes para gerar insights neste período.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      })()}
 
       {/* ═══════════════════════════════════════════════════════════════
           SECTION 3 — Monitoramento

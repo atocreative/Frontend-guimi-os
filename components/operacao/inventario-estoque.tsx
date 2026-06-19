@@ -427,41 +427,7 @@ export function InventarioEstoque({
             </div>
           </div>
 
-          {/* Tipo tabs */}
-          <div className="flex gap-1.5 flex-wrap border-b pb-2">
-            {TIPO_TABS.map((t) => (
-              <button
-                key={t.value}
-                onClick={() => navigate({ tipo: t.value || undefined })}
-                className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium transition-colors",
-                  currentTipo === t.value
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
 
-          {/* Status filter pills */}
-          <div className="flex gap-1.5 flex-wrap">
-            {STATUS_FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => navigate({ status: f.value || undefined })}
-                className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium transition-colors",
-                  currentStatus === f.value
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
         </CardHeader>
 
         <CardContent className="p-0">
