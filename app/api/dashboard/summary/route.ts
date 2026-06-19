@@ -27,11 +27,23 @@ export async function GET(req: NextRequest) {
     month1 = monthParam ? parseInt(monthParam, 10) : now.getMonth() + 1
   }
 
-  const dayParam = searchParams.get("day")
+  // date=YYYY-MM-DD takes priority over legacy day=N for daily KPI lookups
+  const dateParam = searchParams.get("date")
+  const dayParam  = searchParams.get("day")
   const day = dayParam ? parseInt(dayParam, 10) : null
 
+  // Resolve effective ISO date for backend call:
+  // Frontend may send date=YYYY-MM-DD (new) or day=N (legacy integer).
+  // Backend expects date=YYYY-MM-DD — construct it from day+month+year when needed.
+  const effectiveDate = dateParam
+    ?? (day ? `${year}-${String(month1).padStart(2, "0")}-${String(day).padStart(2, "0")}` : null)
+
+  // params for primary summary: always forward date as ISO string when present
   const params = new URLSearchParams({ month: String(month1), year: String(year) })
-  if (day) params.set("day", String(day))
+  if (effectiveDate) params.set("date", effectiveDate)
+
+  // chartParams for /financeiro/diario: always month-level, never filtered to a single day
+  const chartParams = new URLSearchParams({ month: String(month1), year: String(year) })
 
   const reqHeaders: Record<string, string> = {}
   try {
@@ -47,16 +59,19 @@ export async function GET(req: NextRequest) {
   const prevYear_  = month1 === 1 ? year - 1 : year
   const prevParams = new URLSearchParams({ month: String(prevMonth1), year: String(prevYear_) })
 
+  const backendSummaryUrl = `${BACKEND_URL}/api/dashboard/summary?${params}`
+  console.log(`[BFF_SUMMARY_REQUEST] month=${month1} year=${year} date=${dateParam ?? "none"} day=${day ?? "none"} effectiveDate=${effectiveDate ?? "none"} url=${backendSummaryUrl}`)
+
   // PRIMARY: backend's own /api/dashboard/summary has canonical FN-sourced KPIs
-  // SECONDARY: /api/financeiro/diario provides daily breakdown for the chart
+  // SECONDARY: /api/financeiro/diario provides monthly chart breakdown (no date filter)
   // TERTIARY: prev month summary for MTD-correct comparison computation
   const [bdRes, diarioRes, prevBdRes] = await Promise.all([
-    fetch(`${BACKEND_URL}/api/dashboard/summary?${params}`, {
+    fetch(backendSummaryUrl, {
       headers: reqHeaders,
       cache: "no-store",
       signal: AbortSignal.timeout(12_000),
     }).catch(() => null),
-    fetch(`${BACKEND_URL}/api/financeiro/diario?${params}`, {
+    fetch(`${BACKEND_URL}/api/financeiro/diario?${chartParams}`, {
       headers: reqHeaders,
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
@@ -114,6 +129,10 @@ export async function GET(req: NextRequest) {
   const backendInsights            = Array.isArray(bd.insights) ? bd.insights : (bd.smartInsights ?? null)
 
   console.log(`[SUMMARY] canonical — faturamentoMes:${faturamentoMes} lucroBrutoMes:${lucroBrutoMes} lucroLiquidoDia:${bd.lucroLiquidoDia} produtosVendidosMes:${bd.produtosVendidosMes}`)
+  console.log(`[BFF_DAILY_FIELDS] requestedDate=${dateParam ?? "none"} selectedDate=${bd.selectedDate ?? "none"} faturamentoDia=${bd.faturamentoDia ?? "null"} lucroLiquidoDia=${bd.lucroLiquidoDia ?? "null"} produtosDia=${bd.produtosVendidosDia ?? "null"} source=${bd.dailySource ?? bd.dailyDataMissing ? "missing" : "present"}`)
+  if (effectiveDate && bd.selectedDate && bd.selectedDate !== effectiveDate) {
+    console.error(`[BFF_DATE_DRIFT] requested=${effectiveDate} backend_returned=${bd.selectedDate} — daily fields may be wrong`)
+  }
   console.log(`[BFF_SUMMARY_FIELDS] products=${produtosVendidosMes != null} insightsCount=${Array.isArray(backendInsights) ? backendInsights.length : 0} stale=${bd.stale}`)
 
   // Compute comparisons server-side — wrapped in try/catch to prevent route crash
@@ -160,12 +179,18 @@ export async function GET(req: NextRequest) {
     produtosVendidosDia,
     produtosVendidosDiaBreakdown,
     faturamentoMes,
-    faturamentoDia:             bd.faturamentoDia   ?? null,
+    faturamentoDia:             bd.faturamentoDia        ?? null,
     lucroBrutoMes,
-    lucroBrutoDia:              bd.lucroBrutoDia    ?? null,
-    lucroLiquidoDia:            bd.lucroLiquidoDia  ?? null,
+    lucroBrutoDia:              bd.lucroBrutoDia         ?? null,
+    lucroLiquidoDia:            bd.lucroLiquidoDia       ?? null,
     lucroLiquidoReal,
     totalGastos,
+    dailyDataMissing:           bd.dailyDataMissing        ?? null,
+    dailyProductDataMissing:    bd.dailyProductDataMissing ?? false,
+    dailyRequiresDate:          bd.dailyRequiresDate       ?? null,
+    dailySource:                bd.dailySource           ?? null,
+    dailyDebug:                 bd.dailyDebug            ?? null,
+    selectedDate:               bd.selectedDate          ?? null,
 
     // ── Backward-compat aliases (consumed by existing hook consumers) ──
     lucroOperacionalMes: lucroBrutoMes,

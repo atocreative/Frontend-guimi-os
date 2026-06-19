@@ -335,7 +335,13 @@ export function FinanceiroFiltrado({
 
   // ── KPIs canônicos — fonte: md (useFinancialMonthly → /api/dashboard/summary) ──
   // Frontend APENAS RENDERIZA. Sem cálculo local para KPIs financeiros.
-  const lucroLiquidoDia  = dia !== null ? toNum(dailyQuery.data?.lucroLiquidoDia) : toNum(md?.lucroLiquidoDia)
+  // Daily fields kept as number|null — never coerce null to 0 (null ≠ zero revenue)
+  const lucroLiquidoDia: number | null = dia !== null
+    ? (dailyQuery.data?.lucroLiquidoDia ?? null)
+    : (md?.lucroLiquidoDia ?? null)
+  const faturamentoDiaRaw: number | null = dia !== null
+    ? (dailyQuery.data?.faturamentoDia ?? null)
+    : (md?.faturamentoDia ?? null)
   const totalVendas      = toNum(md?.totalVendas)
   const ticketMedio      = toNum(md?.ticketMedio)
 
@@ -405,10 +411,15 @@ export function FinanceiroFiltrado({
       ? Math.round((produtosVendidos / metaProdutos) * 100)
       : null
 
-  // Produtos Vendidos Dia (canonical — pass-through do backend)
-  const produtosVendidosDia   = md?.produtosVendidosDia ?? null
-  const produtosBreakdownDia  = md?.produtosVendidosDiaBreakdown ?? null
-  const produtosSubtitleDia   = produtosBreakdownDia
+  // Produtos Vendidos Dia — source depends on whether a specific day is selected
+  // When dia is set, daily query has the day-scoped data (forwarded date=YYYY-MM-DD to backend)
+  const _dailySrc              = dia !== null ? dailyQuery.data : md
+  const produtosVendidosDia    = typeof _dailySrc?.produtosVendidosDia === "number"
+    ? _dailySrc.produtosVendidosDia
+    : null
+  const dailyProductDataMissing = (_dailySrc?.dailyProductDataMissing ?? false) && produtosVendidosDia === null
+  const produtosBreakdownDia   = produtosVendidosDia != null ? (_dailySrc?.produtosVendidosDiaBreakdown ?? null) : null
+  const produtosSubtitleDia    = produtosBreakdownDia
     ? [
         produtosBreakdownDia.concluidos != null ? `Concluídos: ${produtosBreakdownDia.concluidos}` : null,
         produtosBreakdownDia.pendentes  != null ? `Pendentes: ${produtosBreakdownDia.pendentes}`   : null,
@@ -439,6 +450,8 @@ export function FinanceiroFiltrado({
   const diaAtual = isMesAtual ? today.getDate() : null
   // Cards diários: mês histórico sem dia selecionado → não exibir R$0,00 (null ≠ zero real)
   const dailyRequiresDate = dia === null && !isMesAtual
+  // Backend flag: data is missing/stale for the day (null treated as unknown → show value if present)
+  const dailyDataMissing = (dia !== null ? dailyQuery.data?.dailyDataMissing : md?.dailyDataMissing) ?? false
 
   // Comparisons — do backend via route.ts (inclui label correto MTD vs mês fechado).
   const compSubFaturamento = formatComp(md?.comparisons?.faturamentoMes,      MESES[prevMes0], isMesAtual)
@@ -739,10 +752,20 @@ export function FinanceiroFiltrado({
           />
           <Kpi
             label="Faturamento do Dia"
-            value={dailyRequiresDate ? "—" : brl(dia !== null ? toNum(dailyQuery.data?.faturamentoDia) : toNum(md?.faturamentoDia))}
-            sub={dailyRequiresDate ? "Selecione um dia para ver" : dailyCardMeta.descricao}
+            value={
+              dailyRequiresDate ? "—"
+              : dailyDataMissing ? "—"
+              : faturamentoDiaRaw !== null ? brl(faturamentoDiaRaw)
+              : "—"
+            }
+            sub={
+              dailyRequiresDate ? "Selecione um dia para ver"
+              : dailyDataMissing ? "Sincronizando dado do dia"
+              : faturamentoDiaRaw !== null ? dailyCardMeta.descricao
+              : "Dado do dia indisponível"
+            }
             icon={Calendar}
-            accent={dailyRequiresDate ? "neutral" : "info"}
+            accent={dailyRequiresDate || dailyDataMissing || faturamentoDiaRaw === null ? "neutral" : "info"}
             loading={loadingKpi || (dia !== null && dailyQuery.isLoading)}
             tooltip={"O que é: Receita bruta do dia selecionado. Sem seleção de dia, exibe o dia atual.\n\nOrigem: Fone Ninja via backend.\n\nAtualização: Sincronização automática diária."}
           />
@@ -766,10 +789,20 @@ export function FinanceiroFiltrado({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Kpi
             label="Lucro Líquido do Dia"
-            value={dailyRequiresDate ? "—" : brl(lucroLiquidoDia)}
-            sub={dailyRequiresDate ? "Selecione um dia para ver" : dailyCardMeta.descricao}
+            value={
+              dailyRequiresDate ? "—"
+              : dailyDataMissing ? "—"
+              : lucroLiquidoDia !== null ? brl(lucroLiquidoDia)
+              : "—"
+            }
+            sub={
+              dailyRequiresDate ? "Selecione um dia para ver"
+              : dailyDataMissing ? "Sincronizando dado do dia"
+              : lucroLiquidoDia !== null ? dailyCardMeta.descricao
+              : "Dado do dia indisponível"
+            }
             icon={Calendar}
-            accent={dailyRequiresDate ? "neutral" : lucroLiquidoDia >= 0 ? "positive" : "negative"}
+            accent={dailyRequiresDate || dailyDataMissing || lucroLiquidoDia === null ? "neutral" : lucroLiquidoDia >= 0 ? "positive" : "negative"}
             loading={loadingKpi || (dia !== null && dailyQuery.isLoading)}
             tooltip={"O que é: Lucro líquido consolidado do dia — receita do dia menos despesas proporcionais.\n\nOrigem: FinancialSnapshot diário via Fone Ninja.\n\nAtualização: Sincronização automática diária."}
           />
@@ -855,9 +888,14 @@ export function FinanceiroFiltrado({
           <Kpi
             label="Produtos Vendidos Dia"
             value={dailyRequiresDate ? "—" : loadingKpi ? "…" : produtosVendidosDia != null ? String(produtosVendidosDia) : "—"}
-            sub={dailyRequiresDate ? "Selecione um dia para ver" : (produtosSubtitleDia ?? undefined)}
+            sub={
+              dailyRequiresDate ? "Selecione um dia para ver"
+              : produtosVendidosDia != null ? (produtosSubtitleDia ?? undefined)
+              : dailyProductDataMissing ? "Sem dados de produtos para este dia"
+              : undefined
+            }
             icon={Package}
-            accent={dailyRequiresDate ? "neutral" : "info"}
+            accent={dailyRequiresDate ? "neutral" : produtosVendidosDia != null ? "info" : "neutral"}
             loading={loadingKpi || (dia !== null && dailyQuery.isLoading)}
             tooltip={"O que é: Produtos vendidos no dia selecionado.\n\nOrigem: Fone Ninja via backend.\n\nAtualização: Sincronização automática."}
           />

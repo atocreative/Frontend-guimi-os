@@ -16,21 +16,19 @@ import { OrigemLeadsCard } from "@/components/dashboard/origem-leads-card"
 import { KpiSkeleton } from "@/components/dashboard/kpi-skeleton"
 import { VendedoresRanking } from "@/components/dashboard/vendedores-ranking"
 import { PainelTarefas } from "@/components/dashboard/painel-tarefas"
-import { PainelAlertasGlobal } from "@/components/dashboard/painel-alertas-global"
+import { DashboardAlertHub } from "@/components/dashboard/dashboard-alert-hub"
 import { useGamificacaoFeedback } from "@/hooks/use-gamificacao-feedback"
 import { useDashboardRanking } from "@/hooks/use-dashboard-ranking"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
 import { api, ApiError } from "@/lib/api-client"
 import { toast } from "sonner"
-import { getDashboardAlerts } from "@/lib/services/dashboard-alerts"
+
 import { GlobalDateFilter } from "@/components/global/global-date-filter"
 import { useFinancialConsolidated } from "@/lib/queries/use-financial-consolidated"
 import { useFinancialMonthly } from "@/lib/queries/use-financial-monthly"
 import { useFinancialDaily } from "@/lib/queries/use-financial-daily"
-import { useAlertasOperacionais } from "@/lib/queries/use-alertas-operacionais"
-import { useDashboardComercialKPIs } from "@/lib/queries/use-dashboard-comercial-kpis"
-import type { DashboardAlert } from "@/lib/services/dashboard-alerts"
+
 import type { TarefaDB } from "@/types/tarefas"
 import { getDailyCardMeta } from "@/lib/financeiro-utils"
 
@@ -121,8 +119,7 @@ export function DashboardAdmin({
 
   const { notifyTaskCompleted, notifyTaskCompletionError } = useGamificacaoFeedback()
   const { entries: rankingEntries, loading: rankingLoading } = useDashboardRanking({ mes, ano })
-  const { data: alertasOp } = useAlertasOperacionais()
-  const { data: comercialKPIs } = useDashboardComercialKPIs()
+
 
   const diasDisponiveis = useMemo(() => {
     const total = new Date(ano, mes + 1, 0).getDate()
@@ -199,170 +196,7 @@ export function DashboardAdmin({
   const lucroInconsistente = !loadingKpi && !lucroNulo && lucro > 0 && lucro === faturamento
 
   // ── alertas agregados ─────────────────────────────────────────────────────────
-  const alertas = useMemo((): DashboardAlert[] => {
-    const now = new Date().toISOString()
-    const all: Array<DashboardAlert & { score: number }> = []
-    const push = (a: DashboardAlert, score: number) => all.push({ ...a, score })
 
-    const base = getDashboardAlerts({
-      role: "ADMIN",
-      faturamentoDia,
-      loadingKpi,
-      tarefasPendentes,
-      isHoje: diaValido === "" && mes === currentMonth && ano === currentYear,
-      comercialKPIs: comercialKPIs ?? null,
-    })
-    base.forEach((a, i) => push(a, 400 - i * 10))
-
-    if (!loadingKpi && faturamento > 0 && consolidado && maAvailable) {
-      const finAlerts: Array<{ a: DashboardAlert; score: number }> = []
-
-      if (lucroLiquidoReal < 0) {
-        finAlerts.push({ score: 380, a: {
-          id: "lucro-negativo", severity: "critical",
-          title: "Lucro líquido negativo",
-          description: `Prejuízo de ${formatBRL(Math.abs(lucroLiquidoReal))} no período.`,
-          source: "financeiro",
-          tooltip: "Origem: Financeiro\nRegra: lucroLiquidoReal < 0",
-          timestamp: now,
-        }})
-      }
-      if (margemReal > 0 && margemReal < 3) {
-        finAlerts.push({ score: 320, a: {
-          id: "margem-real-baixa", severity: "critical",
-          title: "Margem real abaixo de 3%",
-          description: `Margem atual: ${margemReal.toFixed(1)}%. Revisar despesas administrativas.`,
-          source: "financeiro",
-          tooltip: "Origem: Financeiro\nRegra: margemReal < 3%",
-          timestamp: now,
-        }})
-      }
-      if (margemBrutaEffective < 10) {
-        finAlerts.push({ score: 280, a: {
-          id: "margem-bruta-critica", severity: "warning",
-          title: "Margem bruta crítica",
-          description: `Margem bruta: ${margemBrutaEffective.toFixed(1)}%. Verifique CMV.`,
-          source: "financeiro",
-          tooltip: "Origem: Financeiro\nRegra: margemBruta < 10%",
-          timestamp: now,
-        }})
-      }
-      if (adminExpenses > 0 && lucroLiquidoReal > 0 && adminExpenses > lucroLiquidoReal) {
-        finAlerts.push({ score: 310, a: {
-          id: "admin-consome-lucro", severity: "critical",
-          title: "Despesas admin superam lucro líquido",
-          description: "Custos administrativos excedem o lucro líquido real.",
-          source: "financeiro",
-          tooltip: "Origem: Financeiro\nRegra: adminExpenses > lucroLiquidoReal",
-          timestamp: now,
-        }})
-      }
-
-      finAlerts
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3)
-        .forEach(({ a, score }) => push(a, score))
-    }
-
-    if (alertasOp) {
-      const opAlerts: Array<{ a: DashboardAlert; score: number }> = []
-      const { estoqueCritico, reposicaoRecomendada, estoqueParado } = alertasOp
-
-      if (estoqueCritico.length > 0) {
-        opAlerts.push({ score: 260, a: {
-          id: "estoque-critico", severity: "critical",
-          title: `${estoqueCritico.length} produto${estoqueCritico.length > 1 ? "s" : ""} com estoque crítico`,
-          description: estoqueCritico.slice(0, 2).map(p => p.produto).join(", ") + (estoqueCritico.length > 2 ? " e outros" : ""),
-          source: "operacao",
-          tooltip: "Origem: Operação\nRegra: Estoque abaixo do mínimo operacional",
-          timestamp: now,
-        }})
-      }
-      if (reposicaoRecomendada.length > 0) {
-        opAlerts.push({ score: 210, a: {
-          id: "reposicao-recomendada", severity: "warning",
-          title: `${reposicaoRecomendada.length} produto${reposicaoRecomendada.length > 1 ? "s" : ""} para reposição`,
-          description: reposicaoRecomendada.slice(0, 2).map(p => p.produto).join(", ") + (reposicaoRecomendada.length > 2 ? " e outros" : ""),
-          source: "operacao",
-          tooltip: "Origem: Operação\nRegra: Estoque abaixo do giro dos últimos 30 dias",
-          timestamp: now,
-        }})
-      }
-      if (estoqueParado.length > 0) {
-        opAlerts.push({ score: 150, a: {
-          id: "estoque-parado", severity: "info",
-          title: `${estoqueParado.length} produto${estoqueParado.length > 1 ? "s" : ""} sem movimentação`,
-          description: `Maior parado: ${estoqueParado[0]?.produto ?? "—"} (${estoqueParado[0]?.diasParado ?? 0} dias).`,
-          source: "operacao",
-          tooltip: "Origem: Operação\nRegra: Produto sem movimentação por período prolongado",
-          timestamp: now,
-        }})
-      }
-
-      opAlerts
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3)
-        .forEach(({ a, score }) => push(a, score))
-    }
-
-    if (!rankingLoading && rankingEntries.length > 0) {
-      const lider = rankingEntries[0]
-      push({
-        id: "ranking-lider", severity: "info",
-        title: `Líder: ${lider.userName}`,
-        description: `Score ${lider.score} · ${lider.tarefasConcluidas} tarefas concluídas.`,
-        source: "ranking",
-        tooltip: "Origem: Ranking\nRegra: Colaborador com maior score no período",
-        timestamp: now,
-      }, 120)
-
-      if (rankingEntries.length > 1) {
-        const pior = rankingEntries[rankingEntries.length - 1]
-        if (pior.tarefasConcluidas === 0) {
-          push({
-            id: "ranking-sem-atividade", severity: "warning",
-            title: `${pior.userName} sem atividade`,
-            description: "Nenhuma tarefa concluída no período.",
-            source: "ranking",
-            tooltip: "Origem: Ranking\nRegra: Colaborador sem tarefas concluídas no período",
-            timestamp: now,
-          }, 110)
-        }
-      }
-
-      const melhorStreak = [...rankingEntries].sort((a, b) => b.streak - a.streak)[0]
-      if (melhorStreak && melhorStreak.streak >= 3) {
-        push({
-          id: "ranking-streak", severity: "info",
-          title: `Sequência: ${melhorStreak.userName}`,
-          description: `${melhorStreak.streak} dias consecutivos de atividade.`,
-          source: "ranking",
-          tooltip: "Origem: Ranking\nRegra: Maior streak de atividade contínua",
-          timestamp: now,
-        }, 100)
-      }
-    }
-
-    const SEV_ORDER = { critical: 0, warning: 1, medium: 2, info: 3 } as const
-    const SRC_ORDER: Record<string, number> = {
-      financeiro: 0, operacao: 1, tarefas: 2, ranking: 3, vendas: 4, integracao: 5,
-    }
-    return all
-      .sort((a, b) => {
-        const sev = (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9)
-        if (sev !== 0) return sev
-        const src = (SRC_ORDER[a.source] ?? 9) - (SRC_ORDER[b.source] ?? 9)
-        if (src !== 0) return src
-        return b.score - a.score
-      })
-      .map(({ score: _s, ...rest }) => rest)
-      .slice(0, 10)
-  }, [
-    faturamentoDia, loadingKpi, tarefasPendentes, comercialKPIs,
-    diaValido, mes, ano, currentMonth, currentYear,
-    faturamento, lucroLiquidoReal, margemReal, margemBrutaEffective, adminExpenses,
-    alertasOp, rankingEntries, rankingLoading,
-  ])
 
   const dadosGrafico = useMemo(() =>
     (md?.grafico ?? []).map((item) => ({
@@ -475,11 +309,11 @@ export function DashboardAdmin({
             {/* 1. Lucro Líquido do Dia */}
             <KpiCard
               titulo="Lucro Líquido do Dia"
-              valor={formatBRL(toNum(lucroLiquidoDia))}
-              descricao={dailyCardMeta.descricao}
+              valor={lucroLiquidoDia !== null ? formatBRL(lucroLiquidoDia) : "—"}
+              descricao={lucroLiquidoDia !== null ? dailyCardMeta.descricao : "Dado do dia indisponível"}
               icone={DollarSign}
-              tendencia={toNum(lucroLiquidoDia) >= 0 ? "up" : "down"}
-              accent={toNum(lucroLiquidoDia) >= 0 ? "positive" : "negative"}
+              tendencia={lucroLiquidoDia !== null && lucroLiquidoDia >= 0 ? "up" : "down"}
+              accent={lucroLiquidoDia !== null ? (lucroLiquidoDia >= 0 ? "positive" : "negative") : undefined}
               tooltip={"O que é: Lucro gerado no dia — receitas do dia menos despesas proporcionais.\n\nOrigem: FinancialSnapshot diário via Fone Ninja.\n\nAtualização: Sincronização automática diária."}
             />
             {/* 2. Lucro Bruto do Mês */}
@@ -525,7 +359,7 @@ export function DashboardAdmin({
                 : null
               return (
                 <KpiCard
-                  titulo="Produtos Vendidos no Mês"
+                  titulo="Produtos Vendidos Mês"
                   valor={loadingKpi ? "…" : total != null ? String(total) : "—"}
                   descricao={sub ?? `${MESES[mes]} ${ano}`}
                   icone={Package}
@@ -540,7 +374,11 @@ export function DashboardAdmin({
 
 
       {/* ── Linha 3: Central Executiva ───────────────────────────────────── */}
-      <PainelAlertasGlobal alerts={alertas} />
+      <DashboardAlertHub 
+        month={mes + 1} 
+        year={ano} 
+        date={diaValido !== "" ? String(diaValido) : undefined} 
+      />
 
       {/* ── Linha 5: Gráficos + Origem de Leads ──────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

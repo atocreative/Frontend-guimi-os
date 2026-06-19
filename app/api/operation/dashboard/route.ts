@@ -20,7 +20,7 @@ export interface MostSoldItemFN {
 export interface InventoryItemFN {
   productName: string
   category: string | null
-  quantity: number
+  stockQuantity: number
   stockValue: number | null
 }
 
@@ -37,11 +37,14 @@ export interface InventoryFN {
 export interface AlertItem {
   id?: string
   produto: string
-  estoque?: number | null
+  stockQuantity?: number | null
   vendas30d?: number | null
   diasParado?: number | null
   valorParado?: number | null
   sugestao?: string | null
+  motivo?: string | null
+  diasDeEstoque?: number | null
+  confianca?: "low" | "medium" | "high" | null
 }
 
 export interface OperationalInsight {
@@ -72,10 +75,17 @@ export interface OperationDashboardPayload {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function normalizeInventoryItem(raw: Record<string, unknown>): InventoryItemFN {
+  const productName = String(raw.productName ?? raw.titulo ?? raw.nome ?? "—");
+  const stockQuantity = Number(raw.stockQuantity ?? raw.stock_quantity ?? raw.quantidade ?? raw.qtd ?? raw.estoque ?? raw.saldo ?? raw.quantity ?? 0);
+  
+  if (process.env.NODE_ENV === "development" || true) {
+    console.log(`[BFF_OPERATION_INVENTORY_ITEM_SAMPLE] productName="${productName}" stockQuantity=${stockQuantity}`);
+  }
+
   return {
-    productName: String(raw.productName ?? raw.titulo ?? raw.nome ?? "—"),
+    productName,
     category:    raw.category != null ? String(raw.category) : raw.categoria != null ? String(raw.categoria) : null,
-    quantity:    Number(raw.quantity ?? raw.estoque ?? raw.qty ?? 0),
+    stockQuantity,
     stockValue:  raw.stockValue != null ? Number(raw.stockValue)
                  : raw.valor_estoque != null ? Number(raw.valor_estoque)
                  : raw.valorEstoque != null ? Number(raw.valorEstoque)
@@ -87,11 +97,14 @@ function normalizeAlertItem(raw: Record<string, unknown>): AlertItem {
   return {
     id:         raw.id != null ? String(raw.id) : undefined,
     produto:    String(raw.produto ?? raw.productName ?? raw.titulo ?? raw.nome ?? "—"),
-    estoque:    raw.estoque != null ? Number(raw.estoque) : raw.quantity != null ? Number(raw.quantity) : null,
+    stockQuantity: raw.stockQuantity != null ? Number(raw.stockQuantity) : raw.estoque != null ? Number(raw.estoque) : raw.quantity != null ? Number(raw.quantity) : null,
     vendas30d:  raw.vendas30d != null ? Number(raw.vendas30d) : raw.sales30d != null ? Number(raw.sales30d) : null,
     diasParado: raw.diasParado != null ? Number(raw.diasParado) : raw.daysStale != null ? Number(raw.daysStale) : null,
-    valorParado: raw.valorParado != null ? Number(raw.valorParado) : raw.staleValue != null ? Number(raw.staleValue) : null,
-    sugestao:   raw.sugestao != null ? String(raw.sugestao) : raw.action != null ? String(raw.action) : raw.suggestedAction != null ? String(raw.suggestedAction) : null,
+    valorParado: raw.valorParado != null ? Number(raw.valorParado) : raw.staleValue != null ? Number(raw.staleValue) : raw.stockValue != null ? Number(raw.stockValue) : null,
+    sugestao:   raw.sugestao != null ? String(raw.sugestao) : raw.action != null ? String(raw.action) : raw.recommendation != null ? String(raw.recommendation) : raw.suggestedAction != null ? String(raw.suggestedAction) : null,
+    motivo:     raw.motivo != null ? String(raw.motivo) : raw.reason != null ? String(raw.reason) : null,
+    diasDeEstoque: raw.diasDeEstoque != null ? Number(raw.diasDeEstoque) : raw.daysOfStock != null ? Number(raw.daysOfStock) : null,
+    confianca:  raw.confianca != null ? String(raw.confianca) as any : raw.confidence != null ? String(raw.confidence) as any : null,
   }
 }
 

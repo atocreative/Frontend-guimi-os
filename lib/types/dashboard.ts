@@ -68,6 +68,10 @@ export type DashboardSummary = {
   produtosVendidosPercentual?:     number | null
   produtosVendidosDia?:            number | null
   produtosVendidosDiaBreakdown?:   ProdutosVendidosBreakdown | null
+  dailyDataMissing?:               boolean | null
+  dailyProductDataMissing?:        boolean | null
+  dailyRequiresDate?:              boolean | null
+  selectedDate?:                   string | null
   faturamentoMes?:              number
   faturamentoDia?:              number | null
   lucroBrutoMes?:               number
@@ -103,4 +107,64 @@ export type DashboardSummary = {
     lojaId?:     string
   }
   updatedAt?: string
+}
+
+export type ExecutiveAlert = {
+  id: string
+  area: "financeiro" | "operacao" | "comercial" | "colaboradores" | "agenda" | "tarefas" | "ranking"
+  type: "danger" | "warning" | "success" | "info"
+  severity: "critical" | "high" | "medium" | "low"
+  score: number
+  title: string
+  message: string
+  reason: string
+  recommendation: string
+  actionLabel: string
+  actionHref: string
+  metric: string | null
+  currentValue: number | string | null
+  previousValue: number | string | null
+  deltaPercent: number | null
+  source: string
+  confidence: "high" | "medium" | "low"
+}
+
+export type AttentionItem = {
+  id: string
+  area: "financeiro" | "operacao" | "comercial" | "colaboradores" | "agenda" | "tarefas" | "ranking"
+  type: "danger" | "warning" | "success" | "info"
+  severity: "critical" | "high" | "medium" | "low"
+  score: number
+  title: string
+  impact: string
+  recommendation: string
+  actionLabel: string
+  actionHref: string
+  confidence: "high" | "medium" | "low"
+}
+
+export type SummaryChip = {
+  label: string
+  value: string
+  type: "success" | "warning" | "danger" | "info"
+  area: string
+}
+
+export type DashboardAlertHub = {
+  alertsByArea?: {
+    financeiro?: ExecutiveAlert[]
+    operacao?: ExecutiveAlert[]
+    comercial?: ExecutiveAlert[]
+    colaboradores?: ExecutiveAlert[]
+    agenda?: ExecutiveAlert[]
+    tarefas?: ExecutiveAlert[]
+    ranking?: ExecutiveAlert[]
+  }
+  topAlerts?: ExecutiveAlert[]
+  attentionItems?: AttentionItem[]
+  summaryChips?: SummaryChip[]
+  generatedAt: string
+  stale: boolean
+  staleReason: string | null
+  syncedAt: string | null
 }
