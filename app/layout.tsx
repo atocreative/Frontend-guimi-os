@@ -16,7 +16,6 @@ const roboto = Roboto({
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://frontend-guimi-os-production.up.railway.app";
-const OG_IMAGE = `${APP_URL}/og-image.png`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -40,15 +39,6 @@ export const metadata: Metadata = {
     title: "Guimi OS — Gestão Inteligente para Lojas",
     description:
       "Dashboard completo com vendas, tarefas, ranking de equipe, CRM, integrações e gestão operacional em tempo real.",
-    images: [
-      {
-        url: OG_IMAGE,
-        width: 1200,
-        height: 630,
-        alt: "Guimi OS — Gestão Inteligente para Lojas",
-        type: "image/png",
-      },
-    ],
   },
 
   twitter: {
@@ -56,7 +46,6 @@ export const metadata: Metadata = {
     title: "Guimi OS — Gestão Inteligente para Lojas",
     description:
       "Dashboard completo com vendas, tarefas, ranking de equipe, CRM, integrações e gestão operacional em tempo real.",
-    images: [OG_IMAGE],
     creator: "@guimicell",
   },
 
